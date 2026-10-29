@@ -24,3 +24,53 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* ==========================================================================
+   Modern Customized Scrollbars (Modern Web Standard & WebKit Fallback)
+   ========================================================================== */
+
+/* Modern CSS Standards (Firefox, Chrome 121+, Safari 18.2+) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #334155 #090d16;
+}
+
+/* WebKit / Blink Engine (Chrome, Edge, Safari, Opera) */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: #090d16;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 9999px;
+  border: 1.5px solid #090d16;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #10b981; /* Glowing emerald hover accent */
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: #059669;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Scrollbar Helper Utilities */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}

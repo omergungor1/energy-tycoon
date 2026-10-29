@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 240" fill="none">
+  <defs>
+    <linearGradient id="solarSky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#211508" />
+      <stop offset="100%" stop-color="#030712" />
+    </linearGradient>
+    <linearGradient id="panelGlass" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f2942" />
+      <stop offset="45%" stop-color="#091b2e" />
+      <stop offset="100%" stop-color="#040c17" />
+    </linearGradient>
+    <linearGradient id="sunGlow" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fbbf24" stop-opacity="0.5" />
+      <stop offset="60%" stop-color="#f59e0b" stop-opacity="0.1" />
+      <stop offset="100%" stop-color="#b45309" stop-opacity="0" />
+    </linearGradient>
+    <linearGradient id="trussGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#94a3b8" />
+      <stop offset="100%" stop-color="#475569" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="400" height="240" fill="url(#solarSky)" />
+
+  <!-- Ambient Sun Flare from Top Right -->
+  <circle cx="360" cy="20" r="140" fill="url(#sunGlow)" />
+  <circle cx="360" cy="20" r="40" fill="#fef3c7" opacity="0.3" filter="blur(8px)" />
+
+  <!-- Distant Desert Ridge Silhouette -->
+  <path d="M 0 190 Q 120 165, 240 180 T 400 165 L 400 240 L 0 240 Z" fill="#2d1d0c" opacity="0.5" />
+
+  <!-- Ground Sand Basin -->
+  <ellipse cx="200" cy="216" rx="160" ry="20" fill="#1e1811" />
+  <ellipse cx="200" cy="214" rx="130" ry="14" fill="#3a2a19" />
+
+  <!-- Structural Ground Pillars -->
+  <rect x="86" y="165" width="8" height="42" rx="2" fill="url(#trussGrad)" />
+  <rect x="196" y="165" width="8" height="42" rx="2" fill="url(#trussGrad)" />
+  <rect x="306" y="165" width="8" height="42" rx="2" fill="url(#trussGrad)" />
+
+  <!-- Support Mounting Rails (Angled) -->
+  <line x1="70" y1="185" x2="110" y2="135" stroke="#94a3b8" stroke-width="5" stroke-linecap="round" />
+  <line x1="180" y1="185" x2="220" y2="135" stroke="#94a3b8" stroke-width="5" stroke-linecap="round" />
+  <line x1="290" y1="185" x2="330" y2="135" stroke="#94a3b8" stroke-width="5" stroke-linecap="round" />
+
+  <!-- Horizontal Cross Beam Connecting Arrays -->
+  <path d="M 50 160 L 350 160" stroke="#64748b" stroke-width="4" stroke-linecap="round" />
+
+  <!-- Main Angled Photovoltaic Panel Array (Isometric 3D Tilt) -->
+  <!-- Array 1: Left Rack -->
+  <g>
+    <!-- Dark Aluminum Bezel -->
+    <polygon points="50,165 140,165 165,115 75,115" fill="#1e293b" stroke="#334155" stroke-width="2" />
+    <!-- Monocrystalline Silicon Cells -->
+    <polygon points="53,163 137,163 162,117 78,117" fill="url(#panelGlass)" />
+    <!-- Silicon Busbars & Cell Dividers -->
+    <line x1="95" y1="163" x2="120" y2="117" stroke="#38bdf8" stroke-width="1.2" opacity="0.4" />
+    <line x1="74" y1="140" x2="151" y2="140" stroke="#38bdf8" stroke-width="1.2" opacity="0.4" />
+    <!-- Glass Sun Reflection Glint -->
+    <polygon points="105,163 125,163 150,117 130,117" fill="#ffffff" opacity="0.08" />
+  </g>
+
+  <!-- Array 2: Center Flagship Rack (Slightly Larger / Forward) -->
+  <g>
+    <!-- Dark Aluminum Bezel -->
+    <polygon points="150,172 250,172 278,110 178,110" fill="#1e293b" stroke="#475569" stroke-width="2.5" />
+    <!-- Monocrystalline Silicon Cells -->
+    <polygon points="154,170 246,170 274,112 182,112" fill="url(#panelGlass)" />
+    <!-- Silicon Busbars & Grid -->
+    <line x1="200" y1="170" x2="228" y2="112" stroke="#38bdf8" stroke-width="1.5" opacity="0.55" />
+    <line x1="168" y1="141" x2="260" y2="141" stroke="#38bdf8" stroke-width="1.5" opacity="0.55" />
+    <!-- Dynamic Sunlight Glint -->
+    <polygon points="210,170 230,170 258,112 238,112" fill="#38bdf8" opacity="0.18" />
+    <polygon points="175,170 188,170 216,112 203,112" fill="#ffffff" opacity="0.12" />
+  </g>
+
+  <!-- Array 3: Right Rack -->
+  <g>
+    <!-- Dark Aluminum Bezel -->
+    <polygon points="260,165 350,165 375,115 285,115" fill="#1e293b" stroke="#334155" stroke-width="2" />
+    <!-- Monocrystalline Silicon Cells -->
+    <polygon points="263,163 347,163 372,117 288,117" fill="url(#panelGlass)" />
+    <!-- Grid -->
+    <line x1="305" y1="163" x2="330" y2="117" stroke="#38bdf8" stroke-width="1.2" opacity="0.4" />
+    <line x1="284" y1="140" x2="361" y2="140" stroke="#38bdf8" stroke-width="1.2" opacity="0.4" />
+    <!-- Sun Sheen -->
+    <polygon points="315,163 335,163 360,117 340,117" fill="#ffffff" opacity="0.08" />
+  </g>
+
+  <!-- Central Inverter Unit Box (Ground) -->
+  <rect x="188" y="194" width="24" height="18" rx="2" fill="#334155" stroke="#64748b" stroke-width="1" />
+  <circle cx="194" cy="201" r="1.8" fill="#10b981" />
+  <circle cx="200" cy="201" r="1.8" fill="#38bdf8" />
+  <rect x="191" y="206" width="18" height="3" fill="#0f172a" />
+
+  <!-- Amber Sun Energy Flow Waves -->
+  <path d="M 120 75 Q 160 55, 200 70 T 280 60" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="4 6" opacity="0.4" fill="none" />
+</svg>
