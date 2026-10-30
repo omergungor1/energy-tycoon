@@ -60,11 +60,14 @@ function getIslandFalloff(x, z) {
   }
 }
 
+// Alpine Lake Center and Water Level in the picturesque Western Valley
+const ALPINE_LAKE_CENTER = { x: -150.0, z: -40.0, radius: 54.0, waterLevel: 13.8 };
+
 // Procedural Harmonic Noise for Island Topography
 function getRawTerrainHeight(x, z) {
   const falloff = getIslandFalloff(x, z);
 
-  // Western mountain influence (dominates west of x = -50)
+  // Western mountain mass (dominates west of x = -50)
   const westDist = Math.max(0, -x - 50);
   const mtnWeight = Math.min(1, westDist / 340);
 
@@ -73,29 +76,32 @@ function getRawTerrainHeight(x, z) {
   const r2 = Math.abs(Math.cos(x * 0.015 - z * 0.012));
   const r3 = Math.sin(x * 0.03 + z * 0.025) * 0.5 + 0.5;
   const ridge = Math.pow(r1 * 0.6 + r2 * 0.3 + r3 * 0.1, 1.6);
+  const mountainMass = mtnWeight * (16.0 + (westDist / 320) * 16.0 + ridge * 38.0);
 
-  // Mountain elevation up to 78m at far west ridges
-  const mountainMass = mtnWeight * (18.0 + (westDist / 320) * 18.0 + ridge * 36.0);
-
-  // Central rolling hills
-  const hills =
-    Math.sin(x * 0.012) * Math.cos(z * 0.012) * 5.5 +
-    Math.sin(x * 0.024 + 0.8) * Math.cos(z * 0.02 + 0.4) * 2.8;
+  // Gentle, positive-definite rolling hills (smooth undulating meadows, never negative)
+  const h1 = Math.sin(x * 0.009) * Math.cos(z * 0.009) * 0.5 + 0.5;
+  const h2 = Math.sin(x * 0.02 + 0.8) * Math.cos(z * 0.016 + 0.4) * 0.5 + 0.5;
+  const hills = Math.pow(h1, 1.3) * 5.5 + h2 * 2.5;
 
   // Eastern solar steppe & gentle dunes
   const eastDist = Math.max(0, x - 120);
   const eastWeight = Math.min(1, eastDist / 300);
-  const dunes = eastWeight * (Math.sin(x * 0.018 - z * 0.01) * 2.2 + Math.cos(z * 0.015) * 1.6);
+  const dunes = eastWeight * ((Math.sin(x * 0.016 - z * 0.01) * 0.5 + 0.5) * 3.5 + (Math.cos(z * 0.014) * 0.5 + 0.5) * 2.0);
 
-  // Lake depression near SW (Osprey Shoreline area: x ~ -220, z ~ 240)
-  const distLake = Math.hypot(x - (-220), z - 240);
-  const lakeDepth = distLake < 130 ? (1.0 - distLake / 130) * 6.5 : 0;
+  // Dedicated Alpine Lake basin (peaceful valley at x = -150, z = -40)
+  const distLake = Math.hypot(x - ALPINE_LAKE_CENTER.x, z - ALPINE_LAKE_CENTER.z);
+  let lakeBasin = 0;
+  if (distLake < ALPINE_LAKE_CENTER.radius + 12) {
+    const t = Math.cos(Math.min(1, distLake / (ALPINE_LAKE_CENTER.radius + 12)) * Math.PI * 0.5);
+    lakeBasin = t * t * 5.8;
+  }
 
-  const baseElevation = 6.0;
-  const rawLandH = baseElevation + mountainMass + (1 - mtnWeight * 0.6) * hills + dunes - lakeDepth;
+  // Base elevation safely elevated above sea level (14.0m)
+  const baseElevation = 14.0;
+  const rawLandH = baseElevation + mountainMass + (1 - mtnWeight * 0.5) * hills + dunes - lakeBasin;
 
-  // Modulate land elevation with island mask; exterior becomes ocean floor (-10m)
-  const seaFloorH = -10.0;
+  // Modulate land elevation with island coastal falloff; exterior becomes ocean floor (-12m)
+  const seaFloorH = -12.0;
   return rawLandH * falloff + seaFloorH * (1.0 - falloff);
 }
 
@@ -639,7 +645,7 @@ function SiteMarker({ site, isOwned, isLeased, onSelect }) {
 function IslandTerrain() {
   const terrainGeo = useMemo(() => {
     // 2800x2800 island mesh spanning [-1400, 1400] to encompass all 24 sites inside dry land
-    const geo = new THREE.PlaneGeometry(2800, 2800, 160, 160);
+    const geo = new THREE.PlaneGeometry(2800, 2800, 180, 180);
     geo.rotateX(-Math.PI / 2);
 
     const pos = geo.attributes.position;
@@ -651,83 +657,88 @@ function IslandTerrain() {
       const y = getTerrainHeight(x, z);
       pos.setY(i, y);
 
-      // Biome blending based on height (y) and coordinates (x, z)
-      let r = 0.2,
-        g = 0.44,
-        b = 0.2; // Default lush green
+      const falloff = getIslandFalloff(x, z);
+      const distLake = Math.hypot(x - ALPINE_LAKE_CENTER.x, z - ALPINE_LAKE_CENTER.z);
 
-      if (y < 0.2) {
-        // Deep seabed / Shallow coral coast
-        r = 0.06;
-        g = 0.28;
-        b = 0.45;
-      } else if (y < 3.2) {
-        // Warm golden beach coastline
-        const t = (y - 0.2) / 3.0;
-        r = 0.82 - t * 0.4;
-        g = 0.72 - t * 0.22;
-        b = 0.42 - t * 0.18;
-      } else if (x > 120 && z > 80) {
+      let r = 0.18, g = 0.52, b = 0.22; // Lush spring green baseline
+
+      if (falloff < 0.25 || y < 1.0) {
+        // Shallow turquoise coastal reef & lagoon
+        r = 0.05;
+        g = 0.42;
+        b = 0.58;
+      } else if (falloff < 0.85 || y < 4.5) {
+        // Sunny golden ocean beach
+        const t = Math.max(0, Math.min(1, (y - 1.0) / 3.5));
+        r = 0.88 - t * 0.35;
+        g = 0.80 - t * 0.25;
+        b = 0.46 - t * 0.20;
+      } else if (distLake < ALPINE_LAKE_CENTER.radius + 10) {
+        // Alpine Lake Shoreline & Banks
+        if (y < ALPINE_LAKE_CENTER.waterLevel + 0.6) {
+          // Soft golden pebble & sand lakeshore
+          r = 0.78;
+          g = 0.70;
+          b = 0.50;
+        } else {
+          // Lush emerald mossy bank
+          r = 0.14;
+          g = 0.58;
+          b = 0.24;
+        }
+      } else if (x > 120 && z > 60) {
         // Desert / Sunfire Solar Steppe (SE quadrant)
         if (x > 500 && z > 200) {
           // Radiant white/cream saltbed flats
-          r = 0.82;
-          g = 0.78;
-          b = 0.68;
+          r = 0.85;
+          g = 0.82;
+          b = 0.74;
         } else if (x > 260) {
           // Golden sunbaked sand dunes
-          r = 0.76;
-          g = 0.58;
-          b = 0.28;
+          r = 0.82;
+          g = 0.64;
+          b = 0.32;
         } else {
-          // Arid clay steppe
-          r = 0.54;
-          g = 0.46;
-          b = 0.26;
+          // Arid terracotta savanna
+          r = 0.62;
+          g = 0.54;
+          b = 0.32;
         }
       } else if (x < -60) {
         // Mountain & Highland Wind Zone (Western Ridge)
-        if (y > 70) {
+        if (y > 68) {
           // Alpine Snow & Summit Glaciers
-          const t = Math.min(1, (y - 70) / 10);
-          r = 0.88 + t * 0.08;
-          g = 0.92 + t * 0.06;
-          b = 0.96 + t * 0.04;
-        } else if (y > 48) {
-          // Cold Slate & Granite Rock with smooth frost dusting
-          const t = (y - 48) / 22;
-          r = 0.38 + t * 0.45;
-          g = 0.42 + t * 0.45;
-          b = 0.48 + t * 0.45;
-        } else if (y > 22) {
-          // Mountain Pine Slopes
-          const t = (y - 22) / 26;
-          r = 0.14 + t * 0.2;
-          g = 0.28 + t * 0.12;
-          b = 0.16 + t * 0.25;
+          const t = Math.min(1, (y - 68) / 10);
+          r = 0.94 + t * 0.04;
+          g = 0.96 + t * 0.03;
+          b = 0.98 + t * 0.02;
+        } else if (y > 46) {
+          // Slate & Granite Rock with frost dusting
+          const t = (y - 46) / 22;
+          r = 0.44 + t * 0.40;
+          g = 0.47 + t * 0.40;
+          b = 0.52 + t * 0.40;
+        } else if (y > 24) {
+          // Mountain Pine Forest slopes
+          const t = (y - 24) / 22;
+          r = 0.13 + t * 0.22;
+          g = 0.36 + t * 0.10;
+          b = 0.17 + t * 0.22;
         } else {
           // Highland Foothills
-          r = 0.18;
-          g = 0.38;
+          r = 0.17;
+          g = 0.46;
           b = 0.22;
         }
       } else {
         // Central Hybrid Valleys & River Plain
-        if (y < 4.5) {
-          // Low riverbed / alluvial plain
-          r = 0.16;
-          g = 0.38;
-          b = 0.25;
-        } else {
-          // Vibrant rolling grassland
-          r = 0.22;
-          g = 0.46;
-          b = 0.22;
-        }
+        r = 0.18;
+        g = 0.54;
+        b = 0.24;
       }
 
       // Natural organic noise variation
-      const noise = Math.sin(x * 0.06) * Math.cos(z * 0.06) * 0.02;
+      const noise = (Math.sin(x * 0.05) * Math.cos(z * 0.05) + Math.sin(x * 0.11 + z * 0.09) * 0.5) * 0.03;
       colors[i * 3] = Math.max(0, Math.min(1, r + noise));
       colors[i * 3 + 1] = Math.max(0, Math.min(1, g + noise));
       colors[i * 3 + 2] = Math.max(0, Math.min(1, b + noise));
@@ -748,18 +759,76 @@ function IslandTerrain() {
           flatShading={true}
         />
       </mesh>
+    </group>
+  );
+}
 
-      {/* Shimmering Azure Mountain Lake near Osprey Shoreline */}
-      <mesh position={[-220, 3.2, 240]} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[82, 48]} />
+// Pristine Alpine Lake with Animated Water, Wooden Pier & Viewpoint
+function AlpineLake() {
+  const waterRef = useRef();
+
+  useFrame(({ clock }) => {
+    if (waterRef.current) {
+      const t = clock.getElapsedTime();
+      waterRef.current.rotation.z = Math.sin(t * 0.1) * 0.02;
+    }
+  });
+
+  return (
+    <group position={[ALPINE_LAKE_CENTER.x, ALPINE_LAKE_CENTER.waterLevel, ALPINE_LAKE_CENTER.z]}>
+      {/* Crystal Azure Lake Surface */}
+      <mesh ref={waterRef} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[ALPINE_LAKE_CENTER.radius, 48]} />
         <meshStandardMaterial
           color="#0284c7"
-          roughness={0.12}
+          roughness={0.06}
           metalness={0.4}
           transparent
-          opacity={0.8}
+          opacity={0.88}
         />
       </mesh>
+
+      {/* Shallow Turquoise Shoreline Water Ring */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.05, 0]}>
+        <ringGeometry args={[ALPINE_LAKE_CENTER.radius - 8, ALPINE_LAKE_CENTER.radius + 4, 48]} />
+        <meshBasicMaterial
+          color="#38bdf8"
+          transparent
+          opacity={0.35}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+
+      {/* Scenic Wooden Pier / Jetty on the South Shore */}
+      <group position={[0, 0.15, ALPINE_LAKE_CENTER.radius - 12]}>
+        {/* Pier Decking */}
+        <mesh position={[0, 0, -6]} castShadow receiveShadow>
+          <boxGeometry args={[3.2, 0.25, 12]} />
+          <meshStandardMaterial color="#78350f" roughness={0.8} />
+        </mesh>
+        {/* Support Pilings into Water */}
+        {[-4, -8, -12].map((zOffset, i) => (
+          <group key={i}>
+            <mesh position={[-1.4, -1.2, zOffset]}>
+              <cylinderGeometry args={[0.15, 0.15, 2.6, 6]} />
+              <meshStandardMaterial color="#451a03" roughness={0.9} />
+            </mesh>
+            <mesh position={[1.4, -1.2, zOffset]}>
+              <cylinderGeometry args={[0.15, 0.15, 2.6, 6]} />
+              <meshStandardMaterial color="#451a03" roughness={0.9} />
+            </mesh>
+          </group>
+        ))}
+        {/* Pier End Lantern Light */}
+        <mesh position={[1.2, 0.9, -11]}>
+          <boxGeometry args={[0.12, 1.4, 0.12]} />
+          <meshStandardMaterial color="#1e293b" />
+        </mesh>
+        <mesh position={[1.2, 1.6, -11]}>
+          <sphereGeometry args={[0.22, 8, 8]} />
+          <meshBasicMaterial color="#fef08a" />
+        </mesh>
+      </group>
     </group>
   );
 }
@@ -770,7 +839,7 @@ function AnimatedOcean() {
 
   const oceanGeo = useMemo(() => {
     // 4400x4400 expansive ocean extending to the horizon
-    const geo = new THREE.PlaneGeometry(4400, 4400, 48, 48);
+    const geo = new THREE.PlaneGeometry(4400, 4400, 56, 56);
     geo.rotateX(-Math.PI / 2);
     return geo;
   }, []);
@@ -782,11 +851,11 @@ function AnimatedOcean() {
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i);
       const z = pos.getZ(i);
-      // Gentle ocean rolling wave swell
+      // Gentle ocean rolling wave swell (height oscillation -0.25 to +0.25m around y = 0.0)
       const wave =
-        Math.sin(x * 0.012 + t * 0.9) * Math.cos(z * 0.012 + t * 0.7) * 0.45 +
-        Math.sin(x * 0.025 - t * 1.3) * 0.2;
-      pos.setY(i, wave + 0.6);
+        Math.sin(x * 0.012 + t * 0.8) * Math.cos(z * 0.012 + t * 0.6) * 0.28 +
+        Math.sin(x * 0.024 - t * 1.1) * 0.12;
+      pos.setY(i, wave);
     }
     pos.needsUpdate = true;
   });
@@ -796,21 +865,21 @@ function AnimatedOcean() {
       <mesh ref={meshRef} geometry={oceanGeo}>
         <meshStandardMaterial
           color="#0284c7"
-          roughness={0.12}
+          roughness={0.10}
           metalness={0.35}
           transparent
-          opacity={0.82}
+          opacity={0.85}
           flatShading
         />
       </mesh>
 
       {/* Coastal Surf Foam Ring around Island Periphery */}
-      <mesh position={[0, 0.8, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh position={[0, 0.4, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[1040, 1260, 64]} />
         <meshBasicMaterial
           color="#e0f2fe"
           transparent
-          opacity={0.28}
+          opacity={0.24}
           side={THREE.DoubleSide}
         />
       </mesh>
@@ -818,137 +887,511 @@ function AnimatedOcean() {
   );
 }
 
-// Island Road Network connecting Central Substation to Regional Hubs
-function IslandRoads() {
-  const roadMeshes = useMemo(() => {
-    const paths = [
-      // 1. Mountain Ridge Road (North-West)
-      [
-        new THREE.Vector3(0, 0, 0),
-        new THREE.Vector3(-180, 0, -80),
-        new THREE.Vector3(-400, 0, -150),
-        new THREE.Vector3(-450, 0, -320),
-        new THREE.Vector3(-580, 0, -420)
-      ],
-      // 2. Solar Steppe Highway (East & South-East)
-      [
-        new THREE.Vector3(0, 0, 0),
-        new THREE.Vector3(120, 0, 100),
-        new THREE.Vector3(240, 0, 220),
-        new THREE.Vector3(380, 0, 280),
-        new THREE.Vector3(490, 0, 350),
-        new THREE.Vector3(620, 0, 190)
-      ],
-      // 3. Shoreline Scenic Byway (South-West to Lake)
-      [
-        new THREE.Vector3(0, 0, 0),
-        new THREE.Vector3(-60, 0, 50),
-        new THREE.Vector3(-120, 0, 80),
-        new THREE.Vector3(-220, 0, 240)
-      ]
-    ];
+// Road ribbon geometry generator (creates 3D asphalt ribbon + dashed highway stripe)
+function createRoadRibbon(points, width = 4.4) {
+  const curve = new THREE.CatmullRomCurve3(points);
+  const totalLength = curve.getLength();
+  const segments = Math.max(30, Math.floor(totalLength / 5.0));
+  const curvePoints = curve.getSpacedPoints(segments);
 
-    return paths.map((pts) => {
-      const curve = new THREE.CatmullRomCurve3(pts);
-      const sampled = curve.getPoints(80);
-      const roadPoints = sampled.map((p) => {
-        const y = getTerrainHeight(p.x, p.z) + 0.15;
-        return new THREE.Vector3(p.x, y, p.z);
-      });
-      const geo = new THREE.BufferGeometry().setFromPoints(roadPoints);
-      const mat = new THREE.LineBasicMaterial({
-        color: '#475569',
-        linewidth: 3,
-        transparent: true,
-        opacity: 0.8
-      });
-      return new THREE.Line(geo, mat);
-    });
+  const roadVertices = [];
+  const roadIndices = [];
+  const roadUVs = [];
+
+  const stripeVertices = [];
+  const stripeIndices = [];
+
+  const halfW = width * 0.5;
+  const stripeHalfW = 0.18;
+
+  for (let i = 0; i < curvePoints.length; i++) {
+    const curr = curvePoints[i];
+    let tangent = new THREE.Vector3();
+
+    if (i === 0) {
+      tangent.subVectors(curvePoints[1], curr).normalize();
+    } else if (i === curvePoints.length - 1) {
+      tangent.subVectors(curr, curvePoints[i - 1]).normalize();
+    } else {
+      tangent.subVectors(curvePoints[i + 1], curvePoints[i - 1]).normalize();
+    }
+
+    const normal = new THREE.Vector3(-tangent.z, 0, tangent.x).normalize();
+
+    const leftP = curr.clone().addScaledVector(normal, halfW);
+    const rightP = curr.clone().addScaledVector(normal, -halfW);
+
+    const yLeft = getTerrainHeight(leftP.x, leftP.z) + 0.18;
+    const yRight = getTerrainHeight(rightP.x, rightP.z) + 0.18;
+    const yCenter = (yLeft + yRight) * 0.5;
+
+    roadVertices.push(leftP.x, yLeft, leftP.z);
+    roadVertices.push(rightP.x, yRight, rightP.z);
+
+    const v = (i / segments) * (totalLength / 8);
+    roadUVs.push(0, v);
+    roadUVs.push(1, v);
+
+    const stripeLeft = curr.clone().addScaledVector(normal, stripeHalfW);
+    const stripeRight = curr.clone().addScaledVector(normal, -stripeHalfW);
+    stripeVertices.push(stripeLeft.x, yCenter + 0.03, stripeLeft.z);
+    stripeVertices.push(stripeRight.x, yCenter + 0.03, stripeRight.z);
+
+    if (i < curvePoints.length - 1) {
+      const baseIdx = i * 2;
+      roadIndices.push(baseIdx, baseIdx + 1, baseIdx + 2);
+      roadIndices.push(baseIdx + 1, baseIdx + 3, baseIdx + 2);
+
+      // Dashed highway striping: 2 segments on, 1 segment off
+      if (i % 3 !== 2) {
+        stripeIndices.push(baseIdx, baseIdx + 1, baseIdx + 2);
+        stripeIndices.push(baseIdx + 1, baseIdx + 3, baseIdx + 2);
+      }
+    }
+  }
+
+  const roadGeo = new THREE.BufferGeometry();
+  roadGeo.setAttribute('position', new THREE.Float32BufferAttribute(roadVertices, 3));
+  roadGeo.setAttribute('uv', new THREE.Float32BufferAttribute(roadUVs, 2));
+  roadGeo.setIndex(roadIndices);
+  roadGeo.computeVertexNormals();
+
+  const stripeGeo = new THREE.BufferGeometry();
+  stripeGeo.setAttribute('position', new THREE.Float32BufferAttribute(stripeVertices, 3));
+  stripeGeo.setIndex(stripeIndices);
+  stripeGeo.computeVertexNormals();
+
+  return { roadGeo, stripeGeo, curve };
+}
+
+// Pre-defined Highway Curves connecting key regions
+const HIGHWAY_CURVES = [
+  // Highway 1: West Mountain Energy Parkway
+  new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0, 0, 0),
+    new THREE.Vector3(-85, 0, -20),
+    new THREE.Vector3(-190, 0, -65),
+    new THREE.Vector3(-280, 0, -110),
+    new THREE.Vector3(-395, 0, -150),
+    new THREE.Vector3(-445, 0, -315),
+    new THREE.Vector3(-575, 0, -415),
+    new THREE.Vector3(-680, 0, -180)
+  ]),
+  // Highway 2: East Sunfire Solar Expressway
+  new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0, 0, 0),
+    new THREE.Vector3(120, 0, 95),
+    new THREE.Vector3(235, 0, 215),
+    new THREE.Vector3(375, 0, 275),
+    new THREE.Vector3(485, 0, 345),
+    new THREE.Vector3(615, 0, 190),
+    new THREE.Vector3(725, 0, 310)
+  ]),
+  // Highway 3: South Alpine Lake & Shoreline Loop
+  new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0, 0, 0),
+    new THREE.Vector3(-65, 0, 45),
+    new THREE.Vector3(-118, 0, 78),
+    new THREE.Vector3(-175, 0, 155),
+    new THREE.Vector3(-215, 0, 235),
+    new THREE.Vector3(-260, 0, 310)
+  ]),
+  // Highway 4: Northern Transmission Highway
+  new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0, 0, 0),
+    new THREE.Vector3(28, 0, -95),
+    new THREE.Vector3(48, 0, -175),
+    new THREE.Vector3(-48, 0, -315),
+    new THREE.Vector3(-130, 0, -360)
+  ])
+];
+
+// Island Road Networks with 3D Asphalt Ribbon & Dashed Centerlines
+function IslandRoads() {
+  const roadData = useMemo(() => {
+    return [
+      createRoadRibbon(HIGHWAY_CURVES[0].points, 4.4),
+      createRoadRibbon(HIGHWAY_CURVES[1].points, 4.4),
+      createRoadRibbon(HIGHWAY_CURVES[2].points, 4.0),
+      createRoadRibbon(HIGHWAY_CURVES[3].points, 4.0)
+    ];
   }, []);
 
   return (
     <group>
-      {roadMeshes.map((road, idx) => (
-        <primitive key={idx} object={road} />
+      {roadData.map((rd, i) => (
+        <group key={`road_net_${i}`}>
+          {/* Asphalt Surface */}
+          <mesh geometry={rd.roadGeo} receiveShadow>
+            <meshStandardMaterial
+              color="#262626"
+              roughness={0.92}
+              metalness={0.08}
+            />
+          </mesh>
+          {/* Dashed Centerline */}
+          <mesh geometry={rd.stripeGeo}>
+            <meshBasicMaterial color="#facc15" />
+          </mesh>
+        </group>
       ))}
     </group>
   );
 }
 
-// Animated Utility Maintenance Service Trucks moving along roads
-function ServiceTrucks() {
+// Active Living Traffic: Utility Service Vans, Battery Logistics Haulers & EVs
+function TrafficVehicles() {
+  const van1Ref = useRef();
   const truck1Ref = useRef();
-  const truck2Ref = useRef();
-
-  const curve1 = useMemo(() => {
-    return new THREE.CatmullRomCurve3([
-      new THREE.Vector3(0, 0, 0),
-      new THREE.Vector3(-180, 0, -80),
-      new THREE.Vector3(-400, 0, -150),
-      new THREE.Vector3(-450, 0, -320),
-      new THREE.Vector3(-580, 0, -420)
-    ]);
-  }, []);
-
-  const curve2 = useMemo(() => {
-    return new THREE.CatmullRomCurve3([
-      new THREE.Vector3(0, 0, 0),
-      new THREE.Vector3(120, 0, 100),
-      new THREE.Vector3(240, 0, 220),
-      new THREE.Vector3(380, 0, 280),
-      new THREE.Vector3(490, 0, 350)
-    ]);
-  }, []);
+  const haulerRef = useRef();
+  const van2Ref = useRef();
+  const pickup1Ref = useRef();
+  const pickup2Ref = useRef();
 
   useFrame(({ clock }) => {
-    const t = clock.getElapsedTime() * 0.04;
+    const t = clock.getElapsedTime();
 
-    // Truck 1: Mountain maintenance truck
-    if (truck1Ref.current) {
-      const progress1 = (Math.sin(t) + 1) * 0.5; // Ping-pong along route
-      const p1 = curve1.getPointAt(progress1);
-      const p1Next = curve1.getPointAt(Math.min(1, progress1 + 0.02));
-      const y1 = getTerrainHeight(p1.x, p1.z) + 0.4;
-      truck1Ref.current.position.set(p1.x, y1, p1.z);
-      truck1Ref.current.lookAt(p1Next.x, y1, p1Next.z);
-    }
+    const updateCar = (ref, curve, speed, offset) => {
+      if (!ref.current || !curve) return;
+      const progress = (offset + t * speed) % 1.0;
+      const p = curve.getPointAt(progress);
+      const nextProgress = (progress + 0.006) % 1.0;
+      const pNext = curve.getPointAt(nextProgress);
+      const y = getTerrainHeight(p.x, p.z) + 0.2;
+      ref.current.position.set(p.x, y, p.z);
+      ref.current.lookAt(pNext.x, y, pNext.z);
+    };
 
-    // Truck 2: Solar service truck
-    if (truck2Ref.current) {
-      const progress2 = (Math.cos(t * 1.2) + 1) * 0.5;
-      const p2 = curve2.getPointAt(progress2);
-      const p2Next = curve2.getPointAt(Math.min(1, progress2 + 0.02));
-      const y2 = getTerrainHeight(p2.x, p2.z) + 0.4;
-      truck2Ref.current.position.set(p2.x, y2, p2.z);
-      truck2Ref.current.lookAt(p2Next.x, y2, p2Next.z);
-    }
+    updateCar(van1Ref, HIGHWAY_CURVES[0], 0.035, 0.08);
+    updateCar(truck1Ref, HIGHWAY_CURVES[0], 0.024, 0.58);
+    updateCar(haulerRef, HIGHWAY_CURVES[1], 0.026, 0.15);
+    updateCar(van2Ref, HIGHWAY_CURVES[1], 0.038, 0.65);
+    updateCar(pickup1Ref, HIGHWAY_CURVES[2], 0.032, 0.22);
+    updateCar(pickup2Ref, HIGHWAY_CURVES[3], 0.034, 0.45);
   });
 
   return (
     <group>
-      {/* Mountain Utility Van */}
-      <group ref={truck1Ref}>
-        <mesh position={[0, 1.2, 0]} castShadow>
-          <boxGeometry args={[2.4, 1.8, 4.8]} />
-          <meshStandardMaterial color="#0284c7" metalness={0.4} />
+      {/* 1. Wind Turbine Service Van (White with Amber Lightbar) */}
+      <group ref={van1Ref}>
+        <mesh position={[0, 0.9, 0]} castShadow>
+          <boxGeometry args={[2.2, 1.4, 4.4]} />
+          <meshStandardMaterial color="#f8fafc" roughness={0.3} metalness={0.2} />
         </mesh>
-        <mesh position={[0, 2.2, 0]}>
+        <mesh position={[0, 1.25, 0.8]}>
+          <boxGeometry args={[2.0, 0.65, 1.2]} />
+          <meshStandardMaterial color="#0f172a" roughness={0.1} />
+        </mesh>
+        <mesh position={[0, 1.75, -0.4]}>
+          <boxGeometry args={[1.2, 0.2, 0.4]} />
+          <meshBasicMaterial color="#f59e0b" />
+        </mesh>
+        <mesh position={[-0.8, 0.7, 2.22]}>
+          <sphereGeometry args={[0.18, 8, 8]} />
+          <meshBasicMaterial color="#fef08a" />
+        </mesh>
+        <mesh position={[0.8, 0.7, 2.22]}>
+          <sphereGeometry args={[0.18, 8, 8]} />
+          <meshBasicMaterial color="#fef08a" />
+        </mesh>
+        {[-1.15, 1.15].map((x) =>
+          [-1.3, 1.3].map((z, idx) => (
+            <mesh key={`${x}_${z}_${idx}`} position={[x, 0.4, z]} rotation={[0, 0, Math.PI / 2]}>
+              <cylinderGeometry args={[0.4, 0.4, 0.3, 10]} />
+              <meshStandardMaterial color="#1e293b" roughness={0.9} />
+            </mesh>
+          ))
+        )}
+      </group>
+
+      {/* 2. Heavy Wind Maintenance Truck */}
+      <group ref={truck1Ref}>
+        <mesh position={[0, 1.2, 1.0]} castShadow>
+          <boxGeometry args={[2.5, 1.8, 2.6]} />
+          <meshStandardMaterial color="#0284c7" roughness={0.3} metalness={0.4} />
+        </mesh>
+        <mesh position={[0, 0.7, -1.5]} castShadow>
+          <boxGeometry args={[2.4, 0.6, 3.8]} />
+          <meshStandardMaterial color="#334155" roughness={0.9} />
+        </mesh>
+        <mesh position={[0, 1.5, -1.5]} castShadow>
+          <boxGeometry args={[2.1, 1.0, 3.2]} />
+          <meshStandardMaterial color="#cbd5e1" roughness={0.4} />
+        </mesh>
+        <mesh position={[0, 2.2, 1.0]}>
           <sphereGeometry args={[0.25, 8, 8]} />
           <meshBasicMaterial color="#f59e0b" />
         </mesh>
       </group>
 
-      {/* Solar Utility Truck */}
-      <group ref={truck2Ref}>
-        <mesh position={[0, 1.2, 0]} castShadow>
-          <boxGeometry args={[2.5, 1.8, 5.2]} />
-          <meshStandardMaterial color="#eab308" metalness={0.3} />
+      {/* 3. Mega Battery Logistics Hauler with Glowing Battery Modules */}
+      <group ref={haulerRef}>
+        <mesh position={[0, 1.3, 1.8]} castShadow>
+          <boxGeometry args={[2.6, 2.0, 2.8]} />
+          <meshStandardMaterial color="#0369a1" roughness={0.3} metalness={0.4} />
         </mesh>
-        <mesh position={[0, 2.2, 0]}>
-          <sphereGeometry args={[0.25, 8, 8]} />
+        <mesh position={[0, 0.6, -1.8]} castShadow>
+          <boxGeometry args={[2.6, 0.5, 6.2]} />
+          <meshStandardMaterial color="#1e293b" roughness={0.9} />
+        </mesh>
+        {/* Battery Container Cargo 1 */}
+        <mesh position={[0, 1.5, -0.6]} castShadow>
+          <boxGeometry args={[2.2, 1.3, 2.6]} />
+          <meshStandardMaterial color="#0f766e" roughness={0.4} metalness={0.3} />
+        </mesh>
+        {/* Battery Container Cargo 2 */}
+        <mesh position={[0, 1.5, -3.2]} castShadow>
+          <boxGeometry args={[2.2, 1.3, 2.6]} />
+          <meshStandardMaterial color="#0f766e" roughness={0.4} metalness={0.3} />
+        </mesh>
+        {/* Battery Green LED status strip */}
+        <mesh position={[1.12, 1.5, -0.6]}>
+          <boxGeometry args={[0.04, 0.15, 1.8]} />
+          <meshBasicMaterial color="#34d399" />
+        </mesh>
+        <mesh position={[1.12, 1.5, -3.2]}>
+          <boxGeometry args={[0.04, 0.15, 1.8]} />
+          <meshBasicMaterial color="#34d399" />
+        </mesh>
+      </group>
+
+      {/* 4. Solar Tech Rapid Response Van */}
+      <group ref={van2Ref}>
+        <mesh position={[0, 0.9, 0]} castShadow>
+          <boxGeometry args={[2.2, 1.4, 4.4]} />
+          <meshStandardMaterial color="#eab308" roughness={0.3} metalness={0.3} />
+        </mesh>
+        <mesh position={[0, 1.25, 0.8]}>
+          <boxGeometry args={[2.0, 0.65, 1.2]} />
+          <meshStandardMaterial color="#0f172a" roughness={0.1} />
+        </mesh>
+        <mesh position={[0, 1.75, -0.4]}>
+          <boxGeometry args={[1.2, 0.2, 0.4]} />
           <meshBasicMaterial color="#ef4444" />
         </mesh>
       </group>
+
+      {/* 5. Clean Energy Ranger SUV (Lake Loop) */}
+      <group ref={pickup1Ref}>
+        <mesh position={[0, 0.85, 0]} castShadow>
+          <boxGeometry args={[2.1, 1.3, 4.2]} />
+          <meshStandardMaterial color="#059669" roughness={0.3} metalness={0.4} />
+        </mesh>
+        <mesh position={[0, 1.2, 0.4]}>
+          <boxGeometry args={[1.9, 0.6, 1.8]} />
+          <meshStandardMaterial color="#0f172a" roughness={0.1} />
+        </mesh>
+        <mesh position={[0, 1.6, -0.4]}>
+          <boxGeometry args={[1.6, 0.12, 1.8]} />
+          <meshStandardMaterial color="#1e293b" />
+        </mesh>
+      </group>
+
+      {/* 6. Northern Transmission Inspection Truck */}
+      <group ref={pickup2Ref}>
+        <mesh position={[0, 0.9, 0]} castShadow>
+          <boxGeometry args={[2.2, 1.4, 4.4]} />
+          <meshStandardMaterial color="#475569" roughness={0.4} metalness={0.3} />
+        </mesh>
+        <mesh position={[0, 1.25, 0.8]}>
+          <boxGeometry args={[2.0, 0.65, 1.2]} />
+          <meshStandardMaterial color="#0f172a" roughness={0.1} />
+        </mesh>
+      </group>
+    </group>
+  );
+}
+
+// Procedural Deterministic Vegetation Locations
+function getVegetationLocations() {
+  const locations = [];
+  let seed = 1337;
+  function random() {
+    seed = (seed * 9301 + 49297) % 233280;
+    return seed / 233280;
+  }
+
+  for (let i = 0; i < 2800; i++) {
+    const angle = random() * Math.PI * 2;
+    const rad = Math.sqrt(random()) * 1020;
+    const x = Math.cos(angle) * rad;
+    const z = Math.sin(angle) * rad;
+
+    const falloff = getIslandFalloff(x, z);
+    if (falloff < 0.96) continue;
+
+    if (Math.hypot(x, z) < 55) continue;
+
+    const distLake = Math.hypot(x - ALPINE_LAKE_CENTER.x, z - ALPINE_LAKE_CENTER.z);
+    if (distLake < ALPINE_LAKE_CENTER.radius + 6) continue;
+
+    let tooCloseToSite = false;
+    for (let s = 0; s < KNOWN_SITES.length; s++) {
+      if (Math.hypot(x - KNOWN_SITES[s].x, z - KNOWN_SITES[s].z) < 44) {
+        tooCloseToSite = true;
+        break;
+      }
+    }
+    if (tooCloseToSite) continue;
+
+    const y = getTerrainHeight(x, z);
+    if (y > 64) continue;
+
+    let type = 'deciduous';
+    if (x < -70 || distLake < 130 || y > 28) {
+      type = random() > 0.25 ? 'pine' : 'deciduous';
+    } else if (x > 140 && z > 60) {
+      type = random() > 0.55 ? 'shrub' : 'deciduous';
+    } else {
+      type = random() > 0.4 ? 'deciduous' : 'shrub';
+    }
+
+    const scale = 0.82 + random() * 0.42;
+    const rotY = random() * Math.PI * 2;
+
+    locations.push({ x, y, z, scale, rotY, type });
+    if (locations.length >= 950) break;
+  }
+  return locations;
+}
+
+// Lush 3D Nature: Highland Pines, Valley Deciduous Trees & Flowering Shrubs
+function IslandVegetation() {
+  const pineTrunkRef = useRef();
+  const pineFoliageRef = useRef();
+  const decTrunkRef = useRef();
+  const decFoliageRef = useRef();
+  const shrubRef = useRef();
+
+  const vegData = useMemo(() => getVegetationLocations(), []);
+
+  const pineTrunkGeo = useMemo(() => {
+    const geo = new THREE.CylinderGeometry(0.24, 0.38, 2.2, 5);
+    geo.translate(0, 1.1, 0);
+    return geo;
+  }, []);
+
+  const pineFoliageGeo = useMemo(() => {
+    const geo = new THREE.ConeGeometry(2.2, 5.4, 6);
+    geo.translate(0, 4.2, 0);
+    return geo;
+  }, []);
+
+  const decTrunkGeo = useMemo(() => {
+    const geo = new THREE.CylinderGeometry(0.28, 0.42, 2.0, 5);
+    geo.translate(0, 1.0, 0);
+    return geo;
+  }, []);
+
+  const decFoliageGeo = useMemo(() => {
+    const geo = new THREE.DodecahedronGeometry(2.1, 1);
+    geo.translate(0, 3.6, 0);
+    return geo;
+  }, []);
+
+  const shrubGeo = useMemo(() => {
+    const geo = new THREE.DodecahedronGeometry(1.3, 0);
+    geo.scale(1.3, 0.75, 1.3);
+    geo.translate(0, 0.65, 0);
+    return geo;
+  }, []);
+
+  useEffect(() => {
+    const dummy = new THREE.Object3D();
+    let pineCount = 0;
+    let decCount = 0;
+    let shrubCount = 0;
+
+    vegData.forEach((item) => {
+      dummy.position.set(item.x, item.y, item.z);
+      dummy.rotation.set(0, item.rotY, 0);
+      dummy.scale.set(item.scale, item.scale, item.scale);
+      dummy.updateMatrix();
+
+      if (item.type === 'pine') {
+        if (pineTrunkRef.current && pineFoliageRef.current) {
+          pineTrunkRef.current.setMatrixAt(pineCount, dummy.matrix);
+          pineFoliageRef.current.setMatrixAt(pineCount, dummy.matrix);
+          pineCount++;
+        }
+      } else if (item.type === 'deciduous') {
+        if (decTrunkRef.current && decFoliageRef.current) {
+          decTrunkRef.current.setMatrixAt(decCount, dummy.matrix);
+          decFoliageRef.current.setMatrixAt(decCount, dummy.matrix);
+          decCount++;
+        }
+      } else if (item.type === 'shrub') {
+        if (shrubRef.current) {
+          shrubRef.current.setMatrixAt(shrubCount, dummy.matrix);
+          shrubCount++;
+        }
+      }
+    });
+
+    if (pineTrunkRef.current) {
+      pineTrunkRef.current.instanceMatrix.needsUpdate = true;
+      pineTrunkRef.current.count = pineCount;
+    }
+    if (pineFoliageRef.current) {
+      pineFoliageRef.current.instanceMatrix.needsUpdate = true;
+      pineFoliageRef.current.count = pineCount;
+    }
+    if (decTrunkRef.current) {
+      decTrunkRef.current.instanceMatrix.needsUpdate = true;
+      decTrunkRef.current.count = decCount;
+    }
+    if (decFoliageRef.current) {
+      decFoliageRef.current.instanceMatrix.needsUpdate = true;
+      decFoliageRef.current.count = decCount;
+    }
+    if (shrubRef.current) {
+      shrubRef.current.instanceMatrix.needsUpdate = true;
+      shrubRef.current.count = shrubCount;
+    }
+  }, [vegData]);
+
+  return (
+    <group>
+      {/* Pine Trees */}
+      <instancedMesh
+        ref={pineTrunkRef}
+        args={[pineTrunkGeo, null, 650]}
+        castShadow
+      >
+        <meshStandardMaterial color="#451a03" roughness={0.9} />
+      </instancedMesh>
+      <instancedMesh
+        ref={pineFoliageRef}
+        args={[pineFoliageGeo, null, 650]}
+        castShadow
+      >
+        <meshStandardMaterial color="#14532d" roughness={0.82} />
+      </instancedMesh>
+
+      {/* Deciduous Trees */}
+      <instancedMesh
+        ref={decTrunkRef}
+        args={[decTrunkGeo, null, 650]}
+        castShadow
+      >
+        <meshStandardMaterial color="#78350f" roughness={0.9} />
+      </instancedMesh>
+      <instancedMesh
+        ref={decFoliageRef}
+        args={[decFoliageGeo, null, 650]}
+        castShadow
+      >
+        <meshStandardMaterial color="#16a34a" roughness={0.76} />
+      </instancedMesh>
+
+      {/* Flowering Meadow Shrubs */}
+      <instancedMesh
+        ref={shrubRef}
+        args={[shrubGeo, null, 400]}
+        castShadow
+      >
+        <meshStandardMaterial color="#84cc16" roughness={0.8} />
+      </instancedMesh>
     </group>
   );
 }
@@ -1213,14 +1656,20 @@ export default function WorldCanvas({
         {/* Cohesive Island 3D Terrain */}
         <IslandTerrain />
 
+        {/* Crystal Shimmering Alpine Lake in the Western Mountain Valley */}
+        <AlpineLake />
+
+        {/* Living World Nature: Procedural Highland Pines, Valley Trees & Meadow Shrubs */}
+        <IslandVegetation />
+
         {/* Central High-Voltage Substation */}
         <SubstationNode position={[0, 0, 0]} showLabels={showInfrastructure} />
 
-        {/* Living World: Roads & Vehicles */}
+        {/* Living World: 3D Ribbon Roads & Active Utility/Transport Traffic */}
         {showTraffic && (
           <>
             <IslandRoads />
-            <ServiceTrucks />
+            <TrafficVehicles />
           </>
         )}
 
