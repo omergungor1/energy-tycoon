@@ -546,6 +546,66 @@ export async function POST(req) {
       return NextResponse.json({ success: true, message: 'Santral adı güncellendi.' });
     }
 
+    // =========================================================================
+    // ACTION 8: REPAY_LOAN (Early Payoff / Partial Repayment)
+    // =========================================================================
+    if (action === 'REPAY_LOAN') {
+      const { loanId, amount } = payload || {};
+      const payAmount = Number(amount);
+      if (isNaN(payAmount) || payAmount <= 0) {
+        return NextResponse.json({ error: 'Geçersiz ödeme tutarı' }, { status: 400 });
+      }
+
+      const { data: loan, error: loanErr } = await admin
+        .from('loans')
+        .select('*')
+        .eq('id', loanId)
+        .eq('company_id', company.id)
+        .single();
+
+      if (loanErr || !loan) {
+        return NextResponse.json({ error: 'Kredi bulunamadı' }, { status: 404 });
+      }
+
+      const currentBalance = Number(company.cash || 0);
+      const actualPayment = Math.min(payAmount, Number(loan.remaining_balance));
+
+      if (currentBalance < actualPayment) {
+        return NextResponse.json({
+          error: `Yetersiz Bakiye: Ödeme tutarı ($${actualPayment.toLocaleString()}), kasanızdaki nakitten ($${currentBalance.toLocaleString()}) fazladır.`
+        }, { status: 400 });
+      }
+
+      const newRemaining = Number((Number(loan.remaining_balance) - actualPayment).toFixed(2));
+      const newCash = Number((currentBalance - actualPayment).toFixed(2));
+      const newStatus = newRemaining <= 0 ? 'paid_off' : 'active';
+
+      await admin.from('companies').update({ cash: newCash }).eq('id', company.id);
+      await admin.from('loans').update({
+        remaining_balance: newRemaining,
+        status: newStatus
+      }).eq('id', loanId);
+
+      // Ledger entry
+      await admin.from('ledger_entries').insert({
+        company_id: company.id,
+        idempotency_key: `repay_loan_${loanId}_${Date.now()}`,
+        entry_type: 'loan_repayment',
+        amount: -actualPayment,
+        balance_after: newCash,
+        game_hour: currentHour,
+        description: `Kredi Borç Ödemesi (#${loanId.slice(0, 8)} - $${actualPayment.toLocaleString()})`,
+        metadata: { loan_id: loanId, payment: actualPayment, remaining: newRemaining }
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: `$${actualPayment.toLocaleString()} tutarındaki kredi borcu başarıyla ödendi! ${newRemaining <= 0 ? 'Kredi tamamen kapatıldı.' : `Kalan borç: $${newRemaining.toLocaleString()}`}`,
+        newBalance: newCash,
+        remainingBalance: newRemaining
+      });
+    }
+
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
   } catch (err) {
     console.error('Actions API Error:', err);

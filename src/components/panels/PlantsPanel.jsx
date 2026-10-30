@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Image from 'next/image';
 import { Factory, Wrench, Check, AlertCircle, Zap, Shield, Edit2, Sun } from 'lucide-react';
 import { dictionaries } from '@/lib/i18n/dictionaries';
+import { useCurrency } from '@/context/CurrencyContext';
 
 function getEquipmentImage(type) {
   if (type === 'wind_turbine') return '/equipment/wind_turbine.jpg';
@@ -20,6 +21,7 @@ export default function PlantsPanel({
   onActionSuccess
 }) {
   const dict = dictionaries[lang] || dictionaries.tr;
+  const { formatMoney } = useCurrency();
   const [selectedPlantId, setSelectedPlantId] = useState('all');
   const [maintenanceLoadingId, setMaintenanceLoadingId] = useState(null);
   const [renamingSiteId, setRenamingSiteId] = useState(null);
@@ -263,7 +265,7 @@ export default function PlantsPanel({
                     {maintenanceLoadingId === asset.id ? (
                       'Bakım Yapılıyor...'
                     ) : (
-                      <span>{dict.plants.maintenanceBtn}</span>
+                      <span>{lang === 'tr' ? `Periyodik Bakım Yap (${formatMoney(5000, { decimals: 0 })})` : `Perform Maintenance (${formatMoney(5000, { decimals: 0 })})`}</span>
                     )}
                   </button>
                 </div>

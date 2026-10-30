@@ -3,9 +3,11 @@
 import React from 'react';
 import { Trophy, Award, Crown } from 'lucide-react';
 import { dictionaries } from '@/lib/i18n/dictionaries';
+import { useCurrency } from '@/context/CurrencyContext';
 
 export default function LeaderboardPanel({ leaderboard = [], lang }) {
   const dict = dictionaries[lang] || dictionaries.tr;
+  const { formatMoney } = useCurrency();
 
   return (
     <div className="p-6 max-w-4xl mx-auto text-slate-100">
@@ -66,7 +68,7 @@ export default function LeaderboardPanel({ leaderboard = [], lang }) {
                       </span>
                     </td>
                     <td className="py-3.5 px-4 text-right font-mono font-bold text-emerald-300">
-                      ${Number(comp.cash).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      {formatMoney(comp.cash, { decimals: 2 })}
                     </td>
                   </tr>
                 );

@@ -21,9 +21,11 @@ import {
   Clock
 } from 'lucide-react';
 import { dictionaries } from '@/lib/i18n/dictionaries';
+import { useCurrency } from '@/context/CurrencyContext';
 
-export default function TreasuryModal({ isOpen, onClose, company, lang = 'tr' }) {
+export default function TreasuryModal({ isOpen, onClose, company, finance, lang = 'tr' }) {
   const dict = dictionaries[lang]?.treasury || dictionaries.tr.treasury;
+  const { formatMoney, formatPricePerKwh, symbol } = useCurrency();
   const [activeRange, setActiveRange] = useState('today'); // 'today' | 'yesterday' | 'week' | 'all'
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -156,62 +158,81 @@ export default function TreasuryModal({ isOpen, onClose, company, lang = 'tr' })
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
       <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-5xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden text-slate-100">
         {/* MODAL HEADER */}
-        <div className="p-5 border-b border-slate-800 flex items-center justify-between gap-4 bg-slate-950/40">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-inner">
-              <DollarSign className="w-6 h-6" />
+        <div className="p-3 sm:p-5 border-b border-slate-800 flex items-center justify-between gap-2.5 sm:gap-4 bg-slate-950/40 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-inner shrink-0">
+              <DollarSign className="w-4 h-4 sm:w-6 sm:h-6" />
             </div>
-            <div>
-              <h2 className="text-xl font-black text-white flex items-center gap-2">
-                {dict.title}
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-950/60 text-emerald-400 border border-emerald-800">
+            <div className="min-w-0">
+              <h2 className="text-sm sm:text-lg font-black text-white flex items-center gap-1.5 flex-wrap leading-tight">
+                <span>{dict.title}</span>
+                <span className="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-950/60 text-emerald-400 border border-emerald-800 shrink-0">
                   Canlı Finans
                 </span>
               </h2>
-              <p className="text-xs text-slate-400">{dict.subtitle}</p>
+              <p className="hidden sm:block text-xs text-slate-400 truncate mt-0.5">{dict.subtitle}</p>
+              <div className="sm:hidden flex items-center gap-2 text-xs font-mono font-bold mt-0.5 leading-none">
+                <span className="text-emerald-400">{formatMoney(currentCash)}</span>
+                <span className="text-slate-600">•</span>
+                <span className="text-cyan-300">Değer: {formatMoney(finance?.netWorth || 0, { decimals: 0 })}</span>
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            {/* Live Cash Badge */}
-            <div className="hidden sm:flex flex-col text-right">
-              <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                {dict.currentCash}
-              </span>
-              <span className="text-lg font-black text-emerald-400 font-mono tracking-tight">
-                ${currentCash.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+            {/* Live Cash Badge & Net Worth Badge (Desktop) */}
+            <div className="hidden sm:flex items-center gap-3 bg-slate-950/60 px-3 py-1.5 rounded-xl border border-slate-800">
+              <div className="flex flex-col text-right">
+                <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider">
+                  {dict.currentCash}
+                </span>
+                <span className="text-base sm:text-lg font-black text-emerald-400 font-mono tracking-tight">
+                  {formatMoney(currentCash)}
+                </span>
+              </div>
+
+              <div className="w-[1px] h-7 bg-slate-800" />
+
+              <div className="flex flex-col text-right">
+                <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider flex items-center gap-1 justify-end">
+                  <TrendingUp className="w-3 h-3 text-cyan-400" />
+                  <span>Şirket Değeri</span>
+                </span>
+                <span className="text-base sm:text-lg font-black text-cyan-300 font-mono tracking-tight">
+                  {formatMoney(finance?.netWorth || 0, { decimals: 0 })}
+                </span>
+              </div>
             </div>
 
             <button
               onClick={() => fetchTreasuryData(true)}
               disabled={refreshing}
               title="Yenile"
-              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 transition-colors"
+              className="p-1.5 sm:p-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 transition-colors"
             >
-              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin text-emerald-400' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${refreshing ? 'animate-spin text-emerald-400' : ''}`} />
             </button>
 
             <button
               onClick={onClose}
-              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 hover:text-white transition-colors"
+              className="p-1.5 sm:p-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 hover:text-white transition-colors"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
           </div>
         </div>
 
         {/* TIME RANGE SELECTOR TABS */}
-        <div className="px-5 py-3 border-b border-slate-800 flex items-center justify-between gap-2 bg-slate-950/20 overflow-x-auto">
-          <div className="flex items-center gap-1.5">
-            <Calendar className="w-4 h-4 text-slate-400 mr-1" />
+        <div className="px-3 sm:px-5 py-2 sm:py-3 border-b border-slate-800 flex items-center justify-between gap-2 bg-slate-950/20 overflow-x-auto shrink-0">
+          <div className="flex items-center gap-1 sm:gap-1.5">
+            <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 mr-0.5 sm:mr-1 shrink-0" />
             {ranges.map((r) => {
               const active = activeRange === r.id;
               return (
                 <button
                   key={r.id}
                   onClick={() => setActiveRange(r.id)}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                  className={`px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
                     active
                       ? 'bg-emerald-500 text-slate-950 shadow-md ring-1 ring-emerald-400'
                       : 'text-slate-400 hover:text-white hover:bg-slate-800'
@@ -284,12 +305,12 @@ export default function TreasuryModal({ isOpen, onClose, company, lang = 'tr' })
                   </div>
                   <div>
                     <div className="text-2xl font-black text-emerald-400 font-mono">
-                      +${currentStats.netRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      +{formatMoney(currentStats.netRevenue)}
                     </div>
                     <div className="flex items-center justify-between mt-2 text-[10px] text-slate-400">
                       <span>{(currentStats.totalSoldKwh / 1000).toFixed(2)} MWh Satıldı</span>
                       <span className="font-mono text-cyan-300">
-                        Ort. ${currentStats.avgPricePerKwh}/kWh
+                        Ort. {formatPricePerKwh(currentStats.avgPricePerKwh)}
                       </span>
                     </div>
                   </div>
@@ -304,10 +325,10 @@ export default function TreasuryModal({ isOpen, onClose, company, lang = 'tr' })
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between text-xs font-mono">
                       <span className="text-emerald-400 flex items-center gap-1 font-bold">
-                        <ArrowDownLeft className="w-3.5 h-3.5" /> +${currentStats.totalInflows.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                        <ArrowDownLeft className="w-3.5 h-3.5" /> +{formatMoney(currentStats.totalInflows, { decimals: 0 })}
                       </span>
                       <span className="text-rose-400 flex items-center gap-1 font-bold">
-                        <ArrowUpRight className="w-3.5 h-3.5" /> -${currentStats.totalOutflows.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                        <ArrowUpRight className="w-3.5 h-3.5" /> -{formatMoney(currentStats.totalOutflows, { decimals: 0 })}
                       </span>
                     </div>
 
@@ -339,7 +360,7 @@ export default function TreasuryModal({ isOpen, onClose, company, lang = 'tr' })
                       />
                     </div>
                     <div className="text-[10px] text-slate-400 text-right">
-                      Piyasa Komisyonu: -${currentStats.marketFees.toLocaleString()}
+                      Piyasa Komisyonu: -{formatMoney(currentStats.marketFees, { decimals: 0 })}
                     </div>
                   </div>
                 </div>
@@ -366,11 +387,7 @@ export default function TreasuryModal({ isOpen, onClose, company, lang = 'tr' })
                         currentStats.netCashFlow >= 0 ? 'text-emerald-400' : 'text-rose-400'
                       }`}
                     >
-                      {currentStats.netCashFlow >= 0 ? '+' : ''}$
-                      {currentStats.netCashFlow.toLocaleString('en-US', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2
-                      })}
+                      {currentStats.netCashFlow >= 0 ? '+' : ''}{formatMoney(currentStats.netCashFlow)}
                     </div>
                     <div className="text-[10px] text-slate-400 mt-2">
                       {currentStats.netCashFlow >= 0
@@ -412,13 +429,13 @@ export default function TreasuryModal({ isOpen, onClose, company, lang = 'tr' })
                               Saat {pt.gameHour % 24}:00 (Gün {Math.floor(pt.gameHour / 24) + 1})
                             </span>
                             <span className="text-emerald-400 font-mono">
-                              Gelir: +${pt.revenue.toFixed(2)}
+                              Gelir: +{formatMoney(pt.revenue)}
                             </span>
                             <span className="text-slate-300">
                               Satış: {(pt.kwh / 1000).toFixed(2)} MWh
                             </span>
                             <span className="text-amber-400 font-mono">
-                              Fiyat: ${pt.price}/kWh
+                              Fiyat: {formatPricePerKwh(pt.price)}
                             </span>
                           </div>
 
@@ -447,14 +464,14 @@ export default function TreasuryModal({ isOpen, onClose, company, lang = 'tr' })
                     <div className="flex items-center justify-between py-1 border-b border-slate-800/60">
                       <span className="text-slate-400">Elektrik Satış Geliri:</span>
                       <strong className="text-emerald-400 font-mono">
-                        +${currentStats.breakdown.electricitySales.toLocaleString()}
+                        +{formatMoney(currentStats.breakdown.electricitySales || 0, { decimals: 0 })}
                       </strong>
                     </div>
                     {currentStats.breakdown.grants > 0 && (
                       <div className="flex items-center justify-between py-1 border-b border-slate-800/60">
                         <span className="text-slate-400">Devlet / Başlangıç Hibesi:</span>
                         <strong className="text-teal-400 font-mono">
-                          +${currentStats.breakdown.grants.toLocaleString()}
+                          +{formatMoney(currentStats.breakdown.grants, { decimals: 0 })}
                         </strong>
                       </div>
                     )}
@@ -462,7 +479,7 @@ export default function TreasuryModal({ isOpen, onClose, company, lang = 'tr' })
                       <div className="flex items-center justify-between py-1 border-b border-slate-800/60">
                         <span className="text-slate-400">Banka Kredisi Girişleri:</span>
                         <strong className="text-indigo-400 font-mono">
-                          +${currentStats.breakdown.loanDisbursements.toLocaleString()}
+                          +{formatMoney(currentStats.breakdown.loanDisbursements, { decimals: 0 })}
                         </strong>
                       </div>
                     )}
@@ -478,23 +495,20 @@ export default function TreasuryModal({ isOpen, onClose, company, lang = 'tr' })
                     <div className="flex items-center justify-between py-1 border-b border-slate-800/60">
                       <span className="text-slate-400">Türbin & Panel Ekipman Alımı:</span>
                       <strong className="text-rose-400 font-mono">
-                        -${currentStats.breakdown.equipmentPurchases.toLocaleString()}
+                        -{formatMoney(currentStats.breakdown.equipmentPurchases || 0, { decimals: 0 })}
                       </strong>
                     </div>
                     <div className="flex items-center justify-between py-1 border-b border-slate-800/60">
                       <span className="text-slate-400">Arazi Kiralama / Tapu Alımı:</span>
                       <strong className="text-rose-400 font-mono">
-                        -$
-                        {(
-                          currentStats.breakdown.siteLeases + currentStats.breakdown.sitePurchases
-                        ).toLocaleString()}
+                        -{formatMoney((currentStats.breakdown.siteLeases || 0) + (currentStats.breakdown.sitePurchases || 0), { decimals: 0 })}
                       </strong>
                     </div>
                     {currentStats.breakdown.solarTrackerUpgrades > 0 && (
                       <div className="flex items-center justify-between py-1 border-b border-slate-800/60">
                         <span className="text-slate-400">Güneş Takipçi Yükseltmeleri:</span>
                         <strong className="text-rose-400 font-mono">
-                          -${currentStats.breakdown.solarTrackerUpgrades.toLocaleString()}
+                          -{formatMoney(currentStats.breakdown.solarTrackerUpgrades, { decimals: 0 })}
                         </strong>
                       </div>
                     )}
@@ -502,7 +516,7 @@ export default function TreasuryModal({ isOpen, onClose, company, lang = 'tr' })
                       <div className="flex items-center justify-between py-1 border-b border-slate-800/60">
                         <span className="text-slate-400">Kredi Taksit & Faiz Ödemeleri:</span>
                         <strong className="text-rose-400 font-mono">
-                          -${currentStats.breakdown.loanRepayments.toLocaleString()}
+                          -{formatMoney(currentStats.breakdown.loanRepayments, { decimals: 0 })}
                         </strong>
                       </div>
                     )}
@@ -565,11 +579,10 @@ export default function TreasuryModal({ isOpen, onClose, company, lang = 'tr' })
                                   isPositive ? 'text-emerald-400' : 'text-rose-400'
                                 }`}
                               >
-                                {isPositive ? '+' : ''}$
-                                {tx.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                {isPositive ? '+' : ''}{formatMoney(tx.amount)}
                               </td>
                               <td className="py-2.5 px-3 text-right text-slate-400 whitespace-nowrap">
-                                ${tx.balanceAfter.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                {formatMoney(tx.balanceAfter)}
                               </td>
                             </tr>
                           );

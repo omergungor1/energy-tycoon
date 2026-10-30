@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Globe, Wind, Sun, Layers, Check, AlertCircle, ShieldCheck } from 'lucide-react';
 import { dictionaries } from '@/lib/i18n/dictionaries';
+import { useCurrency } from '@/context/CurrencyContext';
 
 function getRegionBadge(regionType, lang = 'tr') {
   if (regionType === 'wind') {
@@ -39,6 +40,7 @@ export default function SitesPanel({
   onActionSuccess
 }) {
   const dict = dictionaries[lang] || dictionaries.tr;
+  const { formatMoney } = useCurrency();
   const [filter, setFilter] = useState('all');
   const [loadingId, setLoadingId] = useState(null);
   const [feedback, setFeedback] = useState(null);
@@ -275,14 +277,14 @@ export default function SitesPanel({
                       onClick={() => handleBuy(site)}
                       className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold rounded-xl text-xs transition-colors flex items-center justify-center gap-1 disabled:opacity-50"
                     >
-                      {loadingId === `buy_${site.id}` ? 'İşleniyor...' : `Tapusunu Satın Al ($${buyCost.toLocaleString()})`}
+                      {loadingId === `buy_${site.id}` ? 'İşleniyor...' : `Tapusunu Satın Al (${formatMoney(buyCost, { decimals: 0 })})`}
                     </button>
                   </div>
                 ) : (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-xs text-slate-400">
-                      <span>Yıllık Kira: <strong className="text-white font-mono">${lease1Cost.toLocaleString()}</strong></span>
-                      <span>Satış: <strong className="text-white font-mono">${buyCost.toLocaleString()}</strong></span>
+                      <span>Yıllık Kira: <strong className="text-white font-mono">{formatMoney(lease1Cost, { decimals: 0 })}</strong></span>
+                      <span>Satış: <strong className="text-white font-mono">{formatMoney(buyCost, { decimals: 0 })}</strong></span>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2">

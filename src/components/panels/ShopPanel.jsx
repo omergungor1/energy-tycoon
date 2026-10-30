@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Image from 'next/image';
 import { Wind, Sun, BatteryCharging, ShoppingCart, Check, AlertCircle } from 'lucide-react';
 import { dictionaries } from '@/lib/i18n/dictionaries';
+import { useCurrency } from '@/context/CurrencyContext';
 
 function getEquipmentImage(item) {
   if (item.equipment_type === 'wind_turbine') {
@@ -26,6 +27,7 @@ export default function ShopPanel({
   onActionSuccess
 }) {
   const dict = dictionaries[lang] || dictionaries.tr;
+  const { formatMoney } = useCurrency();
   const [activeType, setActiveType] = useState('wind_turbine');
   const [selectedSiteId, setSelectedSiteId] = useState(companySites[0]?.id || '');
   const [loadingId, setLoadingId] = useState(null);
@@ -222,7 +224,7 @@ export default function ShopPanel({
                 {loadingId === 'tracker' ? (
                   <span className="animate-spin rounded-full h-4 w-4 border-2 border-slate-950 border-t-transparent" />
                 ) : (
-                  <span>Güneş Takip Sistemi Kur ($28.000)</span>
+                  <span>Güneş Takip Sistemi Kur ({formatMoney(28000, { decimals: 0 })})</span>
                 )}
               </button>
             )}
@@ -345,7 +347,7 @@ export default function ShopPanel({
                 <div>
                   <span className="text-[10px] text-slate-500 block font-semibold uppercase">Fiyat</span>
                   <div className="text-lg font-black text-white font-mono">
-                    ${cost.toLocaleString()}
+                    {formatMoney(cost, { decimals: 0 })}
                   </div>
                 </div>
 

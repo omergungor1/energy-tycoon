@@ -12,7 +12,10 @@ import {
   Check,
   Eye,
   EyeOff,
-  Sliders
+  Sliders,
+  CircleDot,
+  Tag,
+  Sunset
 } from 'lucide-react';
 import { dictionaries } from '@/lib/i18n/dictionaries';
 
@@ -21,7 +24,10 @@ export const DEFAULT_SETTINGS = {
   graphicQuality: 'high', // 'low' | 'medium' | 'high' | 'ultra'
   showClouds: true,
   showTraffic: true,
-  showWildlife: true
+  showWildlife: true,
+  showSiteBoundaries: true,
+  showSiteLabels: true,
+  firewatchMode: true
 };
 
 export default function SettingsPanel({
@@ -159,7 +165,7 @@ export default function SettingsPanel({
             {/* Switch Toggle */}
             <button
               onClick={() => handleToggle('showInfrastructure')}
-              className={`w-14 h-7 rounded-full transition-colors relative flex items-center px-1 focus:outline-none ${
+              className={`w-14 h-7 rounded-full transition-colors relative flex items-center px-1 focus:outline-none cursor-pointer ${
                 settings.showInfrastructure ? 'bg-cyan-500' : 'bg-slate-800'
               }`}
             >
@@ -172,14 +178,122 @@ export default function SettingsPanel({
           </div>
         </div>
 
-        {/* Section 3: Living World Environment */}
+        {/* Section 3: Plant & Site Markers Visibility (Rings & Labels Toggle) */}
         <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg">
           <div className="flex items-center gap-2 mb-4">
-            <Sliders className="w-5 h-5 text-emerald-400" />
+            <CircleDot className="w-5 h-5 text-emerald-400" />
+            <h3 className="font-extrabold text-base text-white">{dict.siteMarkersTitle}</h3>
+          </div>
+
+          <div className="space-y-3">
+            {/* Site Boundary Rings & Pylons Toggle */}
+            <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-4 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-emerald-950/60 border border-emerald-800/80 flex items-center justify-center text-emerald-400 shrink-0">
+                  <CircleDot className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="font-bold text-sm text-white flex items-center gap-2">
+                    {dict.showSiteBoundaries}
+                    {settings.showSiteBoundaries ? (
+                      <Eye className="w-4 h-4 text-emerald-400" />
+                    ) : (
+                      <EyeOff className="w-4 h-4 text-slate-500" />
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-400">{dict.showSiteBoundariesDesc}</p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => handleToggle('showSiteBoundaries')}
+                className={`w-14 h-7 rounded-full transition-colors relative flex items-center px-1 focus:outline-none cursor-pointer shrink-0 ${
+                  settings.showSiteBoundaries ? 'bg-emerald-500' : 'bg-slate-800'
+                }`}
+              >
+                <div
+                  className={`w-5 h-5 rounded-full bg-white transition-transform shadow-md ${
+                    settings.showSiteBoundaries ? 'translate-x-7' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Site Name Labels & 3D Badges Toggle */}
+            <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-4 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-cyan-950/60 border border-cyan-800/80 flex items-center justify-center text-cyan-400 shrink-0">
+                  <Tag className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="font-bold text-sm text-white flex items-center gap-2">
+                    {dict.showSiteLabels}
+                    {settings.showSiteLabels ? (
+                      <Eye className="w-4 h-4 text-cyan-400" />
+                    ) : (
+                      <EyeOff className="w-4 h-4 text-slate-500" />
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-400">{dict.showSiteLabelsDesc}</p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => handleToggle('showSiteLabels')}
+                className={`w-14 h-7 rounded-full transition-colors relative flex items-center px-1 focus:outline-none cursor-pointer shrink-0 ${
+                  settings.showSiteLabels ? 'bg-cyan-500' : 'bg-slate-800'
+                }`}
+              >
+                <div
+                  className={`w-5 h-5 rounded-full bg-white transition-transform shadow-md ${
+                    settings.showSiteLabels ? 'translate-x-7' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Section 4: Living World Environment */}
+        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg">
+          <div className="flex items-center gap-2 mb-4">
+            <Sliders className="w-5 h-5 text-amber-400" />
             <h3 className="font-extrabold text-base text-white">{dict.worldEnvironment}</h3>
           </div>
 
           <div className="space-y-3">
+            {/* Firewatch Cinematic Aesthetic Toggle */}
+            <div className="bg-slate-950/60 border border-amber-900/40 rounded-xl p-4 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-amber-950/70 border border-amber-700/80 flex items-center justify-center text-amber-400 shrink-0">
+                  <Sunset className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="font-bold text-sm text-amber-300 flex items-center gap-2">
+                    {dict.firewatchAtmosphere}
+                    {settings.firewatchMode && (
+                      <span className="text-[10px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded font-mono font-bold">
+                        ÖNERİLEN
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-400">{dict.firewatchAtmosphereDesc}</p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => handleToggle('firewatchMode')}
+                className={`w-14 h-7 rounded-full transition-colors relative flex items-center px-1 focus:outline-none cursor-pointer shrink-0 ${
+                  settings.firewatchMode ? 'bg-amber-500' : 'bg-slate-800'
+                }`}
+              >
+                <div
+                  className={`w-5 h-5 rounded-full bg-white transition-transform shadow-md ${
+                    settings.firewatchMode ? 'translate-x-7' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
             {/* Clouds Toggle */}
             <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-4 flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">

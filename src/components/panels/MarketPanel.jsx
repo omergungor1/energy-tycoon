@@ -3,6 +3,7 @@
 import React from 'react';
 import { BarChart3, TrendingUp, Info } from 'lucide-react';
 import { dictionaries } from '@/lib/i18n/dictionaries';
+import { useCurrency } from '@/context/CurrencyContext';
 
 export default function MarketPanel({
   spotPrice,
@@ -11,6 +12,7 @@ export default function MarketPanel({
   lang
 }) {
   const dict = dictionaries[lang] || dictionaries.tr;
+  const { formatPricePerKwh, currency, exchangeRate } = useCurrency();
   const currentHour = Number(clock?.gameHour || 0);
 
   // Find min and max for chart scaling
@@ -34,10 +36,10 @@ export default function MarketPanel({
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-md">
           <span className="text-xs text-slate-400 font-semibold uppercase">{dict.market.currentPrice}</span>
           <div className="text-3xl font-black text-emerald-400 font-mono mt-1">
-            ${spotPrice?.pricePerKwh} <span className="text-sm font-normal text-slate-400">/ kWh</span>
+            {formatPricePerKwh(spotPrice?.pricePerKwh)}
           </div>
           <span className="text-xs text-slate-500 font-mono block mt-1">
-            (${spotPrice?.pricePerMwh} / MWh)
+            ({currency === 'TRY' ? `₺${(Number(spotPrice?.pricePerMwh || 0) * exchangeRate).toFixed(2)}` : `$${spotPrice?.pricePerMwh}`} / MWh)
           </span>
         </div>
 
@@ -106,7 +108,7 @@ export default function MarketPanel({
                   <div className="font-semibold text-slate-300">
                     Saat {p.hourOfDay}:00 {isCurrent ? '• Şu An' : isPast ? '• Geçmiş' : '• Tahmin'}
                   </div>
-                  <strong className="text-emerald-400 font-mono text-xs">${p.pricePerKwh} / kWh</strong>
+                  <strong className="text-emerald-400 font-mono text-xs">{formatPricePerKwh(p.pricePerKwh)}</strong>
                 </div>
 
                 <div

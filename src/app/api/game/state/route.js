@@ -143,7 +143,7 @@ export async function GET() {
       admin.from('loans').select('*').eq('company_id', company.id).eq('status', 'active'),
       admin.from('company_notifications').select('*').eq('company_id', company.id).order('created_at', { ascending: false }).limit(20),
       admin.from('hourly_energy_settlements').select('*').eq('company_id', company.id).order('game_hour', { ascending: false }).limit(24),
-      admin.from('companies').select('id, name, level, cash').order('cash', { ascending: false }).limit(10)
+      admin.from('companies').select('id, name, level, cash, xp').order('cash', { ascending: false }).limit(20)
     ]);
 
     const simState = simStateRes.data || { epoch_real_utc_ms: Date.now(), epoch_game_hour: 0, world_seed: 42 };
