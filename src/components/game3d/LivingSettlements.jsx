@@ -435,7 +435,7 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
           {/* Rotating High-Power Searchlight Beam at Night */}
           <group ref={lighthouseBeamRef} position={[0, 17.0, 0]}>
             <mesh position={[0, 0, 35]} rotation={[Math.PI / 2, 0, 0]}>
-              <cylinderGeometry args={[0.4, 8.5, 70, 16, 1, true]} />
+              <cylinderGeometry args={[9.5, 0.3, 70, 16, 1, true]} />
               <meshBasicMaterial
                 color="#fef08a"
                 transparent

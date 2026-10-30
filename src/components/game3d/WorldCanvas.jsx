@@ -1154,6 +1154,121 @@ function FirewatchSkyDome() {
   );
 }
 
+// Deep Midnight Starlit Sky Dome with Glowing Luminous Full Moon
+function NightSkyAndMoon() {
+  const moonGroupRef = useRef();
+
+  const skyGeo = useMemo(() => {
+    const geo = new THREE.SphereGeometry(4400, 36, 24);
+    const pos = geo.attributes.position;
+    const colors = new Float32Array(pos.count * 3);
+
+    for (let i = 0; i < pos.count; i++) {
+      const y = pos.getY(i) / 4400; // -1 to +1
+
+      let c = new THREE.Color();
+      if (y > 0.45) {
+        // Deep space cosmic navy / indigo zenith
+        const t = (y - 0.45) / 0.55;
+        c.lerpColors(new THREE.Color('#070b19'), new THREE.Color('#020617'), t);
+      } else if (y > 0.08) {
+        // Mid-altitude midnight blue
+        const t = (y - 0.08) / 0.37;
+        c.lerpColors(new THREE.Color('#0f172a'), new THREE.Color('#070b19'), t);
+      } else if (y > -0.06) {
+        // Soft moonlit horizon haze
+        const t = Math.max(0, (y + 0.06) / 0.14);
+        c.lerpColors(new THREE.Color('#1e293b'), new THREE.Color('#0f172a'), t);
+      } else {
+        // Sub-horizon abyss
+        c.set('#020617');
+      }
+
+      colors[i * 3] = c.r;
+      colors[i * 3 + 1] = c.g;
+      colors[i * 3 + 2] = c.b;
+    }
+
+    geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    return geo;
+  }, []);
+
+  // 650 Twinkling Starlight Points in Upper Hemisphere
+  const starsGeo = useMemo(() => {
+    const starCount = 650;
+    const starPositions = new Float32Array(starCount * 3);
+    for (let i = 0; i < starCount; i++) {
+      const u = Math.random();
+      const v = Math.random() * 0.75 + 0.15; // upper hemisphere
+      const theta = u * 2.0 * Math.PI;
+      const phi = Math.acos(2.0 * v - 1.0);
+      const r = 4100 + Math.random() * 150;
+
+      starPositions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+      starPositions[i * 3 + 1] = Math.abs(r * Math.cos(phi));
+      starPositions[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+    return geo;
+  }, []);
+
+  useEffect(() => {
+    if (moonGroupRef.current) {
+      moonGroupRef.current.lookAt(0, 0, 0);
+    }
+  }, []);
+
+  return (
+    <group>
+      {/* 360-Degree Midnight Blue Sky Gradient Hemisphere */}
+      <mesh geometry={skyGeo}>
+        <meshBasicMaterial vertexColors side={THREE.BackSide} depthWrite={false} />
+      </mesh>
+
+      {/* Twinkling High-Altitude Stars */}
+      <points geometry={starsGeo}>
+        <pointsMaterial size={8.5} color="#cbd5e1" transparent opacity={0.85} sizeAttenuation={false} />
+      </points>
+
+      {/* Radiant Luminous Moon (Aligned with Night Directional Light) */}
+      <group
+        ref={moonGroupRef}
+        position={[-920, 1920, -710]}
+      >
+        {/* Core Glowing Pearl Moon Disc */}
+        <mesh position={[0, 0, 0]}>
+          <circleGeometry args={[115, 32]} />
+          <meshBasicMaterial color="#f8fafc" />
+        </mesh>
+        {/* Subtle Lunar Craters / Topography */}
+        <mesh position={[-25, 20, 1]}>
+          <circleGeometry args={[26, 16]} />
+          <meshBasicMaterial color="#e2e8f0" transparent opacity={0.65} />
+        </mesh>
+        <mesh position={[28, -15, 1]}>
+          <circleGeometry args={[32, 16]} />
+          <meshBasicMaterial color="#cbd5e1" transparent opacity={0.55} />
+        </mesh>
+        <mesh position={[-10, -32, 1]}>
+          <circleGeometry args={[20, 16]} />
+          <meshBasicMaterial color="#cbd5e1" transparent opacity={0.55} />
+        </mesh>
+        {/* Soft Silvery-Cyan Inner Lunar Corona */}
+        <mesh position={[0, 0, -2]}>
+          <ringGeometry args={[110, 260, 32]} />
+          <meshBasicMaterial color="#7dd3fc" transparent opacity={0.36} side={THREE.DoubleSide} />
+        </mesh>
+        {/* Wide Ambient Moonlit Glow */}
+        <mesh position={[0, 0, -4]}>
+          <ringGeometry args={[250, 680, 32]} />
+          <meshBasicMaterial color="#38bdf8" transparent opacity={0.16} side={THREE.DoubleSide} />
+        </mesh>
+      </group>
+    </group>
+  );
+}
+
 // Procedural Multi-Layered Mountain Silhouette Ridges Framing the Firewatch Horizon
 function createMountainRidgeGeo(radius, minHeight, maxHeight, segments = 96, harmonics = [5, 9, 17]) {
   const geo = new THREE.BufferGeometry();
@@ -2253,8 +2368,8 @@ function IslandVegetation({ season = 'summer' }) {
   );
 }
 
-// Atmospheric Drifting Sky Clouds with Warm Firewatch Sunset Tinting
-function AtmosphericClouds() {
+// Atmospheric Drifting Sky Clouds (Warm Sunset in Day, Moonlit Slate at Night)
+function AtmosphericClouds({ isNight = false }) {
   const cloudsGroupRef = useRef();
 
   const clouds = useMemo(() => {
@@ -2282,21 +2397,26 @@ function AtmosphericClouds() {
     });
   });
 
+  const mainColor = isNight ? '#334155' : '#fff1e6';
+  const subColor = isNight ? '#1e293b' : '#fed7aa';
+  const opacityMain = isNight ? 0.65 : 0.88;
+  const opacitySub = isNight ? 0.58 : 0.85;
+
   return (
     <group ref={cloudsGroupRef}>
       {clouds.map((c, idx) => (
         <group key={idx} position={[c.x, c.y, c.z]} scale={c.scale}>
-          <mesh position={[0, 0, 0]} castShadow>
+          <mesh position={[0, 0, 0]} castShadow={!isNight}>
             <sphereGeometry args={[28, 8, 8]} />
-            <meshStandardMaterial color="#fff1e6" roughness={0.9} transparent opacity={0.88} />
+            <meshStandardMaterial color={mainColor} roughness={0.9} transparent opacity={opacityMain} />
           </mesh>
           <mesh position={[22, -4, 6]}>
             <sphereGeometry args={[20, 8, 8]} />
-            <meshStandardMaterial color="#fed7aa" roughness={0.9} transparent opacity={0.85} />
+            <meshStandardMaterial color={subColor} roughness={0.9} transparent opacity={opacitySub} />
           </mesh>
           <mesh position={[-20, -3, -5]}>
             <sphereGeometry args={[22, 8, 8]} />
-            <meshStandardMaterial color="#fed7aa" roughness={0.9} transparent opacity={0.85} />
+            <meshStandardMaterial color={subColor} roughness={0.9} transparent opacity={opacitySub} />
           </mesh>
         </group>
       ))}
@@ -3012,8 +3132,8 @@ export default function WorldCanvas({
           </>
         )}
 
-        {/* 360-Degree Firewatch Sky Gradient Hemisphere & Radiant Sunset Disc */}
-        {!isNight && <FirewatchSkyDome />}
+        {/* 360-Degree Firewatch Sky Dome (Day Sunset with Sun Disc) / Deep Starlit Night with Radiant Moon */}
+        {!isNight ? <FirewatchSkyDome /> : <NightSkyAndMoon />}
 
         {/* Distant Multi-Layered Firewatch Mountain Silhouette Ridges */}
         <FirewatchDistantMountains />
@@ -3033,10 +3153,10 @@ export default function WorldCanvas({
         {/* 2. Living Settlements: Pine Ridge Alpine Village, Sunfire Coastal City, Farm, Industrial Park & Harbor Pier */}
         <LivingSettlements isNight={isNight} season={season} />
 
-        {/* 3. Island Railway Network with Moving Freight Train */}
+        {/* 3. Island Railway Network with Moving Freight Train (Active Day & Night with Headlights) */}
         <RailwaySystem isNight={isNight} />
 
-        {/* 4. Natural Wildlife & Living Sky: Hot Air Balloons, Commuter Airplane, Grazing Deer */}
+        {/* 4. Natural Wildlife & Living Sky: Hot Air Balloons (Day), Commuter Airplane (Day), Grazing Deer */}
         <WildlifeAndSky isNight={isNight} />
 
         {/* Iconic Firewatch Lookout Tower on the Western Ridge */}
@@ -3048,19 +3168,19 @@ export default function WorldCanvas({
         {/* Central High-Voltage Substation */}
         <SubstationNode position={[0, 0, 0]} showLabels={showInfrastructure} />
 
-        {/* Living World: 3D Ribbon Roads with Highway Streetlights & Active Vehicle Traffic */}
+        {/* Living World: 3D Ribbon Roads with Highway Streetlights (Traffic Roams in Daytime Only) */}
         {showTraffic && (
           <>
             <IslandRoads />
-            <TrafficVehicles />
+            {!isNight && <TrafficVehicles />}
           </>
         )}
 
-        {/* Living World: Clouds */}
-        {showClouds && <AtmosphericClouds />}
+        {/* Living World: Clouds (Adapts to Day Peach Sunset / Night Moonlit Slate) */}
+        {showClouds && <AtmosphericClouds isNight={isNight} />}
 
-        {/* Living World: Wildlife Birds */}
-        {showWildlife && <BirdFlock />}
+        {/* Living World: Wildlife Birds (Daytime Only - Resting at Night) */}
+        {showWildlife && !isNight && <BirdFlock />}
 
         {/* Power Grid Lines from Central Substation to key sites (Toggled via Settings) */}
         {showInfrastructure &&

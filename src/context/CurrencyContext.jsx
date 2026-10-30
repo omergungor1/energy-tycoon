@@ -113,9 +113,40 @@ export function CurrencyProvider({ children }) {
     await fetchLiveRate();
   };
 
+  // Format compact currency amount for mobile / narrow spaces (e.g., $101k, $2M, $1B - no decimals)
+  const formatCompactMoney = useCallback(
+    (amountInUsd, options = {}) => {
+      const num = Number(amountInUsd || 0);
+      const showSymbol = options.showSymbol !== undefined ? options.showSymbol : true;
+      const targetVal = currency === 'TRY' ? num * exchangeRate : num;
+      const sym = currency === 'TRY' ? '₺' : '$';
+
+      const abs = Math.abs(targetVal);
+      const sign = targetVal < 0 ? '-' : '';
+
+      let formattedNumber = '';
+      if (abs >= 1e9) {
+        formattedNumber = `${Math.floor(abs / 1e9)}B`;
+      } else if (abs >= 1e6) {
+        formattedNumber = `${Math.floor(abs / 1e6)}M`;
+      } else if (abs >= 1e3) {
+        formattedNumber = `${Math.floor(abs / 1e3)}k`;
+      } else {
+        formattedNumber = `${Math.floor(abs)}`;
+      }
+
+      return showSymbol ? `${sign}${sym}${formattedNumber}` : `${sign}${formattedNumber}`;
+    },
+    [currency, exchangeRate]
+  );
+
   // Format currency amount (converts USD base amount to current currency)
   const formatMoney = useCallback(
     (amountInUsd, options = {}) => {
+      if (options.compact) {
+        return formatCompactMoney(amountInUsd, options);
+      }
+
       const num = Number(amountInUsd || 0);
       const decimals = options.decimals !== undefined ? options.decimals : 2;
       const showSymbol = options.showSymbol !== undefined ? options.showSymbol : true;
@@ -136,7 +167,7 @@ export function CurrencyProvider({ children }) {
       });
       return showSymbol ? `$${formatted}` : formatted;
     },
-    [currency, exchangeRate]
+    [currency, exchangeRate, formatCompactMoney]
   );
 
   // Format per-kWh electricity rates (4 decimal precision)
@@ -165,6 +196,7 @@ export function CurrencyProvider({ children }) {
     loadingRate,
     lastUpdated,
     formatMoney,
+    formatCompactMoney,
     formatPricePerKwh,
     symbol
   };
@@ -186,11 +218,34 @@ export function useCurrency() {
       isManualRate: false,
       loadingRate: false,
       lastUpdated: null,
-      formatMoney: (val, opts = {}) =>
-        `$${Number(val || 0).toLocaleString('en-US', {
+      formatMoney: (val, opts = {}) => {
+        if (opts.compact) {
+          const num = Number(val || 0);
+          const abs = Math.abs(num);
+          const sign = num < 0 ? '-' : '';
+          let str = '';
+          if (abs >= 1e9) str = `${Math.floor(abs / 1e9)}B`;
+          else if (abs >= 1e6) str = `${Math.floor(abs / 1e6)}M`;
+          else if (abs >= 1e3) str = `${Math.floor(abs / 1e3)}k`;
+          else str = `${Math.floor(abs)}`;
+          return `${sign}$${str}`;
+        }
+        return `$${Number(val || 0).toLocaleString('en-US', {
           minimumFractionDigits: opts.decimals ?? 2,
           maximumFractionDigits: opts.decimals ?? 2
-        })}`,
+        })}`;
+      },
+      formatCompactMoney: (val, opts = {}) => {
+        const num = Number(val || 0);
+        const abs = Math.abs(num);
+        const sign = num < 0 ? '-' : '';
+        let str = '';
+        if (abs >= 1e9) str = `${Math.floor(abs / 1e9)}B`;
+        else if (abs >= 1e6) str = `${Math.floor(abs / 1e6)}M`;
+        else if (abs >= 1e3) str = `${Math.floor(abs / 1e3)}k`;
+        else str = `${Math.floor(abs)}`;
+        return `${sign}$${str}`;
+      },
       formatPricePerKwh: (val) => `$${Number(val || 0).toFixed(4)}/kWh`,
       symbol: '$'
     };

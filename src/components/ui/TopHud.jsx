@@ -29,7 +29,9 @@ import {
   Edit3,
   RotateCcw,
   X,
-  Menu
+  Menu,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 import { dictionaries } from '@/lib/i18n/dictionaries';
 import { useCurrency } from '@/context/CurrencyContext';
@@ -51,7 +53,9 @@ export default function TopHud({
   onOpenMarket,
   mySites = [],
   focusedSite = null,
-  onFocusPlant = () => {}
+  onFocusPlant = () => {},
+  settings = null,
+  onUpdateSettings = null
 }) {
   const dict = dictionaries[lang] || dictionaries.tr;
   const isNight = clock?.isNight ?? false;
@@ -74,6 +78,7 @@ export default function TopHud({
     isManualRate,
     loadingRate,
     formatMoney,
+    formatCompactMoney,
     formatPricePerKwh
   } = useCurrency();
 
@@ -650,8 +655,35 @@ export default function TopHud({
             className="flex items-center gap-1 bg-emerald-950/70 hover:bg-emerald-900/80 border border-emerald-500/40 hover:border-emerald-400 px-1.5 xs:px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl text-emerald-300 font-bold text-[11px] sm:text-xs transition-all shadow-sm active:scale-95 cursor-pointer font-mono shrink-0"
           >
             <DollarSign className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-400 shrink-0" />
-            <span>{formatMoney(company?.cash || 0, { decimals: 0 })}</span>
+            <span className="sm:hidden">{formatCompactMoney(company?.cash || 0)}</span>
+            <span className="hidden sm:inline">{formatMoney(company?.cash || 0, { decimals: 0 })}</span>
           </button>
+
+          {/* Desktop Quick Audio Mute / Unmute Button */}
+          {settings && onUpdateSettings && (
+            <button
+              type="button"
+              onClick={() => {
+                onUpdateSettings({ ...settings, bgMusicEnabled: !settings.bgMusicEnabled });
+              }}
+              title={
+                settings.bgMusicEnabled
+                  ? (lang === 'tr' ? 'Müziği Kapat (Sessiz)' : 'Mute Background Music')
+                  : (lang === 'tr' ? 'Müziği Aç (Firewatch / Minecraft)' : 'Unmute Background Music')
+              }
+              className={`hidden md:flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full border transition-all select-none cursor-pointer shrink-0 ${
+                settings.bgMusicEnabled
+                  ? 'bg-slate-900 hover:bg-slate-800 text-emerald-400 border-slate-700/80 hover:border-emerald-500/50'
+                  : 'bg-slate-950 hover:bg-slate-900 text-slate-500 border-slate-800 hover:border-slate-700'
+              }`}
+            >
+              {settings.bgMusicEnabled ? (
+                <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
+              ) : (
+                <VolumeX className="w-3.5 h-3.5 text-slate-500" />
+              )}
+            </button>
+          )}
 
           {/* Compact Circular User Icon & Dropdown Menu */}
           <div className="relative shrink-0" ref={userMenuRef}>
@@ -894,6 +926,61 @@ export default function TopHud({
                     </div>
                   )}
                 </div>
+
+                {/* Quick Background Music Mute / Unmute & Volume */}
+                {settings && onUpdateSettings && (
+                  <div className="p-2 border-t border-slate-800/80 bg-slate-950/40 rounded-xl my-1">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                        {settings.bgMusicEnabled !== false ? (
+                          <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
+                        ) : (
+                          <VolumeX className="w-3.5 h-3.5 text-slate-500" />
+                        )}
+                        <span>{lang === 'tr' ? 'Müzik' : 'Music'}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onUpdateSettings({ ...settings, bgMusicEnabled: settings.bgMusicEnabled === false });
+                        }}
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+                          settings.bgMusicEnabled !== false
+                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm'
+                            : 'bg-slate-950/60 text-slate-400 border-slate-800 hover:text-white'
+                        }`}
+                      >
+                        <span>{settings.bgMusicEnabled !== false ? (lang === 'tr' ? 'Açık' : 'On') : (lang === 'tr' ? 'Kapalı' : 'Off')}</span>
+                      </button>
+                    </div>
+
+                    {/* Volume Slider in Quick Menu */}
+                    <div className="mt-2 pt-1 border-t border-slate-800/60">
+                      <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
+                        <span>{lang === 'tr' ? 'Ses Düzeyi' : 'Volume'}</span>
+                        <span className="font-mono font-bold text-emerald-400">
+                          %{Math.round((typeof settings.bgMusicVolume === 'number' ? settings.bgMusicVolume : 0.65) * 100)}
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value={typeof settings.bgMusicVolume === 'number' ? settings.bgMusicVolume : 0.65}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value);
+                          onUpdateSettings({
+                            ...settings,
+                            bgMusicVolume: val,
+                            bgMusicEnabled: val > 0 ? true : settings.bgMusicEnabled
+                          });
+                        }}
+                        className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500 hover:accent-emerald-400"
+                      />
+                    </div>
+                  </div>
+                )}
 
                 {/* Divider */}
                 <div className="my-1 border-t border-slate-800/80" />

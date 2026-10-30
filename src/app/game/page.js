@@ -21,6 +21,7 @@ import DriveOverlay from '@/components/ui/DriveOverlay';
 import WalkOverlay from '@/components/ui/WalkOverlay';
 import CinematicOverlay from '@/components/ui/CinematicOverlay';
 import { CurrencyProvider } from '@/context/CurrencyContext';
+import ambientMusic from '@/lib/audio/ambientMusic';
 import {
   X,
   Globe,
@@ -142,7 +143,14 @@ export default function GamePage() {
     try {
       const saved = localStorage.getItem('energy_tycoon_settings');
       if (saved) {
-        setSettings((prev) => ({ ...prev, ...JSON.parse(saved) }));
+        const parsed = JSON.parse(saved);
+        setSettings((prev) => ({
+          ...DEFAULT_SETTINGS,
+          ...prev,
+          ...parsed,
+          bgMusicVolume: typeof parsed.bgMusicVolume === 'number' ? parsed.bgMusicVolume : 0.65,
+          bgMusicEnabled: parsed.bgMusicEnabled !== undefined ? parsed.bgMusicEnabled : true
+        }));
       }
     } catch (e) {
       console.error('Settings load error:', e);
@@ -157,6 +165,40 @@ export default function GamePage() {
       console.error('Settings save error:', e);
     }
   };
+
+  // Synchronize background music with user settings
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    ambientMusic.setMusicEnabled(settings.bgMusicEnabled !== false);
+    ambientMusic.setMusicVolume(typeof settings.bgMusicVolume === 'number' ? settings.bgMusicVolume : 0.65);
+  }, [settings.bgMusicEnabled, settings.bgMusicVolume]);
+
+  // Synchronize night mode with ambient music engine
+  useEffect(() => {
+    if (typeof window === 'undefined' || !gameState?.clock) return;
+    ambientMusic.setMusicNightMode(gameState.clock.isNight ?? false);
+  }, [gameState?.clock?.isNight]);
+
+  // Unlock browser audio context on first user interaction (click/touch/key)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleUnlockAudio = () => {
+      if (settings.bgMusicEnabled ?? true) {
+        ambientMusic.resumeIfEnabled();
+      }
+    };
+
+    window.addEventListener('click', handleUnlockAudio, { once: true });
+    window.addEventListener('pointerdown', handleUnlockAudio, { once: true });
+    window.addEventListener('keydown', handleUnlockAudio, { once: true });
+
+    return () => {
+      window.removeEventListener('click', handleUnlockAudio);
+      window.removeEventListener('pointerdown', handleUnlockAudio);
+      window.removeEventListener('keydown', handleUnlockAudio);
+    };
+  }, [settings.bgMusicEnabled]);
 
   // Fetch or refresh game state
   const fetchGameState = useCallback(async () => {
@@ -257,6 +299,8 @@ export default function GamePage() {
             mySites={mySites}
             focusedSite={focusedSite}
             onFocusPlant={handleFocusPlant}
+            settings={settings}
+            onUpdateSettings={handleUpdateSettings}
           />
         )}
 

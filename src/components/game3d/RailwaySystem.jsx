@@ -112,7 +112,13 @@ export default function RailwaySystem({ isNight = false }) {
       cabooseRed: new THREE.MeshStandardMaterial({ color: '#dc2626', roughness: 0.5 }),
       trackBallast: new THREE.MeshStandardMaterial({ color: '#475569', roughness: 0.95 }),
       steelRail: new THREE.MeshStandardMaterial({ color: '#94a3b8', roughness: 0.2, metalness: 0.9 }),
-      headlightBeam: new THREE.MeshBasicMaterial({ color: '#fef08a', transparent: true, opacity: 0.35 })
+      headlightBeam: new THREE.MeshBasicMaterial({
+        color: '#fef08a',
+        transparent: true,
+        opacity: 0.35,
+        side: THREE.DoubleSide,
+        depthWrite: false
+      })
     };
   }, []);
 
@@ -188,7 +194,7 @@ export default function RailwaySystem({ isNight = false }) {
         {/* Night Headlight Cone */}
         {isNight && (
           <mesh position={[0, 1.8, 14]} rotation={[Math.PI / 2, 0, 0]} material={mats.headlightBeam}>
-            <cylinderGeometry args={[0.2, 3.8, 20, 16, 1, true]} />
+            <cylinderGeometry args={[3.8, 0.2, 20, 16, 1, true]} />
           </mesh>
         )}
       </group>

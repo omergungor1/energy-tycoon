@@ -64,6 +64,10 @@ export const dictionaries = {
       showTrafficDesc: 'Tesisler ile trafo arasında seyreden bakım ve servis kamyonları.',
       showWildlife: 'Gerçekçi Kuş Sürüleri',
       showWildlifeDesc: 'Ada ve göl üzerinde kanat çırparak V-formasyonunda süzülen kuşlar.',
+      audioTitle: 'Ses & Müzik',
+      bgMusic: 'Atmosferik Arka Plan Müziği',
+      bgMusicDesc: 'Minecraft (C418) ve Firewatch esintili sakinleştirici akustik piyano melodileri ve dağ rüzgârı.',
+      bgMusicVolume: 'Müzik Ses Düzeyi',
       resetDefaults: 'Varsayılan Ayarlara Dön'
     },
     treasury: {
@@ -273,6 +277,10 @@ export const dictionaries = {
       showTrafficDesc: 'Maintenance trucks driving along roads between sites.',
       showWildlife: 'Realistic Bird Flocks',
       showWildlifeDesc: 'Flocks of birds with animated flapping wings soaring in V-formation.',
+      audioTitle: 'Audio & Music',
+      bgMusic: 'Atmospheric Background Music',
+      bgMusicDesc: 'Calming Minecraft (C418) and Firewatch inspired acoustic piano chords and mountain wilderness breeze.',
+      bgMusicVolume: 'Music Volume Level',
       resetDefaults: 'Reset to Defaults'
     },
     treasury: {
