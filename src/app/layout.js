@@ -12,7 +12,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "Energy Tycoon — Global Clean Energy Simulation",
+  title: "Energy Tycoon",
   description: "Build your renewable energy empire, generate wind & solar power, and dominate the spot electricity market.",
   icons: {
     icon: "/logo.png",

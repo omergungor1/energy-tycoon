@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useRef, useMemo } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import React, { useRef, useMemo, useEffect } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Text, Billboard } from '@react-three/drei';
 import * as THREE from 'three';
 
@@ -1051,6 +1051,68 @@ function BirdFlock() {
   );
 }
 
+// Camera Controller for Smooth Plant Focus & Auto-Zoom
+function CameraController({ focusedSite, worldSites, controlsRef }) {
+  const { camera } = useThree();
+  const targetLookAt = useRef(null);
+  const targetCamPos = useRef(null);
+  const isAnimating = useRef(false);
+
+  useEffect(() => {
+    if (!focusedSite?.siteId) return;
+    const site = worldSites.find((s) => s.id === focusedSite.siteId);
+    if (!site) return;
+
+    const siteY = getTerrainHeight(site.center_x, site.center_z);
+    // Focus slightly elevated above facility ground level
+    targetLookAt.current = new THREE.Vector3(site.center_x, siteY + 8, site.center_z);
+    // Cinematic vantage point positioned ~48m away, overlooking turbines & solar arrays
+    targetCamPos.current = new THREE.Vector3(site.center_x - 30, siteY + 18, site.center_z + 36);
+    isAnimating.current = true;
+  }, [focusedSite, worldSites]);
+
+  // Cancel auto-animation if user manually drags or touches the orbit controls
+  useEffect(() => {
+    const controls = controlsRef?.current;
+    if (!controls) return;
+    const onStart = () => {
+      isAnimating.current = false;
+    };
+    controls.addEventListener('start', onStart);
+    return () => controls.removeEventListener('start', onStart);
+  }, [controlsRef]);
+
+  useFrame((_, delta) => {
+    if (!isAnimating.current || !targetLookAt.current || !targetCamPos.current) return;
+    // Smooth lerp interpolation factor
+    const t = Math.min(1, delta * 3.2);
+
+    if (controlsRef?.current) {
+      controlsRef.current.target.lerp(targetLookAt.current, t);
+    }
+    camera.position.lerp(targetCamPos.current, t);
+
+    const distCam = camera.position.distanceTo(targetCamPos.current);
+    const distTarget = controlsRef?.current
+      ? controlsRef.current.target.distanceTo(targetLookAt.current)
+      : 0;
+
+    if (distCam < 0.5 && distTarget < 0.25) {
+      if (controlsRef?.current) {
+        controlsRef.current.target.copy(targetLookAt.current);
+      }
+      camera.position.copy(targetCamPos.current);
+      isAnimating.current = false;
+    }
+
+    if (controlsRef?.current) {
+      controlsRef.current.update();
+    }
+  });
+
+  return null;
+}
+
 // Main 3D World Canvas
 export default function WorldCanvas({
   worldSites = [],
@@ -1058,8 +1120,10 @@ export default function WorldCanvas({
   installedAssets = [],
   clock,
   settings = {},
+  focusedSite = null,
   onSelectSite
 }) {
+  const controlsRef = useRef();
   const isNight = clock?.isNight ?? false;
 
   // Settings with defaults
@@ -1095,11 +1159,18 @@ export default function WorldCanvas({
   return (
     <div className="w-full h-full relative">
       <Canvas
-        camera={{ position: [-180, 280, 420], fov: 46, far: 5000 }}
+        camera={{ position: [-180, 280, 420], fov: 46, near: 0.5, far: 5500 }}
         shadows={!isLowGraphics}
         dpr={dpr}
         className="w-full h-full"
       >
+        {/* Dynamic Smooth Camera Controller for Plant Focus & Zoom */}
+        <CameraController
+          focusedSite={focusedSite}
+          worldSites={worldSites}
+          controlsRef={controlsRef}
+        />
+
         {/* Sky, Fog & Lighting */}
         {isNight ? (
           <>
@@ -1232,11 +1303,14 @@ export default function WorldCanvas({
           return null;
         })}
 
-        {/* Orbit Camera Controls */}
+        {/* Orbit Camera Controls with Extreme Zoom-In & Ground Angle */}
         <OrbitControls
-          maxPolarAngle={Math.PI / 2.15}
-          minDistance={35}
-          maxDistance={1400}
+          ref={controlsRef}
+          maxPolarAngle={Math.PI / 2.05}
+          minDistance={2.0}
+          maxDistance={1500}
+          enablePan={true}
+          panSpeed={0.8}
           enableDamping
           dampingFactor={0.08}
         />

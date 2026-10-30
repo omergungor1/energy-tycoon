@@ -206,7 +206,7 @@ export const dictionaries = {
   },
   en: {
     gameTitle: 'Energy Tycoon',
-    gameSubtitle: 'Global Clean Energy Simulation',
+    gameSubtitle: 'Energy Simulation',
     hud: {
       cash: 'Cash Balance',
       netWorth: 'Company Value',

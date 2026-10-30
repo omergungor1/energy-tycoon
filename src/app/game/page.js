@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
@@ -25,8 +25,39 @@ export default function GamePage() {
   const [activeTab, setActiveTab] = useState('map');
   const [lang, setLang] = useState('tr');
   const [inspectedSite, setInspectedSite] = useState(null);
+  const [focusedSite, setFocusedSite] = useState(null);
   const [isTreasuryOpen, setIsTreasuryOpen] = useState(false);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+
+  // Compute player's active owned and leased sites for the top selector dropdown
+  const mySites = useMemo(() => {
+    if (!gameState?.companySites) return [];
+    return gameState.companySites.map((cs) => {
+      const ws =
+        cs.world_sites ||
+        gameState.worldSites?.find((w) => w.id === cs.site_id) ||
+        {};
+      return {
+        companySiteId: cs.id,
+        siteId: cs.site_id,
+        plantName: cs.plant_name || ws.name || `Santral #${cs.site_id}`,
+        siteName: ws.name || `Arazi #${cs.site_id}`,
+        regionType: ws.region_type || 'wind',
+        tenureType: cs.tenure_type || 'lease',
+        centerX: ws.center_x ?? 0,
+        centerZ: ws.center_z ?? 0,
+        hasSolarTracker: Boolean(cs.has_solar_tracker),
+        windPotential: ws.wind_potential,
+        solarPotential: ws.solar_potential
+      };
+    });
+  }, [gameState?.companySites, gameState?.worldSites]);
+
+  // Focus and auto-zoom directly to a player's plant
+  const handleFocusPlant = useCallback((siteId) => {
+    setFocusedSite({ siteId, timestamp: Date.now() });
+    setActiveTab('map');
+  }, []);
 
   // Load persisted graphics and visual settings from localStorage
   useEffect(() => {
@@ -130,6 +161,7 @@ export default function GamePage() {
       {/* Top HUD */}
       <TopHud
         company={gameState.company}
+        user={gameState.user}
         finance={gameState.finance}
         clock={gameState.clock}
         spotPrice={gameState.spotPrice}
@@ -140,10 +172,13 @@ export default function GamePage() {
         setLang={setLang}
         onLogout={handleLogout}
         onOpenTreasury={() => setIsTreasuryOpen(true)}
+        mySites={mySites}
+        focusedSite={focusedSite}
+        onFocusPlant={handleFocusPlant}
       />
 
       {/* Main Content Area */}
-      <main className="w-full h-full pt-28 pb-4 relative">
+      <main className="w-full h-full pt-20 sm:pt-24 md:pt-28 pb-4 relative">
         {/* 3D Map View is always mounted for camera persistence */}
         <div className={`w-full h-full ${activeTab === 'map' ? 'block' : 'hidden'}`}>
           <WorldCanvas
@@ -152,6 +187,7 @@ export default function GamePage() {
             installedAssets={gameState.installedAssets}
             clock={gameState.clock}
             settings={settings}
+            focusedSite={focusedSite}
             onSelectSite={(site) => setInspectedSite(site)}
           />
         </div>
