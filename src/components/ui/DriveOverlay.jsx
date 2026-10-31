@@ -5,13 +5,10 @@ import {
   Car,
   X,
   Compass,
-  ArrowUp,
-  ArrowDown,
-  ArrowLeft,
-  ArrowRight,
   HelpCircle,
   Zap
 } from 'lucide-react';
+import VirtualJoystick from './VirtualJoystick';
 
 export default function DriveOverlay({
   stats = {},
@@ -47,8 +44,8 @@ export default function DriveOverlay({
     <div className="fixed inset-0 pointer-events-none z-40 flex flex-col justify-between p-3 sm:p-6 select-none font-sans">
       {/* 1. TOP BAR: Sleek Compass & Coordinates Telemetry (Left) + Help & Exit (Right) */}
       <div className="flex items-center justify-between w-full pointer-events-auto gap-2">
-        {/* Left: Sleek Compass Rose & Island Coordinates Telemetry */}
-        <div className="flex items-center gap-2.5 sm:gap-3.5 bg-slate-900/90 border border-slate-700/80 rounded-2xl px-3 sm:px-4 py-2 backdrop-blur-xl shadow-2xl transition-all">
+        {/* Left: Sleek Compass Rose & Island Coordinates Telemetry (Gizlendi: Mobilde gereksiz yer kaplamaması için desktop/tablette gösterilir) */}
+        <div className="hidden sm:flex items-center gap-2.5 sm:gap-3.5 bg-slate-900/90 border border-slate-700/80 rounded-2xl px-3 sm:px-4 py-2 backdrop-blur-xl shadow-2xl transition-all">
           <div className="flex items-center gap-2 text-slate-200 text-xs font-bold">
             <div className="relative flex items-center justify-center w-6 h-6 rounded-lg bg-slate-800/80 border border-slate-700/60 shadow-inner">
               <Compass
@@ -74,7 +71,7 @@ export default function DriveOverlay({
         </div>
 
         {/* Center / Right: Help & Exit Button */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 ml-auto">
           {/* Controls Help Toggle */}
           <button
             type="button"
@@ -167,35 +164,18 @@ export default function DriveOverlay({
 
       {/* 3. BOTTOM SECTION: Speedometer, Compass & Mobile Virtual Controls */}
       <div className="w-full flex items-end justify-between gap-4 pointer-events-none">
-        {/* MOBILE TOUCH STEERING (Left Side) */}
-        <div className="flex sm:hidden pointer-events-auto gap-2 touch-none select-none pb-2">
-          <button
-            type="button"
-            onPointerDown={() => onTouchInputChange({ left: true })}
-            onPointerUp={() => onTouchInputChange({ left: false })}
-            onPointerLeave={() => onTouchInputChange({ left: false })}
-            className="w-14 h-14 rounded-2xl bg-slate-900/90 active:bg-cyan-600/80 border border-slate-700 text-white flex items-center justify-center shadow-2xl active:scale-95 transition-all cursor-pointer"
-          >
-            <ArrowLeft className="w-6 h-6" />
-          </button>
-          <button
-            type="button"
-            onPointerDown={() => onTouchInputChange({ right: true })}
-            onPointerUp={() => onTouchInputChange({ right: false })}
-            onPointerLeave={() => onTouchInputChange({ right: false })}
-            className="w-14 h-14 rounded-2xl bg-slate-900/90 active:bg-cyan-600/80 border border-slate-700 text-white flex items-center justify-center shadow-2xl active:scale-95 transition-all cursor-pointer"
-          >
-            <ArrowRight className="w-6 h-6" />
-          </button>
+        {/* MOBILE 360° VIRTUAL JOYSTICK (Left Side: Sola yuvarlak içinde nokta sürükleyerek 360° kontrol) */}
+        <div className="flex sm:hidden pointer-events-auto pb-2">
+          <VirtualJoystick onMove={onTouchInputChange} />
         </div>
 
-        {/* CENTER DASHBOARD: Speedometer, Gear, Compass & Coordinates */}
-        <div className="pointer-events-auto mx-auto bg-slate-900/90 border border-slate-800/90 rounded-3xl p-3 sm:px-6 sm:py-3.5 backdrop-blur-xl shadow-2xl flex items-center gap-4 sm:gap-6">
+        {/* CENTER DASHBOARD: Speedometer & Gear Telemetry (Mobilde kompakt/küçük, desktopta geniş) */}
+        <div className="pointer-events-auto mx-auto bg-slate-900/90 border border-slate-800/90 rounded-2xl sm:rounded-3xl px-2.5 py-1.5 sm:px-6 sm:py-3.5 backdrop-blur-xl shadow-2xl flex items-center gap-2.5 sm:gap-6">
           {/* Gear Indicator */}
-          <div className="flex flex-col items-center border-r border-slate-800 pr-3 sm:pr-5">
-            <span className="text-[9px] uppercase font-bold text-slate-500 tracking-wider">VİTES</span>
+          <div className="flex flex-col items-center border-r border-slate-800 pr-2 sm:pr-5">
+            <span className="text-[7px] sm:text-[9px] uppercase font-bold text-slate-500 tracking-wider">VİTES</span>
             <span
-              className={`text-2xl sm:text-3xl font-black font-mono transition-colors ${gear === 'D'
+              className={`text-base sm:text-3xl font-black font-mono transition-colors ${gear === 'D'
                   ? 'text-emerald-400'
                   : gear === 'R'
                     ? 'text-amber-400 animate-pulse'
@@ -208,22 +188,22 @@ export default function DriveOverlay({
 
           {/* Speedometer Digital Numbers & Arc */}
           <div className="flex flex-col items-center">
-            <div className="flex items-baseline gap-1 relative">
-              <span className="text-3xl sm:text-4xl font-black font-mono tracking-tight text-white drop-shadow">
+            <div className="flex items-baseline gap-0.5 sm:gap-1 relative">
+              <span className="text-xl sm:text-4xl font-black font-mono tracking-tight text-white drop-shadow">
                 {speedKmh}
               </span>
-              <span className="text-[10px] sm:text-xs font-bold text-emerald-400 uppercase">km/s</span>
+              <span className="text-[8px] sm:text-xs font-bold text-emerald-400 uppercase">km/s</span>
 
               {isBoost && (
-                <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 text-[9px] font-black uppercase tracking-wider text-cyan-300 bg-cyan-950/90 border border-cyan-400/80 px-2 py-0.5 rounded-full shadow-lg shadow-cyan-500/30 flex items-center gap-1 animate-pulse">
-                  <Zap className="w-2.5 h-2.5 text-cyan-400 fill-cyan-400" />
+                <span className="absolute -top-3 sm:-top-3.5 left-1/2 -translate-x-1/2 text-[7px] sm:text-[9px] font-black uppercase tracking-wider text-cyan-300 bg-cyan-950/90 border border-cyan-400/80 px-1 sm:px-2 py-0.2 sm:py-0.5 rounded-full shadow-lg shadow-cyan-500/30 flex items-center gap-0.5 animate-pulse">
+                  <Zap className="w-2 h-2 sm:w-2.5 sm:h-2.5 text-cyan-400 fill-cyan-400" />
                   TURBO
                 </span>
               )}
             </div>
 
             {/* Dynamic Speed Progress Bar (Scaled to 160 km/h) */}
-            <div className="w-24 sm:w-36 h-1.5 bg-slate-950 rounded-full overflow-hidden mt-1 border border-slate-800">
+            <div className="w-14 sm:w-36 h-1 sm:h-1.5 bg-slate-950 rounded-full overflow-hidden mt-0.5 sm:mt-1 border border-slate-800">
               <div
                 className={`h-full transition-all duration-75 rounded-full ${isBraking
                     ? 'bg-rose-500'
@@ -239,44 +219,30 @@ export default function DriveOverlay({
           </div>
         </div>
 
-        {/* MOBILE TOUCH PEDALS (Right Side) */}
-        <div className="flex sm:hidden pointer-events-auto gap-2 touch-none select-none pb-2 items-end">
+        {/* MOBILE TURBO / BOOST (Right Side: Sağa sadece büyük Turbo butonu) */}
+        <div className="flex sm:hidden pointer-events-auto pb-2 items-end">
           <button
             type="button"
-            onPointerDown={() => onTouchInputChange({ backward: true })}
-            onPointerUp={() => onTouchInputChange({ backward: false })}
-            onPointerLeave={() => onTouchInputChange({ backward: false })}
-            className="w-14 h-14 rounded-2xl bg-rose-950/80 active:bg-rose-600 border border-rose-500/40 text-rose-200 flex flex-col items-center justify-center shadow-2xl active:scale-95 transition-all cursor-pointer"
+            onPointerDown={(e) => {
+              e.preventDefault();
+              onTouchInputChange({ boost: true });
+            }}
+            onPointerUp={(e) => {
+              e.preventDefault();
+              onTouchInputChange({ boost: false });
+            }}
+            onPointerLeave={() => onTouchInputChange({ boost: false })}
+            onPointerCancel={() => onTouchInputChange({ boost: false })}
+            className={`w-16 h-16 rounded-2xl border-2 flex flex-col items-center justify-center shadow-2xl active:scale-95 transition-all select-none touch-none cursor-pointer ${
+              isBoost
+                ? 'bg-cyan-500 border-cyan-200 text-white shadow-cyan-500/50 scale-105'
+                : 'bg-cyan-950/85 active:bg-cyan-600 border-cyan-500/50 text-cyan-300 shadow-xl'
+            }`}
+            title="Turbo Boost (Nitro)"
           >
-            <ArrowDown className="w-5 h-5" />
-            <span className="text-[8px] font-bold uppercase">FREN</span>
+            <Zap className={`w-6 h-6 ${isBoost ? 'fill-white animate-pulse' : 'fill-cyan-400'}`} />
+            <span className="text-[9px] font-black tracking-wider uppercase mt-0.5">TURBO</span>
           </button>
-
-          <div className="flex flex-col gap-1.5">
-            <button
-              type="button"
-              onPointerDown={() => onTouchInputChange({ boost: true })}
-              onPointerUp={() => onTouchInputChange({ boost: false })}
-              onPointerLeave={() => onTouchInputChange({ boost: false })}
-              className={`w-14 h-9 rounded-xl border flex items-center justify-center shadow-lg active:scale-95 transition-all cursor-pointer text-[10px] font-black uppercase ${isBoost
-                  ? 'bg-cyan-500 text-slate-950 border-cyan-300 ring-2 ring-cyan-400/60'
-                  : 'bg-cyan-950/80 active:bg-cyan-600 border-cyan-500/40 text-cyan-300'
-                }`}
-            >
-              <Zap className="w-3.5 h-3.5 mr-0.5" />
-              BOOST
-            </button>
-            <button
-              type="button"
-              onPointerDown={() => onTouchInputChange({ forward: true })}
-              onPointerUp={() => onTouchInputChange({ forward: false })}
-              onPointerLeave={() => onTouchInputChange({ forward: false })}
-              className="w-14 h-14 rounded-2xl bg-emerald-950/80 active:bg-emerald-600 border border-emerald-500/40 text-emerald-200 flex flex-col items-center justify-center shadow-2xl active:scale-95 transition-all cursor-pointer"
-            >
-              <ArrowUp className="w-5 h-5" />
-              <span className="text-[8px] font-bold uppercase">GAZ</span>
-            </button>
-          </div>
         </div>
       </div>
     </div>

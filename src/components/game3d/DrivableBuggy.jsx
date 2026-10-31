@@ -17,6 +17,14 @@ const BRAKE_DECEL = 32.0;
 const DRAG = 5.2;
 const MAX_STEER = 0.58; // ~33 deg
 
+// Reusable scratch objects to eliminate per-frame GC allocations completely
+const _targetQuat = new THREE.Quaternion();
+const _eulerScratch = new THREE.Euler(0, 0, 0, 'YXZ');
+const _lookTarget = new THREE.Vector3();
+const _targetCamPos = new THREE.Vector3();
+const _fwd3D = new THREE.Vector3();
+const _up3D = new THREE.Vector3();
+
 export default function DrivableBuggy({
   spawnPosition = [0, 0],
   initialYaw = 0,
@@ -79,6 +87,8 @@ export default function DrivableBuggy({
   // Smooth camera trailing values for chase view
   const smoothCamPos = useRef(new THREE.Vector3());
   const isFirstFrame = useRef(true);
+  const lastStatsEmit = useRef(0);
+  const prevStats = useRef({});
 
   // Initialize altitude & orientation at spawn
   useEffect(() => {
@@ -89,28 +99,8 @@ export default function DrivableBuggy({
     s.velocity = 0;
     s.steerAngle = 0;
 
-    const halfBase = WHEEL_BASE / 2;
-    const halfTrack = TRACK_WIDTH / 2;
-    const fwdX = Math.sin(s.yaw);
-    const fwdZ = Math.cos(s.yaw);
-    const rgtX = Math.cos(s.yaw);
-    const rgtZ = -Math.sin(s.yaw);
-
-    const yFL = getTerrainHeight(s.x - rgtX * halfTrack + fwdX * halfBase, s.z - rgtZ * halfTrack + fwdZ * halfBase);
-    const yFR = getTerrainHeight(s.x + rgtX * halfTrack + fwdX * halfBase, s.z + rgtZ * halfTrack + fwdZ * halfBase);
-    const yRL = getTerrainHeight(s.x - rgtX * halfTrack - fwdX * halfBase, s.z - rgtZ * halfTrack - fwdZ * halfBase);
-    const yRR = getTerrainHeight(s.x + rgtX * halfTrack - fwdX * halfBase, s.z + rgtZ * halfTrack - fwdZ * halfBase);
-
-    const frontY = (yFL + yFR) * 0.5;
-    const rearY = (yRL + yRR) * 0.5;
-    const rightY = (yFR + yRR) * 0.5;
-    const leftY = (yFL + yRL) * 0.5;
-
-    const terrainPitch = -Math.atan2(frontY - rearY, WHEEL_BASE);
-    const terrainRoll = Math.atan2(rightY - leftY, TRACK_WIDTH);
-
-    vehicleQuat.current.setFromEuler(new THREE.Euler(terrainPitch, s.yaw, terrainRoll, 'YXZ'));
-    s.y = (yFL + yFR + yRL + yRR) * 0.25 + WHEEL_RADIUS;
+    s.y = getTerrainHeight(s.x, s.z) + WHEEL_RADIUS;
+    vehicleQuat.current.setFromEuler(_eulerScratch.set(0, s.yaw, 0, 'YXZ'));
     isFirstFrame.current = true;
   }, [spawnPosition, initialYaw]);
 
@@ -303,8 +293,12 @@ export default function DrivableBuggy({
     const speedRatio = Math.min(1, Math.abs(s.velocity) / maxForwardSpeed);
     const steerLimit = MAX_STEER * Math.max(0.35, 1 - speedRatio * 0.52);
     let targetSteer = 0;
-    if (isLeft) targetSteer += steerLimit;
-    if (isRight) targetSteer -= steerLimit;
+    if (typeof t.steerAxis === 'number' && Math.abs(t.steerAxis) > 0.05) {
+      targetSteer = -t.steerAxis * steerLimit;
+    } else {
+      if (isLeft) targetSteer += steerLimit;
+      if (isRight) targetSteer -= steerLimit;
+    }
     s.steerAngle = THREE.MathUtils.lerp(s.steerAngle, targetSteer, dt * 12);
 
     // 3. Heading (Yaw) updates based on Ackermann geometry
@@ -327,88 +321,33 @@ export default function DrivableBuggy({
       s.velocity *= -0.3; // gentle bounce off ocean edge
     }
 
-    // 5. Precise 4-Wheel Contact Patch Terrain Alignment
-    const halfBase = WHEEL_BASE / 2; // 1.15m
-    const halfTrack = TRACK_WIDTH / 2; // 0.85m
+    // 5. Lightweight Terrain Physics (Zero allocation, ultra-fast 60 FPS)
+    s.y = getTerrainHeight(s.x, s.z) + WHEEL_RADIUS;
 
     const fwdX = Math.sin(s.yaw);
     const fwdZ = Math.cos(s.yaw);
-    const rgtX = Math.cos(s.yaw);
-    const rgtZ = -Math.sin(s.yaw);
 
-    // 4 Wheel world positions
-    const xFL = s.x - rgtX * halfTrack + fwdX * halfBase;
-    const zFL = s.z - rgtZ * halfTrack + fwdZ * halfBase;
+    // Fast pitch calculation 1.6m ahead
+    const aheadH = getTerrainHeight(s.x + fwdX * 1.6, s.z + fwdZ * 1.6);
+    const terrainPitch = -Math.atan2(aheadH - (s.y - WHEEL_RADIUS), 1.6);
 
-    const xFR = s.x + rgtX * halfTrack + fwdX * halfBase;
-    const zFR = s.z + rgtZ * halfTrack + fwdZ * halfBase;
-
-    const xRL = s.x - rgtX * halfTrack - fwdX * halfBase;
-    const zRL = s.z - rgtZ * halfTrack - fwdZ * halfBase;
-
-    const xRR = s.x + rgtX * halfTrack - fwdX * halfBase;
-    const zRR = s.z + rgtZ * halfTrack - fwdZ * halfBase;
-
-    // Terrain elevation under each of the 4 tires
-    const yFL = getTerrainHeight(xFL, zFL);
-    const yFR = getTerrainHeight(xFR, zFR);
-    const yRL = getTerrainHeight(xRL, zRL);
-    const yRR = getTerrainHeight(xRR, zRR);
-
-    // Vehicle center elevation (average of 4 tire contact patches + tire radius)
-    const groundElevation = (yFL + yFR + yRL + yRR) * 0.25;
-    s.y = groundElevation + WHEEL_RADIUS;
-
-    // 3D Terrain slope pitch & roll matching
-    const frontY = (yFL + yFR) * 0.5;
-    const rearY = (yRL + yRR) * 0.5;
-    const rightY = (yFR + yRR) * 0.5;
-    const leftY = (yFL + yRL) * 0.5;
-
-    const terrainPitch = -Math.atan2(frontY - rearY, WHEEL_BASE);
-    const terrainRoll = Math.atan2(rightY - leftY, TRACK_WIDTH);
-
-    // Dynamic suspension weight transfer on accel, brake & turning
     const accelPitch = (isForward ? -0.04 : 0) + (isBackward && s.velocity > 1 ? 0.06 : 0) + (isBrake ? 0.07 : 0);
     const rollLean = (s.velocity / maxForwardSpeed) * (s.steerAngle * 0.12);
 
-    const targetPitch = terrainPitch + accelPitch;
-    const targetRoll = terrainRoll + rollLean;
-
-    const targetQuat = new THREE.Quaternion().setFromEuler(
-      new THREE.Euler(targetPitch, s.yaw, targetRoll, 'YXZ')
+    _targetQuat.setFromEuler(
+      _eulerScratch.set(terrainPitch + accelPitch, s.yaw, rollLean, 'YXZ')
     );
 
-    // Smoothly interpolate vehicle orientation to hug terrain without jitter
-    vehicleQuat.current.slerp(targetQuat, Math.min(1, dt * 16));
+    vehicleQuat.current.slerp(_targetQuat, Math.min(1, dt * 14));
 
-    // Update 3D vehicle root transform
     if (vehicleGroupRef.current) {
       vehicleGroupRef.current.position.set(s.x, s.y, s.z);
       vehicleGroupRef.current.quaternion.copy(vehicleQuat.current);
     }
 
-    // Active 4-Wheel Terrain Grounding & Suspension travel
-    // Guarantees all 4 wheels remain 100% grounded on non-planar terrain slopes
-    const hubPosFL = new THREE.Vector3(-halfTrack, 0, halfBase).applyQuaternion(vehicleQuat.current).add(new THREE.Vector3(s.x, s.y, s.z));
-    const hubPosFR = new THREE.Vector3(halfTrack, 0, halfBase).applyQuaternion(vehicleQuat.current).add(new THREE.Vector3(s.x, s.y, s.z));
-    const hubPosRL = new THREE.Vector3(-halfTrack, 0, -halfBase).applyQuaternion(vehicleQuat.current).add(new THREE.Vector3(s.x, s.y, s.z));
-    const hubPosRR = new THREE.Vector3(halfTrack, 0, -halfBase).applyQuaternion(vehicleQuat.current).add(new THREE.Vector3(s.x, s.y, s.z));
-
-    const dispFL = THREE.MathUtils.clamp((yFL + WHEEL_RADIUS) - hubPosFL.y, -0.45, 0.45);
-    const dispFR = THREE.MathUtils.clamp((yFR + WHEEL_RADIUS) - hubPosFR.y, -0.45, 0.45);
-    const dispRL = THREE.MathUtils.clamp((yRL + WHEEL_RADIUS) - hubPosRL.y, -0.45, 0.45);
-    const dispRR = THREE.MathUtils.clamp((yRR + WHEEL_RADIUS) - hubPosRR.y, -0.45, 0.45);
-
-    if (frontLeftSuspRef.current) frontLeftSuspRef.current.position.y = dispFL;
-    if (frontRightSuspRef.current) frontRightSuspRef.current.position.y = dispFR;
-    if (rearLeftSuspRef.current) rearLeftSuspRef.current.position.y = dispRL;
-    if (rearRightSuspRef.current) rearRightSuspRef.current.position.y = dispRR;
-
     // 6. Wheel spin rotation
     s.wheelSpin += (s.velocity / WHEEL_RADIUS) * dt;
 
-    // Animate front wheel steering & spinning
     if (frontLeftWheelGroupRef.current) frontLeftWheelGroupRef.current.rotation.y = s.steerAngle;
     if (frontRightWheelGroupRef.current) frontRightWheelGroupRef.current.rotation.y = s.steerAngle;
     if (frontLeftWheelMeshRef.current) frontLeftWheelMeshRef.current.rotation.x = s.wheelSpin;
@@ -441,71 +380,109 @@ export default function DrivableBuggy({
       camera.updateProjectionMatrix();
 
       // Driver's eye local offset: left of center console, elevated inside roll cage
-      const localEye = new THREE.Vector3(-0.28, 1.08, 0.12).applyQuaternion(vehicleQuat.current);
-      camera.position.set(s.x + localEye.x, s.y + localEye.y, s.z + localEye.z);
+      _fwd3D.set(-0.28, 1.08, 0.12).applyQuaternion(vehicleQuat.current);
+      camera.position.set(s.x + _fwd3D.x, s.y + _fwd3D.y, s.z + _fwd3D.z);
 
-      const fwd3D = new THREE.Vector3(0, 0, 1).applyQuaternion(vehicleQuat.current);
-      const up3D = new THREE.Vector3(0, 1, 0).applyQuaternion(vehicleQuat.current);
-      const steerLook = new THREE.Vector3(-s.steerAngle * 0.22, 0, 0).applyQuaternion(vehicleQuat.current);
-
-      camera.up.copy(up3D);
-      camera.lookAt(camera.position.clone().add(fwd3D.multiplyScalar(30)).add(steerLook));
+      _fwd3D.set(0, 0, 1).applyQuaternion(vehicleQuat.current);
+      _up3D.set(0, 1, 0).applyQuaternion(vehicleQuat.current);
+      camera.up.copy(_up3D);
+      _lookTarget.copy(camera.position).addScaledVector(_fwd3D, 30);
+      camera.lookAt(_lookTarget);
     } else if (cameraMode === 'hood') {
       // Action Bumper / Hood View
       camera.fov = 74 + boostFov;
       camera.near = 0.2;
       camera.updateProjectionMatrix();
 
-      const localBumper = new THREE.Vector3(0, 0.72, 1.45).applyQuaternion(vehicleQuat.current);
-      camera.position.set(s.x + localBumper.x, s.y + localBumper.y, s.z + localBumper.z);
+      _fwd3D.set(0, 0.72, 1.45).applyQuaternion(vehicleQuat.current);
+      camera.position.set(s.x + _fwd3D.x, s.y + _fwd3D.y, s.z + _fwd3D.z);
 
-      const fwd3D = new THREE.Vector3(0, 0, 1).applyQuaternion(vehicleQuat.current);
-      const up3D = new THREE.Vector3(0, 1, 0).applyQuaternion(vehicleQuat.current);
-      camera.up.copy(up3D);
-      camera.lookAt(camera.position.clone().add(fwd3D.multiplyScalar(35)));
+      _fwd3D.set(0, 0, 1).applyQuaternion(vehicleQuat.current);
+      _up3D.set(0, 1, 0).applyQuaternion(vehicleQuat.current);
+      camera.up.copy(_up3D);
+      _lookTarget.copy(camera.position).addScaledVector(_fwd3D, 35);
+      camera.lookAt(_lookTarget);
     } else {
-      // Third-person Chase View ('chase')
+      // Third-person Chase View ('chase') - Ultra smooth, 0-allocation
       camera.fov = 54 + boostFov;
-      camera.near = 0.5;
+      camera.near = 0.2;
       camera.updateProjectionMatrix();
 
-      // Camera trailing 6.0m behind and 2.4m above vehicle oriented with vehicle horizontal yaw
-      const camYawQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), s.yaw);
-      const localOffset = new THREE.Vector3(0, 2.4, -6.2).applyQuaternion(camYawQuat);
-      const targetCamPos = new THREE.Vector3(s.x + localOffset.x, s.y + localOffset.y, s.z + localOffset.z);
+      _lookTarget.set(s.x, s.y + 0.9, s.z);
 
-      // Prevent camera from clipping through terrain slopes behind the car
-      const groundAtCam = getTerrainHeight(targetCamPos.x, targetCamPos.z) + 1.25;
-      if (targetCamPos.y < groundAtCam) targetCamPos.y = groundAtCam;
+      const idealDist = 6.0;
+      const idealHeight = 2.4;
+
+      _targetCamPos.set(
+        s.x - Math.sin(s.yaw) * idealDist,
+        s.y + idealHeight,
+        s.z - Math.cos(s.yaw) * idealDist
+      );
+
+      // Lightweight safety clearance
+      const groundAtCam = getTerrainHeight(_targetCamPos.x, _targetCamPos.z) + 0.8;
+      if (_targetCamPos.y < groundAtCam) _targetCamPos.y = groundAtCam;
 
       if (isFirstFrame.current) {
-        smoothCamPos.current.copy(targetCamPos);
+        smoothCamPos.current.copy(_targetCamPos);
         isFirstFrame.current = false;
       } else {
-        smoothCamPos.current.lerp(targetCamPos, dt * 8.5);
+        smoothCamPos.current.lerp(_targetCamPos, dt * 9.5);
       }
 
       camera.position.copy(smoothCamPos.current);
-      camera.up.set(0, 1, 0); // Keep world upright so the player clearly sees the buggy tilted on slopes!
-      camera.lookAt(s.x, s.y + 0.85, s.z);
+      camera.up.set(0, 1, 0);
+      camera.lookAt(_lookTarget);
     }
 
-    // 8. Export live stats for 2D UI overlay (throttled)
-    const speedKmh = Math.abs(Math.round(s.velocity * 3.6));
-    const gear = s.velocity < -0.4 ? 'R' : Math.abs(s.velocity) < 0.2 ? 'P' : 'D';
-    const headingDeg = Math.round((((s.yaw * 180) / Math.PI) % 360 + 360) % 360);
+    // 8. Export live stats for 2D UI overlay (throttled to 20Hz / ~50ms to prevent React re-render loops)
+    const now = state.clock.getElapsedTime();
+    if (now - lastStatsEmit.current >= 0.05) {
+      lastStatsEmit.current = now;
+      const speedKmh = Math.abs(Math.round(s.velocity * 3.6));
+      const gear = s.velocity < -0.4 ? 'R' : Math.abs(s.velocity) < 0.2 ? 'P' : 'D';
+      const headingDeg = Math.round((((s.yaw * 180) / Math.PI) % 360 + 360) % 360);
+      const isBraking = isBrake || (isBackward && s.velocity > 0.4);
+      const isBoosting = isBoost && isForward && Math.abs(s.velocity) > 2;
+      const roundX = Math.round(s.x);
+      const roundZ = Math.round(s.z);
+      const roundY = Math.round(s.y);
 
-    onStatsUpdate({
-      speedKmh,
-      velocity: s.velocity,
-      gear,
-      headingDeg,
-      x: Math.round(s.x),
-      z: Math.round(s.z),
-      altitude: Math.round(s.y),
-      isBraking: isBrake || (isBackward && s.velocity > 0.4),
-      isBoost: isBoost && isForward && Math.abs(s.velocity) > 2
-    });
+      const ps = prevStats.current;
+      if (
+        ps.speedKmh !== speedKmh ||
+        ps.gear !== gear ||
+        ps.headingDeg !== headingDeg ||
+        ps.x !== roundX ||
+        ps.z !== roundZ ||
+        ps.altitude !== roundY ||
+        ps.isBraking !== isBraking ||
+        ps.isBoost !== isBoosting
+      ) {
+        prevStats.current = {
+          speedKmh,
+          gear,
+          headingDeg,
+          x: roundX,
+          z: roundZ,
+          altitude: roundY,
+          isBraking,
+          isBoost: isBoosting
+        };
+
+        onStatsUpdate({
+          speedKmh,
+          velocity: s.velocity,
+          gear,
+          headingDeg,
+          x: roundX,
+          z: roundZ,
+          altitude: roundY,
+          isBraking,
+          isBoost: isBoosting
+        });
+      }
+    }
   });
 
   return (

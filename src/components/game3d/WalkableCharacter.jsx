@@ -13,6 +13,10 @@ const ROT_SPEED = 3.6; // radians / sec
 const JUMP_POWER = 5.8;
 const GRAVITY = -18.0;
 
+// Reusable scratch objects to eliminate per-frame GC allocations
+const _walkLookTarget = new THREE.Vector3();
+const _walkTargetCamPos = new THREE.Vector3();
+
 export default function WalkableCharacter({
   spawnPosition = [0, 0],
   initialYaw = 0,
@@ -46,6 +50,8 @@ export default function WalkableCharacter({
   // Smooth Chase Camera Position Buffer
   const smoothCamPos = useRef(new THREE.Vector3());
   const isFirstFrame = useRef(true);
+  const lastStatsEmit = useRef(0);
+  const prevStats = useRef({});
 
   // Keyboard input state
   const keysRef = useRef({
@@ -190,8 +196,12 @@ export default function WalkableCharacter({
 
     // 1. Steering & Heading update
     let steerDir = 0;
-    if (isLft) steerDir += 1;
-    if (isRgt) steerDir -= 1;
+    if (typeof t.steerAxis === 'number' && Math.abs(t.steerAxis) > 0.05) {
+      steerDir = -t.steerAxis;
+    } else {
+      if (isLft) steerDir += 1;
+      if (isRgt) steerDir -= 1;
+    }
     s.yaw += steerDir * ROT_SPEED * dt;
     if (!Number.isFinite(s.yaw)) s.yaw = 0;
 
@@ -221,8 +231,9 @@ export default function WalkableCharacter({
     s.x = THREE.MathUtils.clamp(s.x, -1360, 1360);
     s.z = THREE.MathUtils.clamp(s.z, -1360, 1360);
 
-    // 4. Vertical Dynamics & Terrain Height matching
+    // 4. Vertical Dynamics & Terrain Height matching (single fast call)
     const groundH = getTerrainHeight(s.x, s.z);
+    const groundedY = groundH;
 
     // Jumping trigger
     if (isJump && s.isGrounded) {
@@ -233,13 +244,13 @@ export default function WalkableCharacter({
     if (!s.isGrounded) {
       s.vy += GRAVITY * dt;
       s.y += s.vy * dt;
-      if (s.y <= groundH) {
-        s.y = groundH;
+      if (s.y <= groundedY) {
+        s.y = groundedY;
         s.vy = 0;
         s.isGrounded = true;
       }
     } else {
-      s.y = groundH;
+      s.y = groundedY;
       s.vy = 0;
     }
 
@@ -321,56 +332,90 @@ export default function WalkableCharacter({
       camera.position.set(s.x, eyeY, s.z);
       camera.up.set(0, 1, 0);
 
-      const lookTarget = new THREE.Vector3(
+      _walkLookTarget.set(
         s.x + Math.sin(s.yaw) * 10,
         eyeY - 0.2,
         s.z + Math.cos(s.yaw) * 10
       );
-      camera.lookAt(lookTarget);
+      camera.lookAt(_walkLookTarget);
     } else {
       // Third-person chase camera (trailing behind engineer's shoulders)
       if (characterMeshGroupRef.current) characterMeshGroupRef.current.visible = true;
 
       camera.fov = isRun ? 68 : 62;
-      camera.near = 0.1;
+      camera.near = 0.15;
       camera.updateProjectionMatrix();
 
-      // Camera trailing 3.4m behind and 1.85m above character
-      const camYawQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), s.yaw);
-      const camOffset = new THREE.Vector3(0, 1.85, -3.4).applyQuaternion(camYawQuat);
-      const targetCamPos = new THREE.Vector3(s.x + camOffset.x, s.y + camOffset.y, s.z + camOffset.z);
+      _walkLookTarget.set(s.x, s.y + 1.25, s.z);
 
-      // Prevent camera from clipping through terrain slopes behind the player
-      const groundAtCam = getTerrainHeight(targetCamPos.x, targetCamPos.z) + 0.8;
-      if (targetCamPos.y < groundAtCam) targetCamPos.y = groundAtCam;
+      const idealDist = 3.6;
+      const idealHeight = 1.95;
+
+      _walkTargetCamPos.set(
+        s.x - Math.sin(s.yaw) * idealDist,
+        s.y + idealHeight,
+        s.z - Math.cos(s.yaw) * idealDist
+      );
+
+      const groundAtCam = getTerrainHeight(_walkTargetCamPos.x, _walkTargetCamPos.z) + 0.6;
+      if (_walkTargetCamPos.y < groundAtCam) _walkTargetCamPos.y = groundAtCam;
 
       if (isFirstFrame.current) {
-        smoothCamPos.current.copy(targetCamPos);
+        smoothCamPos.current.copy(_walkTargetCamPos);
         isFirstFrame.current = false;
       } else {
-        smoothCamPos.current.lerp(targetCamPos, dt * 9.5);
+        smoothCamPos.current.lerp(_walkTargetCamPos, dt * 10.0);
       }
 
       camera.position.copy(smoothCamPos.current);
       camera.up.set(0, 1, 0);
-      camera.lookAt(s.x, s.y + 1.25, s.z);
+      camera.lookAt(_walkLookTarget);
     }
 
-    // 8. Export live stats for 2D Walk HUD Overlay
-    const speedKmh = Math.abs(Math.round(s.velocity * 3.6));
-    const headingDeg = Math.round((((s.yaw * 180) / Math.PI) % 360 + 360) % 360);
+    // 8. Export live stats for 2D Walk HUD Overlay (throttled to 20Hz / ~50ms)
+    const now = state.clock.getElapsedTime();
+    if (now - lastStatsEmit.current >= 0.05) {
+      lastStatsEmit.current = now;
+      const speedKmh = Math.abs(Math.round(s.velocity * 3.6));
+      const headingDeg = Math.round((((s.yaw * 180) / Math.PI) % 360 + 360) % 360);
+      const roundX = Math.round(s.x);
+      const roundZ = Math.round(s.z);
+      const roundY = Math.round(s.y);
+      const distanceMeters = Math.round(s.totalDistance);
 
-    onStatsUpdate({
-      speedKmh,
-      velocity: s.velocity,
-      isRunning: isRun,
-      isGrounded: s.isGrounded,
-      headingDeg,
-      x: Math.round(s.x),
-      z: Math.round(s.z),
-      altitude: Math.round(s.y),
-      distanceMeters: Math.round(s.totalDistance)
-    });
+      const ps = prevStats.current;
+      if (
+        ps.speedKmh !== speedKmh ||
+        ps.headingDeg !== headingDeg ||
+        ps.x !== roundX ||
+        ps.z !== roundZ ||
+        ps.altitude !== roundY ||
+        ps.isRunning !== isRun ||
+        ps.distanceMeters !== distanceMeters
+      ) {
+        prevStats.current = {
+          speedKmh,
+          headingDeg,
+          x: roundX,
+          z: roundZ,
+          altitude: roundY,
+          isRunning: isRun,
+          distanceMeters
+        };
+
+        onStatsUpdate({
+          speedKmh,
+          velocity: s.velocity,
+          isRunning: isRun,
+          isGrounded: s.isGrounded,
+          headingDeg,
+          x: roundX,
+          z: roundZ,
+          altitude: roundY,
+          distanceMeters
+        });
+      }
+    }
   });
 
   return (

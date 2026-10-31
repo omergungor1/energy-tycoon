@@ -31,10 +31,14 @@ import {
   X,
   Menu,
   Volume2,
-  VolumeX
+  VolumeX,
+  Flame,
+  Gift,
+  Lightbulb
 } from 'lucide-react';
 import { dictionaries } from '@/lib/i18n/dictionaries';
 import { useCurrency } from '@/context/CurrencyContext';
+import { getDailyStreakInfo } from '@/lib/simulation/dailyBonus';
 
 export default function TopHud({
   company,
@@ -51,6 +55,8 @@ export default function TopHud({
   onOpenTreasury,
   onOpenLeaderboard,
   onOpenMarket,
+  onOpenDailyBonus = () => {},
+  onOpenGuide = () => {},
   mySites = [],
   focusedSite = null,
   onFocusPlant = () => {},
@@ -59,6 +65,9 @@ export default function TopHud({
 }) {
   const dict = dictionaries[lang] || dictionaries.tr;
   const isNight = clock?.isNight ?? false;
+
+  const streakInfo = useMemo(() => getDailyStreakInfo(company), [company]);
+  const canClaimToday = streakInfo?.canClaim ?? false;
 
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [plantMenuOpen, setPlantMenuOpen] = useState(false);
@@ -647,6 +656,30 @@ export default function TopHud({
             )}
           </div>
 
+          {/* Daily Login Streak & Bonus Button */}
+          <button
+            type="button"
+            onClick={onOpenDailyBonus}
+            title={
+              lang === 'tr'
+                ? `Günlük Giriş Bonusu: ${company?.daily_streak || 0} Günlük Seri (Yatırımlarını aralıksız büyüt!)`
+                : `Daily Login Streak: ${company?.daily_streak || 0} Days (Keep growing your investments!)`
+            }
+            className={`flex items-center gap-1 px-1.5 xs:px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl border text-[11px] sm:text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer shrink-0 select-none ${
+              canClaimToday
+                ? 'bg-gradient-to-r from-amber-950/80 to-orange-950/80 border-amber-500/60 hover:border-amber-400 text-amber-300 ring-1 ring-amber-500/40 shadow-amber-500/10'
+                : 'bg-slate-900/90 hover:bg-slate-800 border-slate-700/80 hover:border-slate-600 text-slate-300'
+            }`}
+          >
+            <Flame className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${canClaimToday ? 'fill-amber-400 text-amber-400 animate-bounce' : 'text-amber-500'}`} />
+            <span className="font-mono text-[11px] sm:text-xs">
+              {company?.daily_streak ? `${company.daily_streak}d` : '1d'}
+            </span>
+            {canClaimToday && (
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping inline-block" />
+            )}
+          </button>
+
           {/* Cash Pill - Interactive Treasury Modal Trigger */}
           <button
             onClick={onOpenTreasury}
@@ -985,6 +1018,37 @@ export default function TopHud({
                 {/* Divider */}
                 <div className="my-1 border-t border-slate-800/80" />
 
+                {/* Daily Bonus Link */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUserMenuOpen(false);
+                    onOpenDailyBonus?.();
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-amber-300 hover:text-white hover:bg-slate-800/80 transition-colors text-left cursor-pointer"
+                >
+                  <Flame className="w-4 h-4 text-amber-400" />
+                  <span>{lang === 'tr' ? 'Günlük Giriş Bonusu & Seri' : 'Daily Streak & Bonus'}</span>
+                  {canClaimToday && (
+                    <span className="ml-auto text-[9px] px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse font-bold">
+                      {lang === 'tr' ? 'Ödül Hazır' : 'Claim'}
+                    </span>
+                  )}
+                </button>
+
+                {/* Investment & Growth Strategy Guide Link */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUserMenuOpen(false);
+                    onOpenGuide?.();
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-cyan-300 hover:text-white hover:bg-slate-800/80 transition-colors text-left cursor-pointer"
+                >
+                  <Lightbulb className="w-4 h-4 text-cyan-400" />
+                  <span>{lang === 'tr' ? 'Yatırım & Büyüme Rehberi' : 'Investment & Strategy Guide'}</span>
+                </button>
+
                 {/* Leaderboard & Profile Modal Link */}
                 <button
                   type="button"
@@ -1105,6 +1169,37 @@ export default function TopHud({
                 })}
 
                 <div className="my-1 border-t border-slate-800/80" />
+
+                {/* Mobile Daily Bonus Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onOpenDailyBonus?.();
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold bg-amber-950/40 border border-amber-500/30 text-amber-300 transition-all cursor-pointer"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Flame className="w-4 h-4 text-amber-400" />
+                    <span>{lang === 'tr' ? 'Günlük Giriş Bonusu' : 'Daily Login Streak'}</span>
+                  </div>
+                  <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold">
+                    {company?.daily_streak ? `${company.daily_streak}d` : '1d'}
+                  </span>
+                </button>
+
+                {/* Mobile Investment Guide Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onOpenGuide?.();
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold bg-cyan-950/40 border border-cyan-500/30 text-cyan-300 transition-all cursor-pointer"
+                >
+                  <Lightbulb className="w-4 h-4 text-cyan-400" />
+                  <span>{lang === 'tr' ? 'Yatırım & Büyüme Rehberi' : 'Investment Guide'}</span>
+                </button>
 
                 {/* Quick link to Settings */}
                 <button

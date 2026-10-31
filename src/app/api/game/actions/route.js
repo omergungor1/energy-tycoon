@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { calculateCurrentGameHour } from '@/lib/simulation/clock';
 import { calculateCompanyNetWorth, LOAN_TERMS } from '@/lib/simulation/finance';
+import { getDailyStreakInfo } from '@/lib/simulation/dailyBonus';
 
 export const dynamic = 'force-dynamic';
 
@@ -603,6 +604,78 @@ export async function POST(req) {
         message: `$${actualPayment.toLocaleString()} tutarındaki kredi borcu başarıyla ödendi! ${newRemaining <= 0 ? 'Kredi tamamen kapatıldı.' : `Kalan borç: $${newRemaining.toLocaleString()}`}`,
         newBalance: newCash,
         remainingBalance: newRemaining
+      });
+    }
+
+    // =========================================================================
+    // ACTION 9: CLAIM_DAILY_BONUS (Real-World Daily Login Streak & Rewards)
+    // =========================================================================
+    if (action === 'CLAIM_DAILY_BONUS') {
+      const { clientDateStr } = payload || {};
+      const streakInfo = getDailyStreakInfo(company, clientDateStr);
+
+      if (!streakInfo.canClaim) {
+        return NextResponse.json({
+          error: 'Bugünkü giriş ödülünüzü zaten aldınız! Yeni ödülünüz yarın hazır olacak.',
+          alreadyClaimed: true,
+          streak: streakInfo.currentStreak
+        }, { status: 400 });
+      }
+
+      const reward = streakInfo.reward;
+      const newCash = Number((Number(company.cash || 0) + reward.cash).toFixed(2));
+      const newXp = Number(company.xp || 0) + reward.xp;
+      const newLevel = Math.floor(newXp / 1000) + 1;
+      const newStreak = streakInfo.nextStreak;
+      const todayStr = streakInfo.todayStr;
+
+      // Update company
+      await admin.from('companies').update({
+        cash: newCash,
+        xp: newXp,
+        level: newLevel,
+        daily_streak: newStreak,
+        last_daily_bonus_date: todayStr,
+        total_daily_bonuses_claimed: Number(company.total_daily_bonuses_claimed || 0) + 1
+      }).eq('id', company.id);
+
+      // Record in ledger
+      await admin.from('ledger_entries').insert({
+        company_id: company.id,
+        idempotency_key: `daily_bonus_${company.id}_${todayStr}`,
+        entry_type: 'daily_bonus',
+        amount: reward.cash,
+        balance_after: newCash,
+        game_hour: currentHour,
+        description: `Günlük Giriş Bonusu (Gün ${newStreak}): ${reward.titleTr} (+$${reward.cash.toLocaleString()})`,
+        metadata: {
+          streak: newStreak,
+          dayInCycle: streakInfo.targetDay,
+          cash: reward.cash,
+          xp: reward.xp,
+          date: todayStr
+        }
+      });
+
+      // Send company notification
+      await admin.from('company_notifications').insert({
+        company_id: company.id,
+        type: 'bonus',
+        title: `🎁 ${newStreak}. Gün Giriş Ödülü Alındı!`,
+        message: `Tebrikler! ${newStreak} günlük aralıksız giriş serisi tamamlandı. Kasanıza $${reward.cash.toLocaleString()} nakit ve ${reward.xp} XP eklendi. Yatırımlarını aralıksız büyüt!`,
+        game_hour: currentHour,
+        is_read: false
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: `Tebrikler! ${newStreak}. gün giriş ödülü (+$${reward.cash.toLocaleString()}, +${reward.xp} XP) kasanıza aktarıldı.`,
+        reward,
+        newStreak,
+        newCash,
+        newXp,
+        newLevel,
+        targetDay: streakInfo.targetDay
       });
     }
 

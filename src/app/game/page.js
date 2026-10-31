@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
 import TopHud from '@/components/ui/TopHud';
+import GuestHud from '@/components/ui/GuestHud';
 import WorldCanvas from '@/components/game3d/WorldCanvas';
 import ShopPanel from '@/components/panels/ShopPanel';
 import SitesPanel from '@/components/panels/SitesPanel';
@@ -17,6 +19,9 @@ import SettingsPanel, { DEFAULT_SETTINGS } from '@/components/panels/SettingsPan
 import TreasuryModal from '@/components/modals/TreasuryModal';
 import LeaderboardModal from '@/components/modals/LeaderboardModal';
 import MarketModal from '@/components/modals/MarketModal';
+import DailyBonusModal from '@/components/modals/DailyBonusModal';
+import InvestmentGuideModal from '@/components/modals/InvestmentGuideModal';
+import { getDailyStreakInfo } from '@/lib/simulation/dailyBonus';
 import DriveOverlay from '@/components/ui/DriveOverlay';
 import WalkOverlay from '@/components/ui/WalkOverlay';
 import CinematicOverlay from '@/components/ui/CinematicOverlay';
@@ -38,11 +43,17 @@ import {
   Landmark,
   BarChart3,
   Trophy,
-  Settings
+  Settings,
+  LogOut,
+  Sparkles
 } from 'lucide-react';
 
-export default function GamePage() {
+function GameContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isGuestMode = searchParams.get('guest') === 'true';
+  const guestCompanyId = searchParams.get('companyId');
+
   const [gameState, setGameState] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -53,6 +64,10 @@ export default function GamePage() {
   const [isTreasuryOpen, setIsTreasuryOpen] = useState(false);
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
   const [isMarketOpen, setIsMarketOpen] = useState(false);
+  const [isDailyBonusOpen, setIsDailyBonusOpen] = useState(false);
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
+  const hasAutoPromptedBonus = useRef(false);
+  const hasAutoSpawnedGuest = useRef(false);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
 
   // Vehicle Exploration Driving Mode State
@@ -67,11 +82,45 @@ export default function GamePage() {
 
   // Cinematic Auto-Camera Tour Mode State
   const [isCinematicMode, setIsCinematicMode] = useState(false);
-  const [cinematicTourType, setCinematicTourType] = useState('grand'); // 'grand' | 'plants' | 'scenic'
+  const [cinematicTourType, setCinematicTourType] = useState('grand');
   const [cinematicSpeed, setCinematicSpeed] = useState(1.0);
   const [isCinematicUiHidden, setIsCinematicUiHidden] = useState(false);
 
   const [touchInput, setTouchInput] = useState({});
+
+  const handleTouchInputChange = useCallback((input) => {
+    setTouchInput((prev) => {
+      let changed = false;
+      for (const key in input) {
+        if (prev[key] !== input[key]) {
+          changed = true;
+          break;
+        }
+      }
+      return changed ? { ...prev, ...input } : prev;
+    });
+  }, []);
+
+  // Auto-prompt Daily Login Bonus once per session if unclaimed today (only for logged-in players)
+  useEffect(() => {
+    if (isGuestMode) return;
+    if (gameState?.company && !hasAutoPromptedBonus.current) {
+      hasAutoPromptedBonus.current = true;
+      const info = getDailyStreakInfo(gameState.company);
+      if (info.canClaim) {
+        setIsDailyBonusOpen(true);
+      }
+    }
+  }, [isGuestMode, gameState?.company]);
+
+  // In Guest Mode, automatically spawn directly into the vehicle on the player's site
+  useEffect(() => {
+    if (isGuestMode && gameState && !hasAutoSpawnedGuest.current) {
+      hasAutoSpawnedGuest.current = true;
+      setIsDrivingMode(true);
+      setDrivingCameraMode('cockpit');
+    }
+  }, [isGuestMode, gameState]);
 
   // Auto exit exploration & cinematic modes if a management modal is opened
   useEffect(() => {
@@ -144,10 +193,13 @@ export default function GamePage() {
       const saved = localStorage.getItem('energy_tycoon_settings');
       if (saved) {
         const parsed = JSON.parse(saved);
+        const hasCustomizedMarkers = parsed.markers_configured === true;
         setSettings((prev) => ({
           ...DEFAULT_SETTINGS,
           ...prev,
           ...parsed,
+          showSiteBoundaries: hasCustomizedMarkers ? Boolean(parsed.showSiteBoundaries) : false,
+          showSiteLabels: hasCustomizedMarkers ? Boolean(parsed.showSiteLabels) : false,
           bgMusicVolume: typeof parsed.bgMusicVolume === 'number' ? parsed.bgMusicVolume : 0.65,
           bgMusicEnabled: parsed.bgMusicEnabled !== undefined ? parsed.bgMusicEnabled : true
         }));
@@ -158,9 +210,10 @@ export default function GamePage() {
   }, []);
 
   const handleUpdateSettings = (newSettings) => {
-    setSettings(newSettings);
+    const toSave = { ...newSettings, markers_configured: true };
+    setSettings(toSave);
     try {
-      localStorage.setItem('energy_tycoon_settings', JSON.stringify(newSettings));
+      localStorage.setItem('energy_tycoon_settings', JSON.stringify(toSave));
     } catch (e) {
       console.error('Settings save error:', e);
     }
@@ -200,20 +253,28 @@ export default function GamePage() {
     };
   }, [settings.bgMusicEnabled]);
 
-  // Fetch or refresh game state
+  // Fetch or refresh game state (supports both Guest Mode public state and authenticated state)
   const fetchGameState = useCallback(async () => {
     try {
-      const res = await fetch('/api/game/state');
-      if (res.status === 401) {
-        router.push('/login');
-        return;
-      }
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      if (isGuestMode) {
+        const query = guestCompanyId ? `?companyId=${encodeURIComponent(guestCompanyId)}` : '';
+        const res = await fetch(`/api/game/public-state${query}`);
+        if (!res.ok) throw new Error('Misafir simülasyon verisi yüklenemedi.');
+        const data = await res.json();
+        setGameState(data);
+      } else {
+        const res = await fetch('/api/game/state');
+        if (res.status === 401) {
+          router.push('/login');
+          return;
+        }
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
 
-      setGameState(data);
-      if (data.company?.language) {
-        setLang(data.company.language);
+        setGameState(data);
+        if (data.company?.language) {
+          setLang(data.company.language);
+        }
       }
     } catch (err) {
       console.error('Fetch error:', err);
@@ -221,7 +282,7 @@ export default function GamePage() {
     } finally {
       setLoading(false);
     }
-  }, [router]);
+  }, [router, isGuestMode, guestCompanyId]);
 
   useEffect(() => {
     fetchGameState();
@@ -229,7 +290,7 @@ export default function GamePage() {
     // Regular interval to refresh clock, prices and production settlements
     const interval = setInterval(() => {
       fetchGameState();
-    }, 15000); // Every 15 seconds
+    }, 15000);
 
     return () => clearInterval(interval);
   }, [fetchGameState]);
@@ -239,6 +300,10 @@ export default function GamePage() {
     await supabase.auth.signOut();
     router.push('/login');
     router.refresh();
+  };
+
+  const handleExitGuest = () => {
+    router.push('/login');
   };
 
   if (loading) {
@@ -254,7 +319,7 @@ export default function GamePage() {
         />
         <div className="w-8 h-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
         <div className="text-xs font-bold tracking-widest uppercase text-emerald-400">
-          Simülasyon Dünyası Yükleniyor...
+          {isGuestMode ? 'Misafir Keşif Dünyası Hazırlanıyor...' : 'Simülasyon Dünyası Yükleniyor...'}
         </div>
       </div>
     );
@@ -265,47 +330,89 @@ export default function GamePage() {
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-300 p-4">
         <div className="bg-red-500/10 border border-red-500/30 p-6 rounded-2xl max-w-md text-center">
           <p className="text-red-400 font-semibold mb-4">{error || 'Bağlantı kurulamadı'}</p>
-          <button
-            onClick={() => { setLoading(true); fetchGameState(); }}
-            className="px-4 py-2 bg-emerald-500 text-slate-950 font-bold rounded-xl text-xs"
-          >
-            Tekrar Dene
-          </button>
+          <div className="flex gap-2 justify-center">
+            <button
+              onClick={() => {
+                setLoading(true);
+                fetchGameState();
+              }}
+              className="px-4 py-2 bg-emerald-500 text-slate-950 font-bold rounded-xl text-xs cursor-pointer"
+            >
+              Tekrar Dene
+            </button>
+            {isGuestMode && (
+              <button
+                onClick={handleExitGuest}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl text-xs cursor-pointer"
+              >
+                Giriş Sayfasına Dön
+              </button>
+            )}
+          </div>
         </div>
       </div>
     );
   }
 
+  const initialSpawnCoordinates = gameState.spawnCoordinates || (mySites[0] ? [mySites[0].centerX, mySites[0].centerZ] : [-450, -320]);
+
   return (
     <CurrencyProvider>
       <div className="w-screen h-screen bg-slate-950 overflow-hidden relative font-sans select-none">
-        {/* Top HUD (Hidden during vehicle driving/walking mode, or when cinematic UI is hidden) */}
-        {!isDrivingMode && !isWalkingMode && !(isCinematicMode && isCinematicUiHidden) && (
-          <TopHud
-            company={gameState.company}
-            user={gameState.user}
-            finance={gameState.finance}
-            clock={gameState.clock}
-            spotPrice={gameState.spotPrice}
-            totalCapacityKw={gameState.totalCapacityKw}
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            lang={lang}
-            setLang={setLang}
-            onLogout={handleLogout}
-            onOpenTreasury={() => setIsTreasuryOpen(true)}
-            onOpenLeaderboard={() => setIsLeaderboardOpen(true)}
-            onOpenMarket={() => setIsMarketOpen(true)}
-            mySites={mySites}
-            focusedSite={focusedSite}
-            onFocusPlant={handleFocusPlant}
-            settings={settings}
-            onUpdateSettings={handleUpdateSettings}
-          />
+        {/* Top HUD (Rendered when NOT in vehicle driving/walking mode, and NOT in cinematic tour mode) */}
+        {!isDrivingMode && !isWalkingMode && !isCinematicMode && (
+          isGuestMode ? (
+            <GuestHud
+              company={gameState.company}
+              finance={gameState.finance}
+              playerDay={gameState.playerDay || 1}
+              clock={gameState.clock}
+              onExitGuestMode={handleExitGuest}
+            />
+          ) : (
+            <TopHud
+              company={gameState.company}
+              user={gameState.user}
+              finance={gameState.finance}
+              clock={gameState.clock}
+              spotPrice={gameState.spotPrice}
+              totalCapacityKw={gameState.totalCapacityKw}
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              lang={lang}
+              setLang={setLang}
+              onLogout={handleLogout}
+              onOpenTreasury={() => setIsTreasuryOpen(true)}
+              onOpenLeaderboard={() => setIsLeaderboardOpen(true)}
+              onOpenMarket={() => setIsMarketOpen(true)}
+              onOpenDailyBonus={() => setIsDailyBonusOpen(true)}
+              onOpenGuide={() => setIsGuideOpen(true)}
+              mySites={mySites}
+              focusedSite={focusedSite}
+              onFocusPlant={handleFocusPlant}
+              settings={settings}
+              onUpdateSettings={handleUpdateSettings}
+            />
+          )
+        )}
+
+        {/* Floating Quick Exit Guest Button while driving or walking */}
+        {isGuestMode && (isDrivingMode || isWalkingMode) && (
+          <div className="fixed top-3 right-3 z-50 pointer-events-auto">
+            <button
+              type="button"
+              onClick={handleExitGuest}
+              className="px-3.5 py-2 rounded-xl bg-slate-900/90 hover:bg-red-950/90 border border-slate-700/80 hover:border-red-500/50 text-slate-200 hover:text-red-300 text-xs font-bold flex items-center gap-1.5 backdrop-blur-xl shadow-2xl active:scale-95 transition-all cursor-pointer"
+              title="Misafir Modundan Çık ve Giriş Sayfasına Dön"
+            >
+              <LogOut className="w-3.5 h-3.5 text-red-400" />
+              <span>Misafir Modundan Çık</span>
+            </button>
+          </div>
         )}
 
         {/* Main Content Area */}
-        <main className={`w-full h-full pb-0 relative ${isDrivingMode || isWalkingMode || isCinematicMode ? 'pt-0' : 'pt-14 sm:pt-16'}`}>
+        <main className={`w-full h-full pb-0 relative ${isDrivingMode || isWalkingMode || isCinematicMode ? 'pt-0' : isGuestMode ? 'pt-16 sm:pt-18' : 'pt-14 sm:pt-16'}`}>
           {/* 3D Map View: Always mounted, active, and alive in the background */}
           <div className="w-full h-full block">
             <WorldCanvas
@@ -315,6 +422,7 @@ export default function GamePage() {
               clock={gameState.clock}
               settings={settings}
               focusedSite={focusedSite}
+              initialSpawnCoords={initialSpawnCoordinates}
               onSelectSite={(site) => setInspectedSite(site)}
               isDrivingMode={isDrivingMode}
               drivingCameraMode={drivingCameraMode}
@@ -367,7 +475,7 @@ export default function GamePage() {
                   type="button"
                   onClick={() => {
                     setIsDrivingMode(true);
-                    setDrivingCameraMode('cockpit'); // Starts inside vehicle view as requested
+                    setDrivingCameraMode('cockpit');
                   }}
                   title={lang === 'tr' ? 'Araç Sürüş Modu (Adayı Keşfet)' : 'Drive Buggy Mode (Explore Island)'}
                   className="w-12 h-12 sm:w-13 sm:h-13 bg-slate-900/90 hover:bg-emerald-950/90 text-emerald-400 hover:text-emerald-300 border border-emerald-500/50 hover:border-emerald-400 rounded-2xl shadow-2xl backdrop-blur-xl flex items-center justify-center transition-all hover:scale-110 active:scale-95 group cursor-pointer"
@@ -383,7 +491,7 @@ export default function GamePage() {
                 stats={vehicleStats}
                 cameraMode={drivingCameraMode}
                 onCameraModeChange={setDrivingCameraMode}
-                onTouchInputChange={(input) => setTouchInput((prev) => ({ ...prev, ...input }))}
+                onTouchInputChange={handleTouchInputChange}
                 onExit={() => setIsDrivingMode(false)}
                 lang={lang}
               />
@@ -395,7 +503,7 @@ export default function GamePage() {
                 stats={walkerStats}
                 cameraMode={walkingCameraMode}
                 onCameraModeChange={setWalkingCameraMode}
-                onTouchInputChange={(input) => setTouchInput((prev) => ({ ...prev, ...input }))}
+                onTouchInputChange={handleTouchInputChange}
                 onExit={() => setIsWalkingMode(false)}
                 lang={lang}
               />
@@ -408,20 +516,17 @@ export default function GamePage() {
                 onTourTypeChange={setCinematicTourType}
                 speedMultiplier={cinematicSpeed}
                 onSpeedChange={setCinematicSpeed}
-                isUiHidden={isCinematicUiHidden}
-                onToggleHideUi={() => setIsCinematicUiHidden((prev) => !prev)}
                 onExit={() => setIsCinematicMode(false)}
                 lang={lang}
               />
             )}
           </div>
 
-          {/* Floating Modal Over Live 3D Map for Management Panels */}
-          {activeTab && ['shop', 'sites', 'plants', 'battery', 'finance', 'market', 'leaderboard', 'settings'].includes(activeTab) && (
+          {/* Floating Modal Over Live 3D Map for Management Panels (Only for logged-in players) */}
+          {!isGuestMode && activeTab && ['shop', 'sites', 'plants', 'battery', 'finance', 'market', 'leaderboard', 'settings'].includes(activeTab) && (
             <div
               className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 md:p-6 bg-slate-950/65 backdrop-blur-sm animate-in fade-in duration-150"
               onClick={(e) => {
-                // Click outside modal card to close
                 if (e.target === e.currentTarget) {
                   setActiveTab(null);
                 }
@@ -559,7 +664,7 @@ export default function GamePage() {
               <div className="bg-slate-900 border border-slate-700/80 rounded-2xl p-6 max-w-md w-full shadow-2xl relative text-slate-100">
                 <button
                   onClick={() => setInspectedSite(null)}
-                  className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-white bg-slate-800 transition-colors"
+                  className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-white bg-slate-800 transition-colors cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -622,61 +727,130 @@ export default function GamePage() {
                 </div>
 
                 <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      setInspectedSite(null);
-                      setActiveTab('sites');
-                    }}
-                    className="flex-1 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold rounded-xl text-xs shadow-md shadow-emerald-500/20"
-                  >
-                    Araziler Paneline Git
-                  </button>
-                  <button
-                    onClick={() => {
-                      setInspectedSite(null);
-                      setActiveTab('shop');
-                    }}
-                    className="py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl text-xs"
-                  >
-                    Ekipman Kur
-                  </button>
+                  {isGuestMode ? (
+                    <Link
+                      href="/register"
+                      className="flex-1 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold rounded-xl text-xs shadow-md shadow-emerald-500/20 text-center flex items-center justify-center gap-1.5"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Bu Sahada Santral Kurmak İçin Kaydol ($100k Hibe)</span>
+                    </Link>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => {
+                          setInspectedSite(null);
+                          setActiveTab('sites');
+                        }}
+                        className="flex-1 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold rounded-xl text-xs shadow-md shadow-emerald-500/20 cursor-pointer"
+                      >
+                        Araziler Paneline Git
+                      </button>
+                      <button
+                        onClick={() => {
+                          setInspectedSite(null);
+                          setActiveTab('shop');
+                        }}
+                        className="py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl text-xs cursor-pointer"
+                      >
+                        Ekipman Kur
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
           )}
 
           {/* Treasury & Cash Flow Modal (Triggered by clicking cash pill in HUD) */}
-          <TreasuryModal
-            isOpen={isTreasuryOpen}
-            onClose={() => setIsTreasuryOpen(false)}
-            company={gameState.company}
-            finance={gameState.finance}
-            lang={lang}
-          />
+          {!isGuestMode && (
+            <TreasuryModal
+              isOpen={isTreasuryOpen}
+              onClose={() => setIsTreasuryOpen(false)}
+              company={gameState.company}
+              finance={gameState.finance}
+              lang={lang}
+            />
+          )}
 
           {/* Leaderboard & Company Profile Modal (Triggered by clicking company avatar / level in HUD) */}
-          <LeaderboardModal
-            isOpen={isLeaderboardOpen}
-            onClose={() => setIsLeaderboardOpen(false)}
-            company={gameState.company}
-            leaderboard={gameState.leaderboard}
-            finance={gameState.finance}
-            totalCapacityKw={gameState.totalCapacityKw}
-            mySites={mySites}
-            lang={lang}
-          />
+          {!isGuestMode && (
+            <LeaderboardModal
+              isOpen={isLeaderboardOpen}
+              onClose={() => setIsLeaderboardOpen(false)}
+              company={gameState.company}
+              leaderboard={gameState.leaderboard}
+              finance={gameState.finance}
+              totalCapacityKw={gameState.totalCapacityKw}
+              mySites={mySites}
+              lang={lang}
+            />
+          )}
 
           {/* Electricity Market & Spot Chart Modal (Triggered by clicking spot price pill in HUD) */}
-          <MarketModal
-            isOpen={isMarketOpen}
-            onClose={() => setIsMarketOpen(false)}
-            spotPrice={gameState.spotPrice}
-            priceChart={gameState.priceChart}
-            clock={gameState.clock}
-            lang={lang}
-          />
+          {!isGuestMode && (
+            <MarketModal
+              isOpen={isMarketOpen}
+              onClose={() => setIsMarketOpen(false)}
+              spotPrice={gameState.spotPrice}
+              priceChart={gameState.priceChart}
+              clock={gameState.clock}
+              lang={lang}
+            />
+          )}
+
+          {/* Daily Login Streak & Bonus Modal (Only for registered logged-in players) */}
+          {!isGuestMode && (
+            <DailyBonusModal
+              isOpen={isDailyBonusOpen}
+              onClose={() => setIsDailyBonusOpen(false)}
+              company={gameState.company}
+              onBonusClaimed={() => {
+                fetchGameState();
+              }}
+              onOpenGuide={() => {
+                setIsDailyBonusOpen(false);
+                setIsGuideOpen(true);
+              }}
+              lang={lang}
+            />
+          )}
+
+          {/* Investment & Growth Strategy Guide Modal */}
+          {!isGuestMode && (
+            <InvestmentGuideModal
+              isOpen={isGuideOpen}
+              onClose={() => setIsGuideOpen(false)}
+              lang={lang}
+            />
+          )}
         </main>
       </div>
     </CurrencyProvider>
+  );
+}
+
+export default function GamePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-300 gap-4">
+          <Image
+            src="/logo.png"
+            alt="Energy Tycoon"
+            width={72}
+            height={72}
+            className="w-18 h-18 object-contain animate-pulse drop-shadow-2xl"
+            priority
+          />
+          <div className="w-8 h-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
+          <div className="text-xs font-bold tracking-widest uppercase text-emerald-400">
+            Simülasyon Dünyası Yükleniyor...
+          </div>
+        </div>
+      }
+    >
+      <GameContent />
+    </Suspense>
   );
 }

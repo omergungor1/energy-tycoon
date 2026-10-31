@@ -28,8 +28,8 @@ export const DEFAULT_SETTINGS = {
   showClouds: true,
   showTraffic: true,
   showWildlife: true,
-  showSiteBoundaries: true,
-  showSiteLabels: true,
+  showSiteBoundaries: false,
+  showSiteLabels: false,
   firewatchMode: true,
   bgMusicEnabled: true,
   bgMusicVolume: 0.65 // 0.0 - 1.0 (65% healthy default)

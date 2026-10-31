@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useMemo, useEffect, useState } from 'react';
+import React, { useRef, useMemo, useEffect, useState, useCallback } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Text, Billboard } from '@react-three/drei';
 import * as THREE from 'three';
@@ -2958,6 +2958,7 @@ export default function WorldCanvas({
   clock,
   settings = {},
   focusedSite = null,
+  initialSpawnCoords = null,
   onSelectSite,
   isDrivingMode = false,
   drivingCameraMode = 'cockpit',
@@ -2992,7 +2993,10 @@ export default function WorldCanvas({
       let spawnZ = 0;
       let initialYaw = 0;
 
-      if (controlsRef.current?.target) {
+      if (initialSpawnCoords && !lastGroundStats.current) {
+        spawnX = Number(initialSpawnCoords[0]);
+        spawnZ = Number(initialSpawnCoords[1]);
+      } else if (controlsRef.current?.target) {
         const tx = Number(controlsRef.current.target.x);
         const tz = Number(controlsRef.current.target.z);
         if (Number.isFinite(tx) && Number.isFinite(tz)) {
@@ -3036,15 +3040,15 @@ export default function WorldCanvas({
     prevGroundMode.current = isGroundMode;
   }, [isGroundMode, focusedSite]);
 
-  const handleVehicleStats = (stats) => {
+  const handleVehicleStats = useCallback((stats) => {
     lastGroundStats.current = stats;
     onVehicleStatsUpdate(stats);
-  };
+  }, [onVehicleStatsUpdate]);
 
-  const handleWalkerStats = (stats) => {
+  const handleWalkerStats = useCallback((stats) => {
     lastGroundStats.current = stats;
     onWalkerStatsUpdate(stats);
-  };
+  }, [onWalkerStatsUpdate]);
 
   // Settings with defaults
   const showInfrastructure = settings.showInfrastructure ?? true;
@@ -3052,8 +3056,8 @@ export default function WorldCanvas({
   const showClouds = settings.showClouds ?? true;
   const showTraffic = settings.showTraffic ?? true;
   const showWildlife = settings.showWildlife ?? true;
-  const showSiteBoundaries = settings.showSiteBoundaries ?? true;
-  const showSiteLabels = settings.showSiteLabels ?? true;
+  const showSiteBoundaries = settings.showSiteBoundaries ?? false;
+  const showSiteLabels = settings.showSiteLabels ?? false;
   const firewatchMode = settings.firewatchMode ?? true;
 
   const isLowGraphics = graphicQuality === 'low';
@@ -3062,13 +3066,13 @@ export default function WorldCanvas({
   const dpr = useMemo(() => {
     if (isLowGraphics) return 1;
     if (isUltraGraphics) return [1, 2];
-    return [1, 1.5];
+    return [1, 1.25];
   }, [isLowGraphics, isUltraGraphics]);
 
   const shadowMapSize = useMemo(() => {
     if (isLowGraphics) return 512;
-    if (isUltraGraphics) return 4096;
-    return 2048;
+    if (isUltraGraphics) return 2048;
+    return 1024;
   }, [isLowGraphics, isUltraGraphics]);
 
   const ownedSiteIds = useMemo(() => {
@@ -3127,7 +3131,8 @@ export default function WorldCanvas({
               shadow-camera-right={850}
               shadow-camera-top={850}
               shadow-camera-bottom={-850}
-              shadow-bias={-0.0003}
+              shadow-bias={-0.00008}
+              shadow-normalBias={0.04}
             />
           </>
         )}

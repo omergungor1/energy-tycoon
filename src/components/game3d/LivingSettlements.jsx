@@ -40,8 +40,17 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
       woodChaletWall: new THREE.MeshStandardMaterial({ color: '#78350f', roughness: 0.8 }),
       chaletRoof: new THREE.MeshStandardMaterial({ color: '#451a03', roughness: 0.7 }),
       stoneFoundation: new THREE.MeshStandardMaterial({ color: '#64748b', roughness: 0.9 }),
-      cityWallMat: new THREE.MeshStandardMaterial({ color: '#cbd5e1', roughness: 0.45, metalness: 0.2 }),
-      cityGlassMat: new THREE.MeshStandardMaterial({ color: '#0284c7', roughness: 0.1, metalness: 0.85 }),
+      cityWallMat: new THREE.MeshStandardMaterial({ color: '#cbd5e1', roughness: 0.55, metalness: 0.1 }),
+      cityGlassMat: new THREE.MeshStandardMaterial({
+        color: isNight ? '#0369a1' : '#38bdf8',
+        emissive: isNight ? '#0284c7' : '#075985',
+        emissiveIntensity: isNight ? 0.5 : 0.08,
+        roughness: 0.15,
+        metalness: 0.75,
+        polygonOffset: true,
+        polygonOffsetFactor: -1.0,
+        polygonOffsetUnits: -4.0
+      }),
       redBarnMat: new THREE.MeshStandardMaterial({ color: '#991b1b', roughness: 0.65 }),
       barnRoofMat: new THREE.MeshStandardMaterial({ color: '#1e293b', roughness: 0.8 }),
       siloMat: new THREE.MeshStandardMaterial({ color: '#94a3b8', roughness: 0.35, metalness: 0.75 }),
@@ -181,27 +190,40 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
           { x: 26, z: 14, w: 12, h: 18, d: 12, rot: 0 }
         ].map((b, bi) => (
           <group key={`city_b_${bi}`} position={[b.x, 0, b.z]} rotation={[0, b.rot, 0]}>
-            {/* Building Body */}
+            {/* 1. Main Structural Tower Body */}
             <mesh position={[0, b.h * 0.5, 0]} castShadow receiveShadow material={mats.cityWallMat}>
               <boxGeometry args={[b.w, b.h, b.d]} />
             </mesh>
-            {/* Reflective Glass Curtain Façade */}
-            <mesh position={[0, b.h * 0.5, 0]}>
-              <boxGeometry args={[b.w * 0.98, b.h * 0.94, b.d * 1.01]} />
-              <meshStandardMaterial
-                color={isNight ? '#0369a1' : '#0284c7'}
-                emissive={isNight ? '#0284c7' : '#000000'}
-                emissiveIntensity={isNight ? 0.35 : 0}
-                roughness={0.1}
-                metalness={0.8}
-              />
+
+            {/* 2. Glass Curtain Façade Paneling (Clean non-intersecting planes on 4 faces with polygonOffset, 0 Z-fighting) */}
+            {/* Front Window Façade (+Z) */}
+            <mesh position={[0, b.h * 0.5, b.d * 0.5 + 0.05]} material={mats.cityGlassMat}>
+              <planeGeometry args={[b.w * 0.84, b.h * 0.88]} />
             </mesh>
-            {/* Roof Aircon & Communications Antenna */}
-            <mesh position={[b.w * 0.3, b.h + 2.5, b.d * 0.2]} material={mats.stoneFoundation}>
-              <cylinderGeometry args={[0.08, 0.08, 5.0, 6]} />
+            {/* Back Window Façade (-Z) */}
+            <mesh position={[0, b.h * 0.5, -b.d * 0.5 - 0.05]} rotation={[0, Math.PI, 0]} material={mats.cityGlassMat}>
+              <planeGeometry args={[b.w * 0.84, b.h * 0.88]} />
             </mesh>
-            {/* Rooftop Aviation Safety Strobe */}
-            <mesh position={[b.w * 0.3, b.h + 5.1, b.d * 0.2]}>
+            {/* East Window Façade (+X) */}
+            <mesh position={[b.w * 0.5 + 0.05, b.h * 0.5, 0]} rotation={[0, Math.PI / 2, 0]} material={mats.cityGlassMat}>
+              <planeGeometry args={[b.d * 0.84, b.h * 0.88]} />
+            </mesh>
+            {/* West Window Façade (-X) */}
+            <mesh position={[-b.w * 0.5 - 0.05, b.h * 0.5, 0]} rotation={[0, -Math.PI / 2, 0]} material={mats.cityGlassMat}>
+              <planeGeometry args={[b.d * 0.84, b.h * 0.88]} />
+            </mesh>
+
+            {/* 3. Rooftop Mechanical Penthouse Core */}
+            <mesh position={[0, b.h + 1.2, 0]} castShadow material={mats.industrialShed}>
+              <boxGeometry args={[b.w * 0.5, 2.4, b.d * 0.5]} />
+            </mesh>
+
+            {/* 4. Roof Communications Mast & Antenna */}
+            <mesh position={[b.w * 0.25, b.h + 3.8, b.d * 0.2]} material={mats.stoneFoundation}>
+              <cylinderGeometry args={[0.08, 0.08, 4.0, 6]} />
+            </mesh>
+            {/* 5. Rooftop Aviation Safety Strobe */}
+            <mesh position={[b.w * 0.25, b.h + 5.9, b.d * 0.2]}>
               <sphereGeometry args={[0.22, 6, 6]} />
               <meshBasicMaterial color={isNight ? '#ef4444' : '#64748b'} />
             </mesh>

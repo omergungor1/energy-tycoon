@@ -6,6 +6,7 @@ import { calculateAssetProduction } from '../src/lib/simulation/production.js';
 import { dispatchSiteEnergy } from '../src/lib/simulation/batteries.js';
 import { calculateCompanyNetWorth } from '../src/lib/simulation/finance.js';
 import { processCompanySimulationTick } from '../src/lib/simulation/tick-runner.js';
+import { getDailyStreakInfo, getCalendarDayDifference } from '../src/lib/simulation/dailyBonus.js';
 
 async function runTests() {
   console.log('🧪 Starting Energy Tycoon Engine Tests...\n');
@@ -99,7 +100,70 @@ async function runTests() {
     throw new Error('Borrowing power does not match 50% statutory rule!');
   }
 
-  console.log('\n🎉 ALL 5 ENGINE TEST SUITES PASSED FLAWLESSLY!');
+  // Test 6: Daily Login Streak & Bonus Math
+  console.log('\n--- TEST 6: Real-World Daily Login Streak & Bonus Engine ---');
+  // New player first login
+  const s1 = getDailyStreakInfo({ daily_streak: 0, last_daily_bonus_date: null }, '2026-10-31');
+  console.log(`✓ Day 1 Claim: Streak=${s1.nextStreak}, Reward=$${s1.reward.cash}, XP=${s1.reward.xp}, CanClaim=${s1.canClaim}`);
+  if (s1.nextStreak !== 1 || s1.reward.cash !== 5000 || !s1.canClaim) {
+    throw new Error('Day 1 streak reward failed');
+  }
+
+  // Consecutive day login (Yesterday was 2026-10-30, today is 2026-10-31)
+  const s2 = getDailyStreakInfo({ daily_streak: 1, last_daily_bonus_date: '2026-10-30' }, '2026-10-31');
+  console.log(`✓ Consecutive Day 2: Streak=${s2.nextStreak}, Reward=$${s2.reward.cash}, TargetDay=${s2.targetDay}`);
+  if (s2.nextStreak !== 2 || s2.reward.cash !== 8000) {
+    throw new Error('Day 2 consecutive streak reward failed');
+  }
+
+  // Day 7 Mega Bonus
+  const s7 = getDailyStreakInfo({ daily_streak: 6, last_daily_bonus_date: '2026-10-30' }, '2026-10-31');
+  console.log(`✓ Day 7 Mega Bonus: Streak=${s7.nextStreak}, Reward=$${s7.reward.cash}, isMega=${s7.reward.isMega}`);
+  if (s7.nextStreak !== 7 || s7.reward.cash !== 50000 || !s7.reward.isMega) {
+    throw new Error('Day 7 mega bonus failed');
+  }
+
+  // Already claimed today
+  const sSameDay = getDailyStreakInfo({ daily_streak: 3, last_daily_bonus_date: '2026-10-31' }, '2026-10-31');
+  console.log(`✓ Same Day Attempt: CanClaim=${sSameDay.canClaim}, isClaimedToday=${sSameDay.isClaimedToday}`);
+  if (sSameDay.canClaim || !sSameDay.isClaimedToday) {
+    throw new Error('Same day claim prevention failed');
+  }
+
+  // Missed day (reset to 1)
+  const sMissed = getDailyStreakInfo({ daily_streak: 5, last_daily_bonus_date: '2026-10-25' }, '2026-10-31');
+  console.log(`✓ Missed Days Reset: Streak=${sMissed.nextStreak}, TargetDay=${sMissed.targetDay}`);
+  if (sMissed.nextStreak !== 1 || sMissed.reward.cash !== 5000) {
+    throw new Error('Missed streak reset failed');
+  }
+
+  // Test 7: Guest Mode & Public Leaderboard Integration
+  console.log('\n--- TEST 7: Guest Mode & Public Leaderboard Integration ---');
+  const { data: topActiveCompanies } = await admin
+    .from('companies')
+    .select('id, name, cash, level')
+    .eq('status', 'active')
+    .order('cash', { ascending: false });
+
+  console.log(`✓ Found ${topActiveCompanies?.length || 0} active companies in database`);
+  if (!topActiveCompanies || topActiveCompanies.length === 0) {
+    throw new Error('Expected at least 1 active company');
+  }
+  const topCompany = topActiveCompanies[0];
+  console.log(`✓ Primary Leaderboard Tycoon: "${topCompany.name}" (Level ${topCompany.level}, Cash: $${topCompany.cash})`);
+
+  const { data: guestCompanySites } = await admin
+    .from('company_sites')
+    .select('*, world_sites(*)')
+    .eq('company_id', topCompany.id);
+
+  console.log(`✓ Company Active Sites: ${guestCompanySites?.length || 0}`);
+  if (guestCompanySites && guestCompanySites.length > 0) {
+    const primarySite = guestCompanySites[0].world_sites;
+    console.log(`✓ Spawn Point Verified: "${primarySite.name}" at [${primarySite.center_x}, ${primarySite.center_z}]`);
+  }
+
+  console.log('\n🎉 ALL 7 ENGINE TEST SUITES PASSED FLAWLESSLY!');
 }
 
 runTests().catch(err => {
