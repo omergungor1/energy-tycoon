@@ -39,8 +39,8 @@ export default function CinematicCameraTour({
       new THREE.Vector3(160, 40, 110),   // Grand Valley River Crossing
       new THREE.Vector3(310, 44, 115),   // Approaching Sunfire City Downtown Skyline
       new THREE.Vector3(430, 46, -40),   // Skimming East Coastal Plain along ocean
-      new THREE.Vector3(330, 40, -230),  // Scenic Coastal Steppe towards Marina Bay
-      new THREE.Vector3(220, 34, -350),  // Swoop past Harbor Ships & Lighthouse
+      new THREE.Vector3(330, 40, -320),  // Scenic Coastal Steppe towards Marina Bay
+      new THREE.Vector3(220, 32, -540),  // Swoop past Harbor Ships, Coastal Lighthouse & Bay Fleet
       new THREE.Vector3(-160, 65, -440)  // Ocean flight returning to Western Peaks
     ];
 
@@ -54,7 +54,7 @@ export default function CinematicCameraTour({
       new THREE.Vector3(340, 37, 110),
       new THREE.Vector3(480, 41, 90),
       new THREE.Vector3(380, 43, -220),
-      new THREE.Vector3(220, 37, -360),
+      new THREE.Vector3(260, 10, -650),
       new THREE.Vector3(30, 32, -430),
       new THREE.Vector3(-380, 62, -400)
     ];
@@ -107,8 +107,8 @@ export default function CinematicCameraTour({
       new THREE.Vector3(115, 30, 320),   // Following Grand Valley River downstream
       new THREE.Vector3(340, 32, 95),    // Sunfire City Boulevard & Traffic
       new THREE.Vector3(380, 30, -130),  // Eastern Coastal Railway Plain
-      new THREE.Vector3(250, 26, -320),  // Marina Harbor Dock & Freight Terminal
-      new THREE.Vector3(195, 26, -390)   // Circling Coastal Lighthouse
+      new THREE.Vector3(250, 28, -520),  // Marina Harbor Bay & Coastal Headland
+      new THREE.Vector3(180, 26, -580)   // Circling Coastal Lighthouse & Ocean Bay
     ];
 
     const lookPoints = [
@@ -119,8 +119,8 @@ export default function CinematicCameraTour({
       new THREE.Vector3(240, 28, 420),
       new THREE.Vector3(420, 30, -20),
       new THREE.Vector3(290, 28, -280),
-      new THREE.Vector3(170, 24, -380),
-      new THREE.Vector3(130, 24, -240)
+      new THREE.Vector3(260, 5, -660),
+      new THREE.Vector3(240, 2, -680)
     ];
 
     return {

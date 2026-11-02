@@ -52,6 +52,7 @@ export default function WalkableCharacter({
   const isFirstFrame = useRef(true);
   const lastStatsEmit = useRef(0);
   const prevStats = useRef({});
+  const lastLookYawRef = useRef(null);
 
   // Keyboard input state
   const keysRef = useRef({
@@ -81,7 +82,7 @@ export default function WalkableCharacter({
     s.x = Number.isFinite(spawnPosition?.[0]) ? spawnPosition[0] : 0;
     s.z = Number.isFinite(spawnPosition?.[1]) ? spawnPosition[1] : 0;
     s.yaw = Number.isFinite(initialYaw) ? initialYaw : 0;
-    s.y = getTerrainHeight(s.x, s.z);
+    s.y = getTerrainHeight(s.x, s.z) + 0.06;
     s.vy = 0;
     s.velocity = 0;
     s.isGrounded = true;
@@ -203,6 +204,22 @@ export default function WalkableCharacter({
       if (isRgt) steerDir -= 1;
     }
     s.yaw += steerDir * ROT_SPEED * dt;
+
+    // Touch screen drag look (Viewpoint rotation)
+    if (typeof t.lookYaw === 'number') {
+      if (lastLookYawRef.current === null) {
+        lastLookYawRef.current = t.lookYaw;
+      } else {
+        const deltaYaw = t.lookYaw - lastLookYawRef.current;
+        if (Math.abs(deltaYaw) > 0.00001) {
+          s.yaw -= deltaYaw;
+          lastLookYawRef.current = t.lookYaw;
+        }
+      }
+    } else {
+      lastLookYawRef.current = null;
+    }
+
     if (!Number.isFinite(s.yaw)) s.yaw = 0;
 
     // 2. Velocity computation (Walk vs Run)
@@ -233,7 +250,7 @@ export default function WalkableCharacter({
 
     // 4. Vertical Dynamics & Terrain Height matching (single fast call)
     const groundH = getTerrainHeight(s.x, s.z);
-    const groundedY = groundH;
+    const groundedY = groundH + 0.06;
 
     // Jumping trigger
     if (isJump && s.isGrounded) {
@@ -316,7 +333,9 @@ export default function WalkableCharacter({
       headlampTargetRef.current.position.set(s.x + fwdX * 20, s.y + 0.8, s.z + fwdZ * 20);
     }
 
-    // 7. Dynamic Camera Positioning based on Camera Mode
+    // 7. Dynamic Camera Positioning based on Camera Mode & Look Pitch
+    const pitch = typeof t.lookPitch === 'number' ? t.lookPitch : 0;
+
     if (cameraMode === 'fps') {
       // First-person view (eyes of the engineer)
       if (characterMeshGroupRef.current) characterMeshGroupRef.current.visible = false; // Hide body in FPS
@@ -334,7 +353,7 @@ export default function WalkableCharacter({
 
       _walkLookTarget.set(
         s.x + Math.sin(s.yaw) * 10,
-        eyeY - 0.2,
+        eyeY - 0.2 + pitch * 8.0,
         s.z + Math.cos(s.yaw) * 10
       );
       camera.lookAt(_walkLookTarget);
@@ -346,10 +365,10 @@ export default function WalkableCharacter({
       camera.near = 0.15;
       camera.updateProjectionMatrix();
 
-      _walkLookTarget.set(s.x, s.y + 1.25, s.z);
+      _walkLookTarget.set(s.x, s.y + 1.25 + pitch * 2.0, s.z);
 
       const idealDist = 3.6;
-      const idealHeight = 1.95;
+      const idealHeight = 1.95 - pitch * 1.8;
 
       _walkTargetCamPos.set(
         s.x - Math.sin(s.yaw) * idealDist,
@@ -357,7 +376,7 @@ export default function WalkableCharacter({
         s.z - Math.cos(s.yaw) * idealDist
       );
 
-      const groundAtCam = getTerrainHeight(_walkTargetCamPos.x, _walkTargetCamPos.z) + 0.6;
+      const groundAtCam = getTerrainHeight(_walkTargetCamPos.x, _walkTargetCamPos.z) + 0.8;
       if (_walkTargetCamPos.y < groundAtCam) _walkTargetCamPos.y = groundAtCam;
 
       if (isFirstFrame.current) {

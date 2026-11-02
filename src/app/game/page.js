@@ -45,7 +45,12 @@ import {
   Trophy,
   Settings,
   LogOut,
-  Sparkles
+  Sparkles,
+  CheckCircle2,
+  Cpu,
+  HardHat,
+  Clock,
+  Zap
 } from 'lucide-react';
 
 function GameContent() {
@@ -60,6 +65,8 @@ function GameContent() {
   const [activeTab, setActiveTab] = useState(null);
   const [lang, setLang] = useState('tr');
   const [inspectedSite, setInspectedSite] = useState(null);
+  const [shopInitialSiteId, setShopInitialSiteId] = useState(null);
+  const [shopInitialType, setShopInitialType] = useState(null);
   const [focusedSite, setFocusedSite] = useState(null);
   const [isTreasuryOpen, setIsTreasuryOpen] = useState(false);
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
@@ -198,8 +205,8 @@ function GameContent() {
           ...DEFAULT_SETTINGS,
           ...prev,
           ...parsed,
-          showSiteBoundaries: hasCustomizedMarkers ? Boolean(parsed.showSiteBoundaries) : false,
-          showSiteLabels: hasCustomizedMarkers ? Boolean(parsed.showSiteLabels) : false,
+          showSiteBoundaries: false, // Closed by default upon entering the game as requested
+          showSiteLabels: false, // Closed by default upon entering the game as requested
           bgMusicVolume: typeof parsed.bgMusicVolume === 'number' ? parsed.bgMusicVolume : 0.65,
           bgMusicEnabled: parsed.bgMusicEnabled !== undefined ? parsed.bgMusicEnabled : true
         }));
@@ -583,6 +590,8 @@ function GameContent() {
                       company={gameState.company}
                       companySites={gameState.companySites}
                       lang={lang}
+                      initialSiteId={shopInitialSiteId}
+                      initialType={shopInitialType}
                       onActionSuccess={fetchGameState}
                     />
                   )}
@@ -602,8 +611,15 @@ function GameContent() {
                       companySites={gameState.companySites}
                       installedAssets={gameState.installedAssets}
                       company={gameState.company}
+                      clock={gameState.clock}
                       lang={lang}
                       onActionSuccess={fetchGameState}
+                      onNavigateToShop={(siteId, siteType) => {
+                        setShopInitialSiteId(siteId);
+                        if (siteType === 'solar') setShopInitialType('solar_pack');
+                        else if (siteType === 'wind') setShopInitialType('wind_turbine');
+                        setActiveTab('shop');
+                      }}
                     />
                   )}
 
@@ -659,108 +675,362 @@ function GameContent() {
           )}
 
           {/* 3D Inspected Site Quick Modal (when clicking a site on the 3D map) */}
-          {inspectedSite && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
-              <div className="bg-slate-900 border border-slate-700/80 rounded-2xl p-6 max-w-md w-full shadow-2xl relative text-slate-100">
-                <button
-                  onClick={() => setInspectedSite(null)}
-                  className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-white bg-slate-800 transition-colors cursor-pointer"
+          {inspectedSite && (() => {
+            const companySite = gameState?.companySites?.find((cs) => cs.site_id === inspectedSite.id);
+            const siteAssets = companySite
+              ? (gameState?.installedAssets || []).filter((a) => a.company_site_id === companySite.id)
+              : [];
+
+            const siteTotalCapacityKw = siteAssets.reduce((sum, a) => {
+              if (a.equipment_catalog?.equipment_type !== 'battery') {
+                return sum + Number(a.equipment_catalog?.capacity_kw || 0);
+              }
+              return sum;
+            }, 0);
+
+            const underConstructionCount = siteAssets.filter((a) => {
+              const isConstructionType = ['wind_turbine', 'solar_pack'].includes(a.equipment_catalog?.equipment_type);
+              const elapsedHours = Math.max(0, (Number(gameState?.clock?.gameHour) || 0) - Number(a.installed_game_hour || 0));
+              return isConstructionType && elapsedHours < 168;
+            }).length;
+
+            return (
+              <div
+                className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-200"
+                onClick={(e) => {
+                  if (e.target === e.currentTarget) setInspectedSite(null);
+                }}
+              >
+                <div
+                  className="bg-slate-900/95 border border-slate-700/80 rounded-3xl p-5 sm:p-6 max-w-lg w-full max-h-[88vh] flex flex-col shadow-2xl relative text-slate-100 backdrop-blur-xl animate-in zoom-in-95 duration-150"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  <X className="w-4 h-4" />
-                </button>
-
-                <div className="flex items-center justify-between mb-3 pr-8">
-                  <div className="flex items-center gap-2">
-                    <span className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 font-bold flex items-center justify-center text-xs">
-                      {inspectedSite.id}
-                    </span>
-                    <h3 className="font-extrabold text-lg text-white">{inspectedSite.name}</h3>
-                  </div>
-
-                  <span
-                    className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full border ${inspectedSite.region_type === 'wind'
-                        ? 'text-sky-300 bg-sky-950/70 border-sky-600/50'
-                        : inspectedSite.region_type === 'solar'
-                          ? 'text-amber-300 bg-amber-950/70 border-amber-600/50'
-                          : 'text-purple-300 bg-purple-950/70 border-purple-600/50'
-                      }`}
+                  {/* Close Button */}
+                  <button
+                    onClick={() => setInspectedSite(null)}
+                    title={lang === 'tr' ? 'Kapat (ESC)' : 'Close (ESC)'}
+                    className="absolute top-4 right-4 p-1.5 rounded-xl text-slate-400 hover:text-white bg-slate-800/80 hover:bg-slate-800 border border-slate-700 transition-colors cursor-pointer z-10"
                   >
-                    {inspectedSite.region_type === 'wind' && <Wind className="w-3.5 h-3.5 text-sky-400" />}
-                    {inspectedSite.region_type === 'solar' && <Sun className="w-3.5 h-3.5 text-amber-400" />}
-                    {inspectedSite.region_type === 'hybrid' && (
-                      <span className="flex items-center -space-x-1">
-                        <Wind className="w-3 h-3 text-sky-400" />
-                        <Sun className="w-3 h-3 text-amber-400" />
+                    <X className="w-4 h-4" />
+                  </button>
+
+                  {/* Header: Plant / Site Name & Badges */}
+                  <div className="pr-10 mb-3 shrink-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                      <span className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 font-extrabold flex items-center justify-center text-xs shrink-0 border border-emerald-500/30">
+                        #{inspectedSite.id}
                       </span>
+                      <h3 className="font-extrabold text-lg sm:text-xl text-white tracking-tight">
+                        {companySite?.plant_name || inspectedSite.name}
+                      </h3>
+
+                      {/* Region Type Badge */}
+                      <span
+                        className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
+                          inspectedSite.region_type === 'wind'
+                            ? 'text-sky-300 bg-sky-950/70 border-sky-600/50'
+                            : inspectedSite.region_type === 'solar'
+                              ? 'text-amber-300 bg-amber-950/70 border-amber-600/50'
+                              : 'text-purple-300 bg-purple-950/70 border-purple-600/50'
+                        }`}
+                      >
+                        {inspectedSite.region_type === 'wind' && <Wind className="w-3 h-3 text-sky-400" />}
+                        {inspectedSite.region_type === 'solar' && <Sun className="w-3 h-3 text-amber-400" />}
+                        {inspectedSite.region_type === 'hybrid' && (
+                          <span className="flex items-center -space-x-1">
+                            <Wind className="w-3 h-3 text-sky-400" />
+                            <Sun className="w-3 h-3 text-amber-400" />
+                          </span>
+                        )}
+                        <span>
+                          {inspectedSite.region_type === 'wind' ? 'Rüzgâr' : inspectedSite.region_type === 'solar' ? 'Güneş' : 'Hibrit'}
+                        </span>
+                      </span>
+
+                      {/* Ownership Badge */}
+                      {companySite ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                          <CheckCircle2 className="w-3 h-3" />
+                          <span>{companySite.lease_type === 'owned' ? 'Mülk' : 'Kiralık'}</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
+                          <span>Boş Saha</span>
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-[11px] text-slate-400">
+                      {inspectedSite.name} ({lang === 'tr' ? inspectedSite.description_tr : inspectedSite.description_en})
+                    </p>
+                  </div>
+
+                  {/* Quick Specs Grid */}
+                  <div className="grid grid-cols-4 gap-2 text-xs mb-3.5 shrink-0">
+                    <div className="bg-slate-950/80 p-2 rounded-xl border border-slate-800 text-center">
+                      <span className="text-[9px] text-slate-500 uppercase font-bold block truncate">Rüzgâr</span>
+                      <strong className="text-sky-400 font-mono text-xs sm:text-sm">
+                        %{(Number(inspectedSite.base_wind_potential) * 100).toFixed(0)}
+                      </strong>
+                    </div>
+                    <div className="bg-slate-950/80 p-2 rounded-xl border border-slate-800 text-center">
+                      <span className="text-[9px] text-slate-500 uppercase font-bold block truncate">Güneş</span>
+                      <strong className="text-amber-400 font-mono text-xs sm:text-sm">
+                        %{(Number(inspectedSite.base_solar_potential) * 100).toFixed(0)}
+                      </strong>
+                    </div>
+                    <div className="bg-slate-950/80 p-2 rounded-xl border border-slate-800 text-center">
+                      <span className="text-[9px] text-slate-500 uppercase font-bold block truncate">Alan</span>
+                      <strong className="text-slate-200 font-mono text-xs sm:text-sm">
+                        {inspectedSite.area_hectares} Ha
+                      </strong>
+                    </div>
+                    <div className="bg-slate-950/80 p-2 rounded-xl border border-slate-800 text-center">
+                      <span className="text-[9px] text-slate-500 uppercase font-bold block truncate">Kapasite</span>
+                      <strong className="text-emerald-400 font-mono text-xs sm:text-sm">
+                        {siteTotalCapacityKw >= 1000
+                          ? `${(siteTotalCapacityKw / 1000).toFixed(1)} MW`
+                          : `${siteTotalCapacityKw} kW`}
+                      </strong>
+                    </div>
+                  </div>
+
+                  {/* Attached Devices & Equipment List (User Core Feature!) */}
+                  <div className="flex-1 overflow-hidden flex flex-col mb-3">
+                    <div className="flex items-center justify-between mb-2 shrink-0">
+                      <div className="flex items-center gap-1.5">
+                        <Cpu className="w-4 h-4 text-emerald-400" />
+                        <h4 className="font-bold text-xs uppercase tracking-wider text-slate-200">
+                          Ekli Santral Cihazları ({siteAssets.length})
+                        </h4>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {underConstructionCount > 0 && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                            <span>{underConstructionCount} Kurulumda</span>
+                          </span>
+                        )}
+                        {companySite && !isGuestMode && (
+                          <button
+                            onClick={() => {
+                              setShopInitialSiteId(companySite.id);
+                              if (inspectedSite.region_type === 'solar') setShopInitialType('solar_pack');
+                              else if (inspectedSite.region_type === 'wind') setShopInitialType('wind_turbine');
+                              setInspectedSite(null);
+                              setActiveTab('shop');
+                            }}
+                            className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 flex items-center gap-1 transition-all cursor-pointer"
+                            title="Bu santrale yeni ekipman kur"
+                          >
+                            <ShoppingBag className="w-3 h-3" />
+                            <span>Ekipman Ekle</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto space-y-2 pr-1 scrollbar-thin">
+                      {siteAssets.length > 0 ? (
+                        siteAssets.map((asset) => {
+                          const catalog = asset.equipment_catalog || {};
+                          const isConstructionType = ['wind_turbine', 'solar_pack'].includes(catalog.equipment_type);
+                          const currentHour = Number(gameState?.clock?.gameHour) || 0;
+                          const installedHour = Number(asset.installed_game_hour) || 0;
+                          const elapsedHours = Math.max(0, currentHour - installedHour);
+                          const isUnderConstruction = isConstructionType && elapsedHours < 168;
+                          const progress = Math.min(1.0, Math.max(0.0, elapsedHours / 168));
+                          const progressPct = Math.min(100, Math.max(0, Math.round(progress * 100)));
+                          const remainingHours = Math.max(0, 168 - elapsedHours);
+                          const remainingDays = Math.floor(remainingHours / 24);
+                          const remHoursInDay = remainingHours % 24;
+
+                          let phaseDescription = '';
+                          if (catalog.equipment_type === 'wind_turbine') {
+                            if (progress < 0.28) phaseDescription = 'Aşama 1/4: Temel & Ankraj';
+                            else if (progress < 0.58) phaseDescription = 'Aşama 2/4: Alt Kule Gövdesi';
+                            else if (progress < 0.88) phaseDescription = 'Aşama 3/4: Rotor & Kanat Kaldırma';
+                            else phaseDescription = 'Aşama 4/4: Test & Devreye Alma';
+                          } else if (catalog.equipment_type === 'solar_pack') {
+                            if (progress < 0.28) phaseDescription = 'Aşama 1/4: Zemin & Kazıklar';
+                            else if (progress < 0.58) phaseDescription = 'Aşama 2/4: Taşıyıcı Konstrüksiyon';
+                            else if (progress < 0.88) phaseDescription = 'Aşama 3/4: PV Panel & Kablolama';
+                            else phaseDescription = 'Aşama 4/4: İnverter & Şebeke';
+                          }
+
+                          const condition = Number(asset.condition || 100);
+
+                          return (
+                            <div
+                              key={asset.id}
+                              className={`p-3 rounded-2xl border transition-all ${
+                                isUnderConstruction
+                                  ? 'bg-amber-950/20 border-amber-500/40 shadow-sm'
+                                  : 'bg-slate-950/60 border-slate-800 hover:border-slate-700'
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-2 mb-1.5">
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border ${
+                                      catalog.equipment_type === 'wind_turbine'
+                                        ? 'bg-sky-500/10 text-sky-400 border-sky-500/30'
+                                        : catalog.equipment_type === 'solar_pack'
+                                          ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                                          : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                                    }`}
+                                  >
+                                    {catalog.equipment_type === 'wind_turbine' && <Wind className="w-4 h-4" />}
+                                    {catalog.equipment_type === 'solar_pack' && <Sun className="w-4 h-4" />}
+                                    {catalog.equipment_type === 'battery' && <BatteryCharging className="w-4 h-4" />}
+                                  </div>
+                                  <div>
+                                    <h5 className="font-bold text-xs sm:text-sm text-white leading-tight">
+                                      {catalog.model_name || 'Ekipman'}
+                                    </h5>
+                                    <span className="text-[10px] text-slate-400 font-medium">
+                                      Kapasite: <strong className="text-emerald-400 font-mono">{catalog.capacity_kw?.toLocaleString()} kW</strong>
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Status Badge */}
+                                {isUnderConstruction ? (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 shrink-0">
+                                    <HardHat className="w-3 h-3 text-amber-400" />
+                                    <span>Kurulumda</span>
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shrink-0">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block animate-pulse" />
+                                    <span>Devrede</span>
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Progress bar or Health indicator */}
+                              {isUnderConstruction ? (
+                                <div className="mt-2 bg-slate-900/90 p-2 rounded-xl border border-amber-500/20">
+                                  <div className="flex items-center justify-between text-[10px] mb-1">
+                                    <span className="text-amber-300/90 font-medium">{phaseDescription}</span>
+                                    <span className="text-amber-200 font-mono font-bold">%{progressPct}</span>
+                                  </div>
+                                  <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mb-1.5">
+                                    <div
+                                      className="h-full bg-gradient-to-r from-amber-500 to-yellow-400 rounded-full transition-all duration-300"
+                                      style={{ width: `${progressPct}%` }}
+                                    />
+                                  </div>
+                                  <div className="flex items-center justify-between text-[10px] text-slate-400">
+                                    <span className="flex items-center gap-1 text-amber-300/80">
+                                      <Clock className="w-3 h-3 text-amber-400" />
+                                      <span>
+                                        Kalan Süre: <strong>{remainingDays > 0 ? `${remainingDays} Gün ${remHoursInDay} Saat` : `${remainingHours} Saat`}</strong>
+                                      </span>
+                                    </span>
+                                    <span className="text-slate-500">1 Oyun Haftası</span>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="mt-1.5 flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-800/60">
+                                  <span className="flex items-center gap-1 text-emerald-400/90">
+                                    <Zap className="w-3 h-3 text-emerald-400" />
+                                    <span>Şebekeye Kesintisiz Enerji Aktarılıyor</span>
+                                  </span>
+                                  <span className="font-mono text-slate-300">Sağlık: %{condition.toFixed(0)}</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })
+                      ) : companySite ? (
+                        <div className="bg-slate-950/60 border border-dashed border-slate-800 rounded-2xl p-4 text-center">
+                          <HardHat className="w-8 h-8 text-slate-500 mx-auto mb-2 opacity-70" />
+                          <p className="text-xs text-slate-300 font-bold mb-1">Henüz Kurulu Cihaz Yok</p>
+                          <p className="text-[11px] text-slate-400 mb-3">
+                            Bu santral sahasına rüzgar türbini veya güneş paneli kurarak elektrik üretmeye başlayabilirsiniz.
+                          </p>
+                          <button
+                            onClick={() => {
+                              setShopInitialSiteId(companySite?.id || null);
+                              if (inspectedSite.region_type === 'solar') setShopInitialType('solar_pack');
+                              else if (inspectedSite.region_type === 'wind') setShopInitialType('wind_turbine');
+                              setInspectedSite(null);
+                              setActiveTab('shop');
+                            }}
+                            className="px-3.5 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5"
+                          >
+                            <ShoppingBag className="w-3.5 h-3.5" />
+                            <span>Ekipman Mağazası'nı Aç</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="bg-slate-950/60 border border-dashed border-slate-800 rounded-2xl p-4 text-center">
+                          <Globe className="w-8 h-8 text-slate-500 mx-auto mb-2 opacity-70" />
+                          <p className="text-xs text-slate-300 font-bold mb-1">Saha Portföyünüzde Değil</p>
+                          <p className="text-[11px] text-slate-400">
+                            Santral kurabilmek için önce bu araziyi kiralamanız veya satın almanız gerekmektedir.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Modal Footer Actions */}
+                  <div className="pt-2 border-t border-slate-800/80 flex gap-2 shrink-0">
+                    {isGuestMode ? (
+                      <Link
+                        href="/register"
+                        className="flex-1 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold rounded-xl text-xs shadow-md shadow-emerald-500/20 text-center flex items-center justify-center gap-1.5"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>Bu Sahada Santral Kurmak İçin Kaydol ($100k Hibe)</span>
+                      </Link>
+                    ) : companySite ? (
+                      <>
+                        <button
+                          onClick={() => {
+                            setShopInitialSiteId(companySite?.id || null);
+                            if (inspectedSite.region_type === 'solar') setShopInitialType('solar_pack');
+                            else if (inspectedSite.region_type === 'wind') setShopInitialType('wind_turbine');
+                            setInspectedSite(null);
+                            setActiveTab('shop');
+                          }}
+                          className="flex-1 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold rounded-xl text-xs shadow-md shadow-emerald-500/20 flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <ShoppingBag className="w-3.5 h-3.5" />
+                          <span>Ekipman Ekle (Mağaza)</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setInspectedSite(null);
+                            setActiveTab('plants');
+                          }}
+                          className="py-2.5 px-3.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer border border-slate-700"
+                        >
+                          <Factory className="w-3.5 h-3.5 text-slate-400" />
+                          <span>Santrallerim</span>
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => {
+                            setInspectedSite(null);
+                            setActiveTab('sites');
+                          }}
+                          className="flex-1 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold rounded-xl text-xs shadow-md shadow-emerald-500/20 cursor-pointer flex items-center justify-center gap-1.5"
+                        >
+                          <Globe className="w-3.5 h-3.5" />
+                          <span>Bu Sahayı Kirala veya Satın Al</span>
+                        </button>
+                      </>
                     )}
-                    <span>
-                      {inspectedSite.region_type === 'wind'
-                        ? 'Rüzgâr'
-                        : inspectedSite.region_type === 'solar'
-                          ? 'Güneş'
-                          : 'Hibrit'}
-                    </span>
-                  </span>
-                </div>
-
-                <p className="text-xs text-slate-400 mb-4">
-                  {lang === 'tr' ? inspectedSite.description_tr : inspectedSite.description_en}
-                </p>
-
-                <div className="grid grid-cols-2 gap-2 text-xs mb-5">
-                  <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                    <span className="text-[10px] text-slate-500 uppercase font-semibold block">Rüzgâr Potansiyeli</span>
-                    <strong className="text-sky-400 font-mono">%{(Number(inspectedSite.base_wind_potential) * 100).toFixed(0)}</strong>
                   </div>
-                  <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                    <span className="text-[10px] text-slate-500 uppercase font-semibold block">Güneş Potansiyeli</span>
-                    <strong className="text-amber-400 font-mono">%{(Number(inspectedSite.base_solar_potential) * 100).toFixed(0)}</strong>
-                  </div>
-                  <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                    <span className="text-[10px] text-slate-500 uppercase font-semibold block">Alan</span>
-                    <strong className="text-slate-200 font-mono">{inspectedSite.area_hectares} Ha</strong>
-                  </div>
-                  <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                    <span className="text-[10px] text-slate-500 uppercase font-semibold block">Trafo Mesafesi</span>
-                    <strong className="text-cyan-400 font-mono">{inspectedSite.grid_distance_km} km</strong>
-                  </div>
-                </div>
-
-                <div className="flex gap-2">
-                  {isGuestMode ? (
-                    <Link
-                      href="/register"
-                      className="flex-1 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold rounded-xl text-xs shadow-md shadow-emerald-500/20 text-center flex items-center justify-center gap-1.5"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>Bu Sahada Santral Kurmak İçin Kaydol ($100k Hibe)</span>
-                    </Link>
-                  ) : (
-                    <>
-                      <button
-                        onClick={() => {
-                          setInspectedSite(null);
-                          setActiveTab('sites');
-                        }}
-                        className="flex-1 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold rounded-xl text-xs shadow-md shadow-emerald-500/20 cursor-pointer"
-                      >
-                        Araziler Paneline Git
-                      </button>
-                      <button
-                        onClick={() => {
-                          setInspectedSite(null);
-                          setActiveTab('shop');
-                        }}
-                        className="py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl text-xs cursor-pointer"
-                      >
-                        Ekipman Kur
-                      </button>
-                    </>
-                  )}
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Treasury & Cash Flow Modal (Triggered by clicking cash pill in HUD) */}
           {!isGuestMode && (

@@ -158,45 +158,65 @@ export default function TopHud({
   ];
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-40 bg-slate-950/90 backdrop-blur-xl border-b border-slate-800/90 text-slate-100 px-2 sm:px-4 lg:px-6 py-1.5 sm:py-2 shadow-xl select-none">
+    <header className="fixed top-0 left-0 right-0 z-40 bg-slate-950/90 backdrop-blur-xl border-b border-slate-800/90 text-slate-100 px-1.5 xs:px-2 sm:px-3 lg:px-4 xl:px-6 py-1.5 sm:py-2 shadow-xl select-none overflow-x-clip">
       {/* Unified Single Navbar Row */}
-      <div className="w-full max-w-[1760px] mx-auto flex items-center justify-between gap-1.5 sm:gap-3">
+      <div className="w-full max-w-[1760px] mx-auto flex items-center justify-between gap-1 xs:gap-1.5 sm:gap-2 xl:gap-3">
         {/* Left: Brand Identity & Quick Plant Selector */}
-        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 min-w-0">
+        <div className="flex items-center gap-1 xs:gap-1.5 sm:gap-2 shrink-0 min-w-0">
           <button
             type="button"
             onClick={onOpenLeaderboard}
             title={lang === 'tr' ? 'Liderlik Sıralaması & Şirket Profili' : 'Leaderboard & Company Profile'}
-            className="flex items-center gap-1.5 sm:gap-2 min-w-0 shrink-0 p-1 sm:p-1.5 -ml-1 rounded-xl hover:bg-slate-900/90 border border-transparent hover:border-slate-800 transition-all cursor-pointer text-left group select-none"
+            className="flex items-center shrink-0 p-0.5 sm:p-1.5 -ml-0.5 rounded-xl hover:bg-slate-900/90 border border-transparent hover:border-slate-800 transition-all cursor-pointer text-left group select-none"
           >
-            <div className="relative shrink-0">
-              <Image
-                src="/logo.png"
-                alt="Energy Tycoon"
-                width={32}
-                height={32}
-                className="w-7 h-7 sm:w-8 sm:h-8 object-contain drop-shadow shrink-0 group-hover:scale-105 transition-transform"
-                priority
-              />
-              <div className="absolute -bottom-1 -right-1 bg-amber-500 text-slate-950 font-black text-[9px] w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full flex items-center justify-center shadow border border-amber-300">
-                <Trophy className="w-2.5 h-2.5 text-slate-950" />
+            {/* Mobile View (< sm): Compact Stack - Logo with Level badge directly underneath (Zero horizontal clutter) */}
+            <div className="flex sm:hidden flex-col items-center justify-center shrink-0">
+              <div className="relative">
+                <Image
+                  src="/logo.png"
+                  alt="Energy Tycoon"
+                  width={28}
+                  height={28}
+                  className="w-6 h-6 xs:w-7 xs:h-7 object-contain drop-shadow shrink-0 group-hover:scale-105 transition-transform"
+                  priority
+                />
               </div>
+              <span className="text-[8px] xs:text-[9px] font-black font-mono text-amber-400 bg-amber-950/90 border border-amber-500/40 px-1 py-0 rounded-full leading-tight -mt-0.5 tracking-tight shadow-sm whitespace-nowrap">
+                Lv.{currentLevel}
+              </span>
             </div>
-            <div className="min-w-0">
-              <div className="font-extrabold text-xs sm:text-sm tracking-wide bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent truncate max-w-[65px] xs:max-w-[95px] sm:max-w-[160px] group-hover:from-emerald-300 group-hover:to-cyan-300 flex items-center gap-1">
-                <span>{company?.name || 'Energy Corp'}</span>
+
+            {/* Desktop / Tablet View (sm:flex): Full Logo + Trophy Badge + Company Name + Level + XP Bar */}
+            <div className="hidden sm:flex items-center gap-2 min-w-0">
+              <div className="relative shrink-0">
+                <Image
+                  src="/logo.png"
+                  alt="Energy Tycoon"
+                  width={32}
+                  height={32}
+                  className="w-8 h-8 object-contain drop-shadow shrink-0 group-hover:scale-105 transition-transform"
+                  priority
+                />
+                <div className="absolute -bottom-1 -right-1 bg-amber-500 text-slate-950 font-black text-[9px] w-4 h-4 rounded-full flex items-center justify-center shadow border border-amber-300">
+                  <Trophy className="w-2.5 h-2.5 text-slate-950" />
+                </div>
               </div>
-              <div className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-[11px] text-slate-400">
-                <span className="flex items-center gap-0.5 text-amber-400 font-bold group-hover:text-amber-300">
-                  <Award className="w-3 h-3" />
-                  Lv.{currentLevel}
-                </span>
-                <span className="hidden sm:inline">•</span>
-                <div className="hidden sm:inline-block w-12 sm:w-16 h-1.5 bg-slate-800 rounded-full overflow-hidden align-middle">
-                  <div
-                    className="h-full bg-gradient-to-r from-emerald-500 to-teal-400"
-                    style={{ width: `${xpProgressPct}%` }}
-                  />
+              <div className="min-w-0">
+                <div className="font-extrabold text-sm tracking-wide bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent truncate max-w-[95px] lg:max-w-[120px] xl:max-w-[160px] group-hover:from-emerald-300 group-hover:to-cyan-300 flex items-center gap-1">
+                  <span>{company?.name || 'Energy Corp'}</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                  <span className="flex items-center gap-0.5 text-amber-400 font-bold group-hover:text-amber-300">
+                    <Award className="w-3 h-3" />
+                    Lv.{currentLevel}
+                  </span>
+                  <span className="hidden xl:inline">•</span>
+                  <div className="hidden xl:inline-block w-14 2xl:w-16 h-1.5 bg-slate-800 rounded-full overflow-hidden align-middle">
+                    <div
+                      className="h-full bg-gradient-to-r from-emerald-500 to-teal-400"
+                      style={{ width: `${xpProgressPct}%` }}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -213,7 +233,7 @@ export default function TopHud({
                 setClockMenuOpen(false);
                 setMobileMenuOpen(false);
               }}
-              className={`relative flex items-center justify-center gap-1 sm:gap-1.5 p-1 xs:px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-xl border text-xs font-semibold transition-all select-none cursor-pointer shrink-0 ${
+              className={`relative flex items-center justify-center gap-1 sm:gap-1.5 px-1.5 py-1 xs:px-2 sm:px-2.5 sm:py-1.5 rounded-xl border text-xs font-semibold transition-all select-none cursor-pointer shrink-0 ${
                 plantMenuOpen
                   ? 'bg-cyan-950/80 text-cyan-300 border-cyan-500/60 shadow-md ring-1 ring-cyan-500/40'
                   : 'bg-slate-900/90 hover:bg-slate-800 text-slate-200 border-slate-700/80 hover:border-slate-500'
@@ -227,8 +247,8 @@ export default function TopHud({
             >
               <Factory className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
               
-              {/* Plant Name: Hidden on mobile (< md), prominently displayed on desktop/tablet */}
-              <span className="hidden md:inline font-bold truncate max-w-[100px] lg:max-w-[160px]">
+              {/* Plant Name: Compact on mobile & tablet (< xl), full on desktop (>= xl) */}
+              <span className="hidden xl:inline font-bold truncate max-w-[120px] 2xl:max-w-[160px]">
                 {selectedPlant?.plantName || (lang === 'tr' ? 'Santrallerim' : 'My Plants')}
               </span>
 
@@ -239,9 +259,9 @@ export default function TopHud({
                 </span>
               )}
 
-              {/* Chevron Icon: Hidden on small screens */}
+              {/* Chevron Icon: Shown on desktop */}
               <ChevronDown
-                className={`hidden md:inline-block w-3 h-3 text-slate-400 transition-transform duration-200 shrink-0 ${
+                className={`hidden xl:inline-block w-3 h-3 text-slate-400 transition-transform duration-200 shrink-0 ${
                   plantMenuOpen ? 'rotate-180 text-cyan-400' : ''
                 }`}
               />
@@ -361,8 +381,8 @@ export default function TopHud({
           </div>
         </div>
 
-        {/* Center: Web Navigation Tabs (DESKTOP / TABLET ONLY: lg:flex) */}
-        <nav className="hidden lg:flex items-center gap-1 bg-slate-900/90 border border-slate-800/90 rounded-2xl p-1 shadow-inner backdrop-blur-md">
+        {/* Center: Web Navigation Tabs (TABLET / DESKTOP: lg:flex) */}
+        <nav className="hidden lg:flex items-center gap-0.5 xl:gap-1 bg-slate-900/90 border border-slate-800/90 rounded-2xl p-1 shadow-inner backdrop-blur-md shrink-0">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -371,21 +391,22 @@ export default function TopHud({
                 key={item.id}
                 type="button"
                 onClick={() => setActiveTab(isActive ? null : item.id)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                title={item.label}
+                className={`flex items-center gap-1.5 px-2 xl:px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                   isActive
                     ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm ring-1 ring-emerald-500/30 font-bold'
                     : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/80 border border-transparent'
                 }`}
               >
-                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-emerald-400' : 'text-slate-400'}`} />
-                <span>{item.label}</span>
+                <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-emerald-400' : 'text-slate-400'}`} />
+                <span className={isActive ? 'inline' : 'hidden xl:inline'}>{item.label}</span>
               </button>
             );
           })}
         </nav>
 
         {/* Right: All Controls & Stats Grouped in a Single Flex Row */}
-        <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 shrink-0">
+        <div className="flex items-center gap-1 xs:gap-1.5 sm:gap-2 shrink-0">
           {/* Capacity, Net Worth & Spot Market Interactive Dropdown */}
           <div className="relative shrink-0" ref={statsMenuRef}>
             <button
@@ -398,7 +419,7 @@ export default function TopHud({
                 setMobileMenuOpen(false);
               }}
               title={lang === 'tr' ? 'Kurulu Güç, Şirket Değeri & Spot Piyasası' : 'Capacity, Net Worth & Spot Market'}
-              className={`flex items-center gap-1 p-1 xs:px-1.5 xs:py-1 sm:px-2.5 sm:py-1.5 rounded-lg border text-xs font-semibold transition-all select-none cursor-pointer shrink-0 ${
+              className={`flex items-center justify-center p-1 xs:px-1.5 xs:py-1 sm:px-2.5 sm:py-1.5 rounded-lg border text-xs font-semibold transition-all select-none cursor-pointer shrink-0 ${
                 statsMenuOpen
                   ? 'bg-slate-800 text-white border-amber-500/60 shadow-sm ring-1 ring-amber-500/40'
                   : 'bg-slate-900 hover:bg-slate-850 text-slate-300 border-slate-800 hover:border-slate-700'
@@ -557,7 +578,7 @@ export default function TopHud({
                 setStatsMenuOpen(false);
                 setMobileMenuOpen(false);
               }}
-              className={`flex items-center gap-1 xs:gap-1.5 px-1.5 py-1 sm:px-2.5 sm:py-1.5 rounded-lg border text-xs font-semibold transition-all select-none cursor-pointer shrink-0 ${
+              className={`flex items-center gap-0.5 xs:gap-1.5 px-1 xs:px-1.5 py-1 sm:px-2.5 sm:py-1.5 rounded-xl border text-xs font-semibold transition-all select-none cursor-pointer shrink-0 ${
                 clockMenuOpen
                   ? 'bg-slate-800 text-white border-blue-500/60 shadow-sm ring-1 ring-blue-500/40'
                   : 'bg-slate-900 hover:bg-slate-850 text-slate-300 border-slate-800 hover:border-slate-700'
@@ -565,8 +586,8 @@ export default function TopHud({
               title={lang === 'tr' ? 'Tam Tarih ve Takvim Detayı için Tıklayın' : 'Click for Full Date & Calendar Details'}
               aria-expanded={clockMenuOpen}
             >
-              <Clock className="hidden xs:inline-block w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-400 shrink-0" />
-              <span className="font-mono text-cyan-300 font-bold text-[11px] sm:text-xs">{clock?.formattedHour || '12:00'}</span>
+              <Clock className="hidden sm:inline-block w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-400 shrink-0" />
+              <span className="font-mono text-cyan-300 font-bold text-[10px] xs:text-[11px] sm:text-xs">{clock?.formattedHour || '12:00'}</span>
               <span className="shrink-0 flex items-center">
                 {isNight ? (
                   <Moon className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-indigo-400" />
@@ -665,31 +686,30 @@ export default function TopHud({
                 ? `Günlük Giriş Bonusu: ${company?.daily_streak || 0} Günlük Seri (Yatırımlarını aralıksız büyüt!)`
                 : `Daily Login Streak: ${company?.daily_streak || 0} Days (Keep growing your investments!)`
             }
-            className={`flex items-center gap-1 px-1.5 xs:px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl border text-[11px] sm:text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer shrink-0 select-none ${
+            className={`flex items-center gap-0.5 xs:gap-1 px-1.5 py-1 sm:px-2.5 sm:py-1.5 rounded-xl border text-[10px] xs:text-[11px] sm:text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer shrink-0 select-none ${
               canClaimToday
                 ? 'bg-gradient-to-r from-amber-950/80 to-orange-950/80 border-amber-500/60 hover:border-amber-400 text-amber-300 ring-1 ring-amber-500/40 shadow-amber-500/10'
                 : 'bg-slate-900/90 hover:bg-slate-800 border-slate-700/80 hover:border-slate-600 text-slate-300'
             }`}
           >
-            <Flame className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${canClaimToday ? 'fill-amber-400 text-amber-400 animate-bounce' : 'text-amber-500'}`} />
-            <span className="font-mono text-[11px] sm:text-xs">
+            <Flame className={`w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0 ${canClaimToday ? 'fill-amber-400 text-amber-400 animate-bounce' : 'text-amber-500'}`} />
+            <span className="font-mono text-[10px] xs:text-[11px] sm:text-xs shrink-0">
               {company?.daily_streak ? `${company.daily_streak}d` : '1d'}
             </span>
             {canClaimToday && (
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping inline-block" />
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping inline-block shrink-0" />
             )}
           </button>
 
-          {/* Cash Pill - Interactive Treasury Modal Trigger */}
+          {/* Cash Pill - Interactive Treasury Modal Trigger (No redundant DollarSign, formatMoney/formatCompactMoney already prepends currency symbol) */}
           <button
             onClick={onOpenTreasury}
             type="button"
             title={dict.treasury?.viewDetails || 'Kasa Detayları için Tıklayın'}
-            className="flex items-center gap-1 bg-emerald-950/70 hover:bg-emerald-900/80 border border-emerald-500/40 hover:border-emerald-400 px-1.5 xs:px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl text-emerald-300 font-bold text-[11px] sm:text-xs transition-all shadow-sm active:scale-95 cursor-pointer font-mono shrink-0"
+            className="flex items-center justify-center bg-emerald-950/70 hover:bg-emerald-900/80 border border-emerald-500/40 hover:border-emerald-400 px-1.5 xs:px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl text-emerald-300 font-bold text-[10px] xs:text-[11px] sm:text-xs transition-all shadow-sm active:scale-95 cursor-pointer font-mono shrink-0 select-none"
           >
-            <DollarSign className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-400 shrink-0" />
-            <span className="sm:hidden">{formatCompactMoney(company?.cash || 0)}</span>
-            <span className="hidden sm:inline">{formatMoney(company?.cash || 0, { decimals: 0 })}</span>
+            <span className="xl:hidden">{formatCompactMoney(company?.cash || 0)}</span>
+            <span className="hidden xl:inline">{formatMoney(company?.cash || 0, { decimals: 0 })}</span>
           </button>
 
           {/* Desktop Quick Audio Mute / Unmute Button */}
@@ -1115,7 +1135,7 @@ export default function TopHud({
                 setStatsMenuOpen(false);
                 setClockMenuOpen(false);
               }}
-              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full border flex items-center justify-center transition-all select-none cursor-pointer relative ${
+              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full border flex items-center justify-center transition-all select-none cursor-pointer relative shrink-0 ${
                 mobileMenuOpen
                   ? 'bg-slate-800 text-white border-emerald-400 shadow-lg ring-2 ring-emerald-500/40'
                   : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border-slate-700/80 hover:border-slate-500'

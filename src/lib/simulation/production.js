@@ -54,6 +54,14 @@ export function getSiteSolarFactor(site, gameHour, worldSeed = 42) {
  * Calculates electricity production (kWh) for a single installed asset in 1 game hour
  */
 export function calculateAssetProduction(asset, catalog, site, gameHour, worldSeed = 42, companySite = null) {
+  // 1 game week (168 game hours) construction phase for wind turbines and solar plants
+  if (['wind_turbine', 'solar_pack'].includes(catalog?.equipment_type)) {
+    const installedHour = Number(asset?.installed_game_hour || 0);
+    if (Number(gameHour) < installedHour + 168) {
+      return 0; // Asset still under construction with cranes & trucks on field
+    }
+  }
+
   if (asset.status !== 'generating') {
     return 0;
   }

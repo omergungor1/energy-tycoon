@@ -6,7 +6,9 @@ import {
   X,
   Compass,
   HelpCircle,
-  Zap
+  Zap,
+  Camera,
+  Octagon
 } from 'lucide-react';
 import VirtualJoystick from './VirtualJoystick';
 
@@ -40,33 +42,69 @@ export default function DriveOverlay({
     return arr[val];
   };
 
+  const getCameraLabel = (mode) => {
+    if (mode === 'cockpit') return lang === 'tr' ? 'Araç İçi' : 'Cockpit';
+    if (mode === 'chase') return lang === 'tr' ? 'Üstten' : 'Chase';
+    if (mode === 'hood') return lang === 'tr' ? 'FPV (Kaput)' : 'FPV (Hood)';
+    return lang === 'tr' ? 'Araç İçi' : 'Cockpit';
+  };
+
+  const handleCycleCamera = () => {
+    const modes = ['cockpit', 'chase', 'hood'];
+    const nextIdx = (modes.indexOf(cameraMode) + 1) % modes.length;
+    onCameraModeChange(modes[nextIdx]);
+  };
+
   return (
     <div className="fixed inset-0 pointer-events-none z-40 flex flex-col justify-between p-3 sm:p-6 select-none font-sans">
-      {/* 1. TOP BAR: Sleek Compass & Coordinates Telemetry (Left) + Help & Exit (Right) */}
+      {/* 1. TOP BAR: Camera Switcher (Left) + Sleek Compass & Coordinates (Desktop) + Help & Exit (Right) */}
       <div className="flex items-center justify-between w-full pointer-events-auto gap-2">
-        {/* Left: Sleek Compass Rose & Island Coordinates Telemetry (Gizlendi: Mobilde gereksiz yer kaplamaması için desktop/tablette gösterilir) */}
-        <div className="hidden sm:flex items-center gap-2.5 sm:gap-3.5 bg-slate-900/90 border border-slate-700/80 rounded-2xl px-3 sm:px-4 py-2 backdrop-blur-xl shadow-2xl transition-all">
-          <div className="flex items-center gap-2 text-slate-200 text-xs font-bold">
-            <div className="relative flex items-center justify-center w-6 h-6 rounded-lg bg-slate-800/80 border border-slate-700/60 shadow-inner">
-              <Compass
-                className="w-4 h-4 text-cyan-400 shrink-0 transition-transform duration-100 ease-out"
-                style={{ transform: `rotate(${-headingDeg}deg)` }}
-              />
+        {/* Left: Camera Mode Toggle Button & Desktop Compass Rose */}
+        <div className="flex items-center gap-2">
+          {/* Camera Mode Toggle Button (Mobile & Desktop) */}
+          <button
+            type="button"
+            onClick={handleCycleCamera}
+            className="p-2 sm:px-3 sm:py-2 rounded-2xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 text-cyan-400 hover:text-cyan-300 text-xs font-bold backdrop-blur-md transition-all shadow-lg active:scale-95 flex items-center gap-2 cursor-pointer group"
+            title={lang === 'tr' ? 'Kamera Açısını Değiştir (C / V)' : 'Switch Camera Mode (C / V)'}
+          >
+            <div className="p-1 rounded-lg bg-cyan-500/15 border border-cyan-500/30 group-hover:bg-cyan-500/25 transition-colors">
+              <Camera className="w-4 h-4 text-cyan-400" />
             </div>
-            <span className="tracking-wide text-white font-extrabold">{getCardinal(headingDeg)}</span>
-            <span className="text-[11px] font-mono text-cyan-300 font-bold">({headingDeg}°)</span>
-          </div>
+            <div className="flex flex-col items-start text-left">
+              <span className="text-[8px] sm:text-[9px] uppercase font-bold text-slate-400 leading-none">
+                {lang === 'tr' ? 'Kamera' : 'Camera'}
+              </span>
+              <span className="text-[10px] sm:text-[11px] font-extrabold text-white leading-tight">
+                {getCameraLabel(cameraMode)}
+              </span>
+            </div>
+          </button>
 
-          <div className="h-4 w-px bg-slate-800" />
+          {/* Sleek Compass Rose & Island Coordinates Telemetry (Desktop/Tablet) */}
+          <div className="hidden sm:flex items-center gap-2.5 sm:gap-3.5 bg-slate-900/90 border border-slate-700/80 rounded-2xl px-3 sm:px-4 py-2 backdrop-blur-xl shadow-2xl transition-all">
+            <div className="flex items-center gap-2 text-slate-200 text-xs font-bold">
+              <div className="relative flex items-center justify-center w-6 h-6 rounded-lg bg-slate-800/80 border border-slate-700/60 shadow-inner">
+                <Compass
+                  className="w-4 h-4 text-cyan-400 shrink-0 transition-transform duration-100 ease-out"
+                  style={{ transform: `rotate(${-headingDeg}deg)` }}
+                />
+              </div>
+              <span className="tracking-wide text-white font-extrabold">{getCardinal(headingDeg)}</span>
+              <span className="text-[11px] font-mono text-cyan-300 font-bold">({headingDeg}°)</span>
+            </div>
 
-          <div className="text-[11px] font-mono text-slate-300 flex items-center gap-2">
-            <span className="text-slate-400">
-              X:<span className="text-slate-200 font-semibold">{coordX}</span> Z:<span className="text-slate-200 font-semibold">{coordZ}</span>
-            </span>
-            <span className="text-slate-600">•</span>
-            <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-bold">
-              {altitude}m
-            </span>
+            <div className="h-4 w-px bg-slate-800" />
+
+            <div className="text-[11px] font-mono text-slate-300 flex items-center gap-2">
+              <span className="text-slate-400">
+                X:<span className="text-slate-200 font-semibold">{coordX}</span> Z:<span className="text-slate-200 font-semibold">{coordZ}</span>
+              </span>
+              <span className="text-slate-600">•</span>
+              <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-bold">
+                {altitude}m
+              </span>
+            </div>
           </div>
         </div>
 
@@ -219,8 +257,35 @@ export default function DriveOverlay({
           </div>
         </div>
 
-        {/* MOBILE TURBO / BOOST (Right Side: Sağa sadece büyük Turbo butonu) */}
-        <div className="flex sm:hidden pointer-events-auto pb-2 items-end">
+        {/* MOBILE BRAKE & TURBO BUTTONS (Right Side: Fren üstte, Turbo altta dikey stack) */}
+        <div className="flex sm:hidden pointer-events-auto pb-2 flex-col gap-2 items-end">
+          {/* FREN (Brake / Handbrake) Button */}
+          <button
+            type="button"
+            onPointerDown={(e) => {
+              e.preventDefault();
+              onTouchInputChange({ brake: true });
+            }}
+            onPointerUp={(e) => {
+              e.preventDefault();
+              onTouchInputChange({ brake: false });
+            }}
+            onPointerLeave={() => onTouchInputChange({ brake: false })}
+            onPointerCancel={() => onTouchInputChange({ brake: false })}
+            className={`w-16 h-13 rounded-2xl border-2 flex flex-col items-center justify-center shadow-2xl active:scale-95 transition-all select-none touch-none cursor-pointer ${
+              isBraking
+                ? 'bg-rose-600 border-rose-200 text-white shadow-rose-500/50 scale-105'
+                : 'bg-rose-950/85 active:bg-rose-600 border-rose-500/50 text-rose-300 shadow-xl'
+            }`}
+            title={lang === 'tr' ? 'Fren (Boşluk / S)' : 'Brake (Space / S)'}
+          >
+            <Octagon className={`w-5 h-5 ${isBraking ? 'fill-white animate-pulse' : 'text-rose-400'}`} />
+            <span className="text-[9px] font-black tracking-wider uppercase mt-0.5">
+              {lang === 'tr' ? 'FREN' : 'BRAKE'}
+            </span>
+          </button>
+
+          {/* TURBO (Nitro Boost) Button */}
           <button
             type="button"
             onPointerDown={(e) => {
@@ -233,14 +298,14 @@ export default function DriveOverlay({
             }}
             onPointerLeave={() => onTouchInputChange({ boost: false })}
             onPointerCancel={() => onTouchInputChange({ boost: false })}
-            className={`w-16 h-16 rounded-2xl border-2 flex flex-col items-center justify-center shadow-2xl active:scale-95 transition-all select-none touch-none cursor-pointer ${
+            className={`w-16 h-13 rounded-2xl border-2 flex flex-col items-center justify-center shadow-2xl active:scale-95 transition-all select-none touch-none cursor-pointer ${
               isBoost
                 ? 'bg-cyan-500 border-cyan-200 text-white shadow-cyan-500/50 scale-105'
                 : 'bg-cyan-950/85 active:bg-cyan-600 border-cyan-500/50 text-cyan-300 shadow-xl'
             }`}
-            title="Turbo Boost (Nitro)"
+            title={lang === 'tr' ? 'Turbo Hızlanma (Nitro)' : 'Turbo Boost (Nitro)'}
           >
-            <Zap className={`w-6 h-6 ${isBoost ? 'fill-white animate-pulse' : 'fill-cyan-400'}`} />
+            <Zap className={`w-5 h-5 ${isBoost ? 'fill-white animate-pulse' : 'fill-cyan-400'}`} />
             <span className="text-[9px] font-black tracking-wider uppercase mt-0.5">TURBO</span>
           </button>
         </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Wind, Sun, BatteryCharging, ShoppingCart, Check, AlertCircle } from 'lucide-react';
 import { dictionaries } from '@/lib/i18n/dictionaries';
@@ -24,14 +24,40 @@ export default function ShopPanel({
   company,
   companySites = [],
   lang,
-  onActionSuccess
+  onActionSuccess,
+  initialSiteId = null,
+  initialType = null
 }) {
   const dict = dictionaries[lang] || dictionaries.tr;
   const { formatMoney } = useCurrency();
-  const [activeType, setActiveType] = useState('wind_turbine');
-  const [selectedSiteId, setSelectedSiteId] = useState(companySites[0]?.id || '');
+  const [activeType, setActiveType] = useState(() => {
+    if (initialType && ['wind_turbine', 'solar_pack', 'battery'].includes(initialType)) {
+      return initialType;
+    }
+    return 'wind_turbine';
+  });
+  const [selectedSiteId, setSelectedSiteId] = useState(() => {
+    if (initialSiteId && companySites.some((cs) => cs.id === initialSiteId)) {
+      return initialSiteId;
+    }
+    return companySites[0]?.id || '';
+  });
   const [loadingId, setLoadingId] = useState(null);
   const [feedback, setFeedback] = useState(null);
+
+  // Sync if initialSiteId changes (e.g. user opens shop from another plant card)
+  useEffect(() => {
+    if (initialSiteId && companySites.some((cs) => cs.id === initialSiteId)) {
+      setSelectedSiteId(initialSiteId);
+    }
+  }, [initialSiteId, companySites]);
+
+  // Sync activeType if initialType changes (e.g. solar plant vs wind farm)
+  useEffect(() => {
+    if (initialType && ['wind_turbine', 'solar_pack', 'battery'].includes(initialType)) {
+      setActiveType(initialType);
+    }
+  }, [initialType]);
 
   const filteredItems = catalog.filter((item) => item.equipment_type === activeType);
   const selectedSite = companySites.find((cs) => cs.id === selectedSiteId);
@@ -128,6 +154,11 @@ export default function ShopPanel({
               </option>
             ))}
           </select>
+          {selectedSite && (
+            <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700 whitespace-nowrap hidden sm:inline-block">
+              {selectedSite.sites?.region_type === 'wind' ? 'Rüzgâr' : selectedSite.sites?.region_type === 'solar' ? 'Güneş' : selectedSite.sites?.region_type === 'hybrid' ? 'Hibrit' : ''}
+            </span>
+          )}
         </div>
       </div>
 

@@ -99,7 +99,7 @@ export default function DrivableBuggy({
     s.velocity = 0;
     s.steerAngle = 0;
 
-    s.y = getTerrainHeight(s.x, s.z) + WHEEL_RADIUS;
+    s.y = getTerrainHeight(s.x, s.z) + 0.50;
     vehicleQuat.current.setFromEuler(_eulerScratch.set(0, s.yaw, 0, 'YXZ'));
     isFirstFrame.current = true;
   }, [spawnPosition, initialYaw]);
@@ -322,7 +322,7 @@ export default function DrivableBuggy({
     }
 
     // 5. Lightweight Terrain Physics (Zero allocation, ultra-fast 60 FPS)
-    s.y = getTerrainHeight(s.x, s.z) + WHEEL_RADIUS;
+    s.y = getTerrainHeight(s.x, s.z) + 0.50;
 
     const fwdX = Math.sin(s.yaw);
     const fwdZ = Math.cos(s.yaw);

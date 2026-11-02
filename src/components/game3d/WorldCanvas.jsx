@@ -12,6 +12,7 @@ import LivingSettlements from './LivingSettlements';
 import RailwaySystem from './RailwaySystem';
 import WildlifeAndSky from './WildlifeAndSky';
 import CinematicCameraTour from './CinematicCameraTour';
+import { WindTurbineConstructionSite, SolarConstructionSite } from './ConstructionSites';
 
 // 24 World Investment Sites coordinates
 const KNOWN_SITES = [
@@ -73,7 +74,15 @@ const ALPINE_LAKE_CENTER = { x: -150.0, z: -40.0, radius: 54.0, waterLevel: 13.8
 
 // Procedural Harmonic Noise for Island Topography
 function getRawTerrainHeight(x, z) {
-  const falloff = getIslandFalloff(x, z);
+  let falloff = getIslandFalloff(x, z);
+
+  // Coastal Harbor Bay indentation into northern coast (giving a natural ocean harbor for ships & lighthouse)
+  if (z < -490 && Math.abs(x - 280) < 190) {
+    const dx = (x - 280) / 130;
+    const depth = Math.min(1.0, Math.max(0, (-490 - z) / 150));
+    const bayCarve = Math.exp(-dx * dx) * depth;
+    falloff = Math.max(0, falloff - bayCarve * 0.88);
+  }
 
   // Western mountain mass (dominates west of x = -50)
   const westDist = Math.max(0, -x - 50);
@@ -117,6 +126,16 @@ function getRawTerrainHeight(x, z) {
 const SITE_ANCHOR_HEIGHTS = KNOWN_SITES.map((s) => getRawTerrainHeight(s.x, s.z));
 const SUBSTATION_ANCHOR_HEIGHT = getRawTerrainHeight(0, 0);
 
+// Pre-computed anchor heights for Living Settlements to ensure flat, stable building foundations (no Z-fighting)
+export const SETTLEMENT_ZONES = [
+  { name: 'Sunfire City', x: 380, z: 90, radius: 75, innerRadius: 48 },
+  { name: 'Energy Logistics Park', x: 85, z: -45, radius: 55, innerRadius: 36 },
+  { name: 'Pine Ridge Village', x: -75, z: -175, radius: 42, innerRadius: 24 },
+  { name: 'Agri Farm', x: -35, z: 230, radius: 48, innerRadius: 28 },
+  { name: 'Marina Harbor', x: 195, z: -570, radius: 44, innerRadius: 22 }
+];
+const SETTLEMENT_ANCHOR_HEIGHTS = SETTLEMENT_ZONES.map((s) => getRawTerrainHeight(s.x, s.z));
+
 // Global terrain height function (shared between mesh, objects, power lines, and markers)
 export function getTerrainHeight(x, z) {
   let h = getRawTerrainHeight(x, z);
@@ -128,20 +147,61 @@ export function getTerrainHeight(x, z) {
     h = h * (1 - t * 0.94) + SUBSTATION_ANCHOR_HEIGHT * (t * 0.94);
   }
 
-  // Stable leveled terraces around all 24 sites (radius 75m)
+  // Stable leveled terraces around Living Settlements (Eliminates ground clipping and flickering)
+  for (let i = 0; i < SETTLEMENT_ZONES.length; i++) {
+    const sz = SETTLEMENT_ZONES[i];
+    if (Math.abs(x - sz.x) < sz.radius && Math.abs(z - sz.z) < sz.radius) {
+      const d = Math.hypot(x - sz.x, z - sz.z);
+      if (d < sz.radius) {
+        const t = smoothstep(sz.radius, sz.innerRadius, d);
+        h = h * (1 - t * 0.96) + SETTLEMENT_ANCHOR_HEIGHTS[i] * (t * 0.96);
+        break;
+      }
+    }
+  }
+
+  // Stable leveled terraces around all 24 sites (flat plateau radius 76m, smooth transition to 110m)
   for (let i = 0; i < KNOWN_SITES.length; i++) {
     const s = KNOWN_SITES[i];
-    if (Math.abs(x - s.x) < 80 && Math.abs(z - s.z) < 80) {
+    if (Math.abs(x - s.x) < 112 && Math.abs(z - s.z) < 112) {
       const d = Math.hypot(x - s.x, z - s.z);
-      if (d < 80) {
-        const t = smoothstep(80, 20, d);
-        h = h * (1 - t * 0.94) + SITE_ANCHOR_HEIGHTS[i] * (t * 0.94);
+      if (d < 110) {
+        const t = smoothstep(110, 76, d);
+        h = h * (1 - t) + SITE_ANCHOR_HEIGHTS[i] * t;
         break;
       }
     }
   }
 
   return h;
+}
+
+// Terrain mesh geometry constants (matches IslandTerrain PlaneGeometry: 2800x2800 with 180x180 quads)
+const TERRAIN_GRID_SIZE = 2800;
+const TERRAIN_SEGMENTS = 180;
+const TERRAIN_STEP = TERRAIN_GRID_SIZE / TERRAIN_SEGMENTS;
+const TERRAIN_HALF = TERRAIN_GRID_SIZE * 0.5;
+
+// Exact mathematical height on the Three.js terrain mesh triangular facets
+export function getMeshHeightAt(x, z) {
+  const col = Math.floor((x + TERRAIN_HALF) / TERRAIN_STEP);
+  const row = Math.floor((z + TERRAIN_HALF) / TERRAIN_STEP);
+  if (col < 0 || col >= TERRAIN_SEGMENTS || row < 0 || row >= TERRAIN_SEGMENTS) {
+    return getTerrainHeight(x, z);
+  }
+  const x0 = -TERRAIN_HALF + col * TERRAIN_STEP;
+  const z0 = -TERRAIN_HALF + row * TERRAIN_STEP;
+  const y00 = getTerrainHeight(x0, z0);
+  const y10 = getTerrainHeight(x0 + TERRAIN_STEP, z0);
+  const y01 = getTerrainHeight(x0, z0 + TERRAIN_STEP);
+  const y11 = getTerrainHeight(x0 + TERRAIN_STEP, z0 + TERRAIN_STEP);
+  const u = (x - x0) / TERRAIN_STEP;
+  const v = (z - z0) / TERRAIN_STEP;
+  if (u + v < 1.0) {
+    return y00 + u * (y10 - y00) + v * (y01 - y00);
+  } else {
+    return y11 + (1.0 - u) * (y01 - y11) + (1.0 - v) * (y10 - y11);
+  }
 }
 
 // Spaced turbine layout coordinates across wide site concession (40m - 60m wake spacing)
@@ -531,18 +591,24 @@ function SubstationNode({ position = [0, 0, 0], showLabels = true }) {
 
   return (
     <group position={[position[0], y, position[2]]}>
-      <mesh position={[0, 0.3, 0]} receiveShadow>
-        <boxGeometry args={[44, 0.6, 44]} />
-        <meshStandardMaterial color="#475569" roughness={0.95} />
+      <mesh position={[0, 0.5, 0]} receiveShadow>
+        <boxGeometry args={[44, 1.0, 44]} />
+        <meshStandardMaterial
+          color="#475569"
+          roughness={0.95}
+          polygonOffset
+          polygonOffsetFactor={-2}
+          polygonOffsetUnits={-2}
+        />
       </mesh>
 
-      <mesh position={[0, 2.0, 0]}>
+      <mesh position={[0, 2.6, 0]}>
         <boxGeometry args={[43, 3.4, 43]} />
         <meshBasicMaterial color="#94a3b8" wireframe transparent opacity={0.3} />
       </mesh>
 
       {[-12, 0, 12].map((offset, idx) => (
-        <group key={idx} position={[offset, 1.8, 0]}>
+        <group key={idx} position={[offset, 2.4, 0]}>
           <mesh castShadow>
             <boxGeometry args={[5.5, 4.8, 5.5]} />
             <meshStandardMaterial color="#1e293b" roughness={0.5} metalness={0.6} />
@@ -556,14 +622,14 @@ function SubstationNode({ position = [0, 0, 0], showLabels = true }) {
         </group>
       ))}
 
-      <mesh position={[0, 13, 0]} castShadow>
+      <mesh position={[0, 14, 0]} castShadow>
         <cylinderGeometry args={[0.4, 1.5, 26, 6]} />
         <meshStandardMaterial color="#cbd5e1" metalness={0.8} />
       </mesh>
 
       {showLabels && (
         <Text
-          position={[0, 29, 0]}
+          position={[0, 30, 0]}
           color="#38bdf8"
           fontSize={5.5}
           outlineWidth={0.6}
@@ -1370,12 +1436,12 @@ function FirewatchDistantMountains() {
   );
 }
 
-// High-Definition 3D Regional Highway Ribbon Generator
+// High-Definition 3D Regional Highway Ribbon Generator (Conforms smoothly above terrain)
 function createRoadRibbon(points, width = 7.8, isClosed = true) {
   const curve = new THREE.CatmullRomCurve3(points, isClosed);
   const totalLength = curve.getLength();
-  // Spaced cross sections every ~4 meters for butter-smooth curvature
-  const segments = Math.max(50, Math.floor(totalLength / 4.0));
+  // Denser cross sections every ~2.0m to accurately hug terrain contours without polygon clipping
+  const segments = Math.max(80, Math.floor(totalLength / 2.0));
   const curvePoints = curve.getSpacedPoints(segments);
 
   const roadVertices = [];
@@ -1392,9 +1458,9 @@ function createRoadRibbon(points, width = 7.8, isClosed = true) {
   const edgeIndices = [];
 
   const halfW = width * 0.5;
-  const shoulderExtra = 1.6;
+  const shoulderExtra = 2.2;
   const stripeHalfW = 0.16;
-  const baseElev = 0.55; // Elevated roadbed above terrain polygon facets
+  const baseElev = 0.85; // Safely elevated roadbed above terrain polygon facets
 
   for (let i = 0; i < curvePoints.length; i++) {
     const curr = curvePoints[i];
@@ -1430,9 +1496,29 @@ function createRoadRibbon(points, width = 7.8, isClosed = true) {
     // 1. Asphalt Deck Cross Section
     const leftP = curr.clone().addScaledVector(normal, halfW);
     const rightP = curr.clone().addScaledVector(normal, -halfW);
-    const yLeft = getTerrainHeight(leftP.x, leftP.z) + baseElev;
-    const yRight = getTerrainHeight(rightP.x, rightP.z) + baseElev;
-    const yCenter = (yLeft + yRight) * 0.5;
+
+    // Sample BOTH continuous mathematical terrain AND physical Three.js mesh triangle facets across full deck width
+    const yCenterMesh = getMeshHeightAt(curr.x, curr.z);
+    const yLeftMesh = getMeshHeightAt(leftP.x, leftP.z);
+    const yRightMesh = getMeshHeightAt(rightP.x, rightP.z);
+    const yCenterMath = getTerrainHeight(curr.x, curr.z);
+    const yLeftMath = getTerrainHeight(leftP.x, leftP.z);
+    const yRightMath = getTerrainHeight(rightP.x, rightP.z);
+
+    const maxTerrainPeak = Math.max(
+      yCenterMesh,
+      yLeftMesh,
+      yRightMesh,
+      yCenterMath,
+      yLeftMath,
+      yRightMath
+    );
+
+    // Road surface is guaranteed to sit firmly above the highest terrain peak everywhere
+    const roadDeckY = maxTerrainPeak + 0.45;
+    const yLeft = roadDeckY;
+    const yRight = roadDeckY;
+    const yCenter = roadDeckY + 0.04;
 
     roadVertices.push(
       Number.isFinite(leftP.x) ? leftP.x : 0,
@@ -1449,11 +1535,11 @@ function createRoadRibbon(points, width = 7.8, isClosed = true) {
     roadUVs.push(0, Number.isFinite(v) ? v : 0);
     roadUVs.push(1, Number.isFinite(v) ? v : 0);
 
-    // 2. Beveled Gravel Shoulder Embankment (Slopes down to terrain)
+    // 2. Beveled Gravel Shoulder Embankment (Slopes down and seals securely into the terrain)
     const outLeftP = curr.clone().addScaledVector(normal, halfW + shoulderExtra);
     const outRightP = curr.clone().addScaledVector(normal, -(halfW + shoulderExtra));
-    const yOutLeft = getTerrainHeight(outLeftP.x, outLeftP.z) + 0.15;
-    const yOutRight = getTerrainHeight(outRightP.x, outRightP.z) + 0.15;
+    const yOutLeft = Math.min(getMeshHeightAt(outLeftP.x, outLeftP.z), getTerrainHeight(outLeftP.x, outLeftP.z)) - 0.25;
+    const yOutRight = Math.min(getMeshHeightAt(outRightP.x, outRightP.z), getTerrainHeight(outRightP.x, outRightP.z)) - 0.25;
 
     shoulderVertices.push(
       Number.isFinite(outLeftP.x) ? outLeftP.x : 0,
@@ -1518,30 +1604,32 @@ function createRoadRibbon(points, width = 7.8, isClosed = true) {
     );
 
     if (i < curvePoints.length - 1) {
-      // Asphalt indices
+      // Asphalt indices (Counter-Clockwise: faces up towards the sky)
       const bIdx = i * 2;
-      roadIndices.push(bIdx, bIdx + 1, bIdx + 2);
-      roadIndices.push(bIdx + 1, bIdx + 3, bIdx + 2);
+      roadIndices.push(bIdx, bIdx + 2, bIdx + 1);
+      roadIndices.push(bIdx + 1, bIdx + 2, bIdx + 3);
 
-      // Shoulder indices
+      // Shoulder indices (Counter-Clockwise: faces up towards the sky)
       const sIdx = i * 4;
-      shoulderIndices.push(sIdx, sIdx + 1, sIdx + 4);
-      shoulderIndices.push(sIdx + 1, sIdx + 5, sIdx + 4);
-      shoulderIndices.push(sIdx + 2, sIdx + 3, sIdx + 6);
-      shoulderIndices.push(sIdx + 3, sIdx + 7, sIdx + 6);
+      // Left Shoulder: outLeftP -> leftP
+      shoulderIndices.push(sIdx, sIdx + 4, sIdx + 1);
+      shoulderIndices.push(sIdx + 1, sIdx + 4, sIdx + 5);
+      // Right Shoulder: rightP -> outRightP
+      shoulderIndices.push(sIdx + 2, sIdx + 6, sIdx + 3);
+      shoulderIndices.push(sIdx + 3, sIdx + 6, sIdx + 7);
 
       // Dashed centerline: 3 segments visible, 2 segments gap
       if (i % 5 < 3) {
-        stripeIndices.push(bIdx, bIdx + 1, bIdx + 2);
-        stripeIndices.push(bIdx + 1, bIdx + 3, bIdx + 2);
+        stripeIndices.push(bIdx, bIdx + 2, bIdx + 1);
+        stripeIndices.push(bIdx + 1, bIdx + 2, bIdx + 3);
       }
 
-      // Edge lines
+      // Edge lines (Counter-Clockwise)
       const eIdx = i * 4;
-      edgeIndices.push(eIdx, eIdx + 1, eIdx + 4);
-      edgeIndices.push(eIdx + 1, eIdx + 5, eIdx + 4);
-      edgeIndices.push(eIdx + 2, eIdx + 3, eIdx + 6);
-      edgeIndices.push(eIdx + 3, eIdx + 7, eIdx + 6);
+      edgeIndices.push(eIdx, eIdx + 4, eIdx + 1);
+      edgeIndices.push(eIdx + 1, eIdx + 4, eIdx + 5);
+      edgeIndices.push(eIdx + 2, eIdx + 6, eIdx + 3);
+      edgeIndices.push(eIdx + 3, eIdx + 6, eIdx + 7);
     }
   }
 
@@ -1620,16 +1708,88 @@ const HIGHWAY_CURVES = [
   ], true)
 ];
 
+// Pre-sampled road and railway clearance checkpoints ensuring 100% tree-free corridors
+const RAIL_CURVE_CHECK = new THREE.CatmullRomCurve3([
+  new THREE.Vector3(0, 0, 0),
+  new THREE.Vector3(140, 0, -85),
+  new THREE.Vector3(285, 0, -180),
+  new THREE.Vector3(450, 0, -290),
+  new THREE.Vector3(560, 0, -210),
+  new THREE.Vector3(620, 0, -80),
+  new THREE.Vector3(580, 0, 90),
+  new THREE.Vector3(490, 0, 210),
+  new THREE.Vector3(340, 0, 310),
+  new THREE.Vector3(180, 0, 250),
+  new THREE.Vector3(40, 0, 160),
+  new THREE.Vector3(-90, 0, 95)
+], true);
+
+const INFRASTRUCTURE_CLEARANCE_POINTS = [];
+for (let c = 0; c < HIGHWAY_CURVES.length; c++) {
+  const curve = HIGHWAY_CURVES[c];
+  const count = Math.max(120, Math.floor(curve.getLength() / 2.0));
+  const pts = curve.getSpacedPoints(count);
+  for (let p = 0; p < pts.length; p++) {
+    // 14.0m clearance from highway centerline (ensures no trees on road or shoulders)
+    INFRASTRUCTURE_CLEARANCE_POINTS.push({ x: pts[p].x, z: pts[p].z, minDistSq: 14.0 * 14.0 });
+  }
+}
+const railPtsCheck = RAIL_CURVE_CHECK.getSpacedPoints(Math.floor(RAIL_CURVE_CHECK.getLength() / 2.0));
+for (let p = 0; p < railPtsCheck.length; p++) {
+  // 12.0m clearance from railway tracks
+  INFRASTRUCTURE_CLEARANCE_POINTS.push({ x: railPtsCheck[p].x, z: railPtsCheck[p].z, minDistSq: 12.0 * 12.0 });
+}
+
+// Island River and Stream Clearance to ensure no trees grow inside watercourses
+const RIVER_CLEARANCE_CURVES = [
+  new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-245, 0, -42),
+    new THREE.Vector3(-220, 0, -43),
+    new THREE.Vector3(-195, 0, -41),
+    new THREE.Vector3(-175, 0, -40),
+    new THREE.Vector3(-150, 0, -40)
+  ]),
+  new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-110, 0, -32),
+    new THREE.Vector3(-75, 0, 15),
+    new THREE.Vector3(-45, 0, 85),
+    new THREE.Vector3(-20, 0, 160),
+    new THREE.Vector3(15, 0, 240),
+    new THREE.Vector3(70, 0, 310),
+    new THREE.Vector3(135, 0, 385),
+    new THREE.Vector3(210, 0, 470),
+    new THREE.Vector3(290, 0, 560),
+    new THREE.Vector3(380, 0, 660)
+  ]),
+  new THREE.CatmullRomCurve3([
+    new THREE.Vector3(180, 0, -90),
+    new THREE.Vector3(240, 0, -40),
+    new THREE.Vector3(320, 0, 25),
+    new THREE.Vector3(410, 0, 110),
+    new THREE.Vector3(490, 0, 190),
+    new THREE.Vector3(580, 0, 250)
+  ])
+];
+for (let rc = 0; rc < RIVER_CLEARANCE_CURVES.length; rc++) {
+  const rCurve = RIVER_CLEARANCE_CURVES[rc];
+  const rPts = rCurve.getSpacedPoints(Math.floor(rCurve.getLength() / 3.0));
+  for (let p = 0; p < rPts.length; p++) {
+    // 9.0m clearance from river centerline (prevents trees in riverbeds)
+    INFRASTRUCTURE_CLEARANCE_POINTS.push({ x: rPts[p].x, z: rPts[p].z, minDistSq: 9.0 * 9.0 });
+  }
+}
+
 // Central Substation Roundabout Interchange Hub
 function SubstationInterchange() {
   const geo = useMemo(() => {
-    const ring = new THREE.RingGeometry(18, 38, 48);
+    // Ring from radius 24 to 38 (never overlaps SubstationNode's 44x44 pad which has half-width 22)
+    const ring = new THREE.RingGeometry(24, 38, 48);
     ring.rotateX(-Math.PI / 2);
     const pos = ring.attributes.position;
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i);
       const z = pos.getZ(i);
-      pos.setY(i, getTerrainHeight(x, z) + 0.54);
+      pos.setY(i, Math.max(getMeshHeightAt(x, z), getTerrainHeight(x, z)) + 0.45);
     }
     ring.computeVertexNormals();
     return ring;
@@ -1669,15 +1829,16 @@ function IslandRoads() {
         <group key={`road_net_${i}`}>
           {/* Beveled Crushed-Stone Shoulder Embankment */}
           <mesh geometry={rd.shoulderGeo} receiveShadow>
-            <meshStandardMaterial color="#334155" roughness={0.96} />
+            <meshStandardMaterial color="#334155" roughness={0.96} side={THREE.DoubleSide} />
           </mesh>
 
-          {/* Elevated Asphalt Highway Deck (Never clips into terrain) */}
+          {/* Elevated Asphalt Highway Deck (Counter-clockwise normals, DoubleSide visible from all angles) */}
           <mesh geometry={rd.roadGeo} receiveShadow>
             <meshStandardMaterial
-              color="#1f242d"
+              color="#1a202c"
               roughness={0.88}
-              metalness={0.08}
+              metalness={0.12}
+              side={THREE.DoubleSide}
               polygonOffset
               polygonOffsetFactor={-4}
               polygonOffsetUnits={-4}
@@ -1686,12 +1847,12 @@ function IslandRoads() {
 
           {/* Solid White Outer Fog Lines */}
           <mesh geometry={rd.edgeGeo}>
-            <meshBasicMaterial color="#f8fafc" />
+            <meshBasicMaterial color="#ffffff" side={THREE.DoubleSide} />
           </mesh>
 
           {/* Dashed Amber-Yellow Centerline */}
           <mesh geometry={rd.stripeGeo}>
-            <meshBasicMaterial color="#fbbf24" />
+            <meshBasicMaterial color="#fbbf24" side={THREE.DoubleSide} />
           </mesh>
         </group>
       ))}
@@ -1710,53 +1871,97 @@ function TrafficVehicles() {
   const suv1Ref = useRef();
   const truck2Ref = useRef();
 
-  useFrame(({ clock }) => {
+  // Traffic vehicle simulation state: realistic cruising speeds with periodic stop-and-go behavior
+  const vehiclesState = useRef([
+    // 0: Van 1 (Route 0): Service Van - gentle cruise, stops near mountain overlook
+    { progress: 0.08, baseSpeed: 0.0072, stopPeriod: 34, stopDuration: 6.5, phase: 0, isReverse: false, lane: 2.0 },
+    // 1: Truck 1 (Route 0): Heavy Wind Maintenance Crane - slower pace, pauses at waypoint
+    { progress: 0.55, baseSpeed: 0.0054, stopPeriod: 44, stopDuration: 8.0, phase: 14, isReverse: false, lane: 2.0 },
+    // 2: Rover 1 (Route 0): Mountain Ranger 4x4 - reverse oncoming lane
+    { progress: 0.28, baseSpeed: 0.0080, stopPeriod: 36, stopDuration: 5.5, phase: 22, isReverse: true, lane: 2.0 },
+
+    // 3: Hauler (Route 1): Solar Steppe Heavy Industrial Hauler
+    { progress: 0.12, baseSpeed: 0.0050, stopPeriod: 46, stopDuration: 7.5, phase: 8, isReverse: false, lane: 2.0 },
+    // 4: Van 2 (Route 1): Solar Maintenance Van
+    { progress: 0.62, baseSpeed: 0.0075, stopPeriod: 32, stopDuration: 6.0, phase: 18, isReverse: false, lane: 2.0 },
+    // 5: Flatbed (Route 1): Commercial Flatbed - reverse oncoming lane
+    { progress: 0.36, baseSpeed: 0.0058, stopPeriod: 40, stopDuration: 7.5, phase: 26, isReverse: true, lane: 2.0 },
+
+    // 6: SUV 1 (Route 2): Executive Hybrid SUV
+    { progress: 0.18, baseSpeed: 0.0070, stopPeriod: 35, stopDuration: 6.0, phase: 12, isReverse: false, lane: 1.9 },
+    // 7: Truck 2 (Route 2): Regional Cargo Truck - reverse oncoming lane
+    { progress: 0.68, baseSpeed: 0.0056, stopPeriod: 42, stopDuration: 7.0, phase: 30, isReverse: true, lane: 1.9 }
+  ]);
+
+  useFrame(({ clock }, delta) => {
     const t = clock.getElapsedTime();
+    const dt = Math.min(delta, 0.05);
 
-    const updateCar = (ref, curve, speed, offset, laneOffset = 2.0, isReverse = false) => {
+    const updateCar = (ref, curve, stateIndex) => {
       if (!ref.current || !curve) return;
+      const v = vehiclesState.current[stateIndex];
 
-      let progress = (offset + t * speed) % 1.0;
-      if (progress < 0) progress += 1.0;
-      if (isReverse) {
-        progress = (1.0 - progress) % 1.0;
+      // Calculate realistic periodic stop-and-go cycle
+      const cycleTime = (t + v.phase) % v.stopPeriod;
+      let speedFactor = 1.0;
+
+      // In the final stopDuration seconds of each cycle: decelerate, wait/stop, and accelerate back
+      if (cycleTime > v.stopPeriod - v.stopDuration) {
+        const stopProgress = (cycleTime - (v.stopPeriod - v.stopDuration)) / v.stopDuration;
+        if (stopProgress < 0.25) {
+          // Smooth deceleration to stop
+          speedFactor = Math.cos((stopProgress / 0.25) * Math.PI * 0.5);
+        } else if (stopProgress > 0.75) {
+          // Smooth acceleration away from stop
+          speedFactor = Math.sin(((stopProgress - 0.75) / 0.25) * Math.PI * 0.5);
+        } else {
+          // Completely stopped at viewpoint / crossing
+          speedFactor = 0.0;
+        }
       }
 
-      const p = curve.getPointAt(progress);
-      const tangent = curve.getTangentAt(progress).normalize();
-      if (isReverse) tangent.negate();
+      // Advance progress smoothly based on current speed factor
+      v.progress = (v.progress + dt * v.baseSpeed * speedFactor) % 1.0;
+
+      let effectiveProgress = v.isReverse ? (1.0 - v.progress) % 1.0 : v.progress;
+      if (effectiveProgress < 0) effectiveProgress += 1.0;
+
+      const p = curve.getPointAt(effectiveProgress);
+      const tangent = curve.getTangentAt(effectiveProgress).normalize();
+      if (v.isReverse) tangent.negate();
 
       const normal = new THREE.Vector3(-tangent.z, 0, tangent.x).normalize();
 
       // Right-hand lane positioning
-      const carPos = p.clone().addScaledVector(normal, laneOffset);
-      const roadElevation = 0.55;
-      carPos.y = getTerrainHeight(carPos.x, carPos.z) + roadElevation + 0.35;
+      const carPos = p.clone().addScaledVector(normal, v.lane);
+      const groundY = Math.max(getMeshHeightAt(carPos.x, carPos.z), getTerrainHeight(carPos.x, carPos.z));
+      carPos.y = groundY + 0.45 + 0.35;
 
       // Lookahead point for slope pitch & directional alignment
-      const lookDelta = isReverse ? -0.005 : 0.005;
-      const nextProgress = (progress + lookDelta + 1.0) % 1.0;
+      const lookDelta = v.isReverse ? -0.005 : 0.005;
+      const nextProgress = (effectiveProgress + lookDelta + 1.0) % 1.0;
       const pNext = curve.getPointAt(nextProgress);
-      const lookPos = pNext.clone().addScaledVector(normal, laneOffset);
-      lookPos.y = getTerrainHeight(lookPos.x, lookPos.z) + roadElevation + 0.35;
+      const lookPos = pNext.clone().addScaledVector(normal, v.lane);
+      const nextGroundY = Math.max(getMeshHeightAt(lookPos.x, lookPos.z), getTerrainHeight(lookPos.x, lookPos.z));
+      lookPos.y = nextGroundY + 0.45 + 0.35;
 
       ref.current.position.copy(carPos);
       ref.current.lookAt(lookPos);
     };
 
     // Route 1 (West Mountain & Lake Scenic Highway)
-    updateCar(van1Ref, HIGHWAY_CURVES[0], 0.022, 0.08, 2.0, false);
-    updateCar(truck1Ref, HIGHWAY_CURVES[0], 0.016, 0.55, 2.0, false);
-    updateCar(rover1Ref, HIGHWAY_CURVES[0], 0.025, 0.28, 2.0, true); // Oncoming traffic
+    updateCar(van1Ref, HIGHWAY_CURVES[0], 0);
+    updateCar(truck1Ref, HIGHWAY_CURVES[0], 1);
+    updateCar(rover1Ref, HIGHWAY_CURVES[0], 2);
 
     // Route 2 (East Sunfire Solar Steppe Expressway)
-    updateCar(haulerRef, HIGHWAY_CURVES[1], 0.015, 0.12, 2.0, false);
-    updateCar(van2Ref, HIGHWAY_CURVES[1], 0.024, 0.62, 2.0, false);
-    updateCar(flatbedRef, HIGHWAY_CURVES[1], 0.018, 0.36, 2.0, true); // Oncoming traffic
+    updateCar(haulerRef, HIGHWAY_CURVES[1], 3);
+    updateCar(van2Ref, HIGHWAY_CURVES[1], 4);
+    updateCar(flatbedRef, HIGHWAY_CURVES[1], 5);
 
     // Route 3 (South Coastal Plains Circuit)
-    updateCar(suv1Ref, HIGHWAY_CURVES[2], 0.021, 0.18, 1.9, false);
-    updateCar(truck2Ref, HIGHWAY_CURVES[2], 0.017, 0.68, 1.9, true); // Oncoming traffic
+    updateCar(suv1Ref, HIGHWAY_CURVES[2], 6);
+    updateCar(truck2Ref, HIGHWAY_CURVES[2], 7);
   });
 
   return (
@@ -2133,7 +2338,7 @@ function getVegetationLocations() {
   let decCount = 0;
   let shrubCount = 0;
 
-  for (let i = 0; i < 7500; i++) {
+  for (let i = 0; i < 11000; i++) {
     const angle = random() * Math.PI * 2;
     const rad = Math.sqrt(random()) * 1050;
     const x = Math.cos(angle) * rad;
@@ -2142,17 +2347,46 @@ function getVegetationLocations() {
     const falloff = getIslandFalloff(x, z);
     if (falloff < 0.94) continue;
 
+    // Strict Water & Bay Clearance: Never spawn trees in the ocean, carved harbor bay, or under ships
+    if (z < -490 && Math.abs(x - 280) < 220) continue;
+
     // Keep clearings around central substation
     if (Math.hypot(x, z) < 56) continue;
 
+    // Keep clearings around all Living Settlements (city, farm, logistics park, village & harbor)
+    let tooCloseToSettlement = false;
+    for (let s = 0; s < SETTLEMENT_ZONES.length; s++) {
+      const sz = SETTLEMENT_ZONES[s];
+      if (Math.hypot(x - sz.x, z - sz.z) < sz.radius + 6) {
+        tooCloseToSettlement = true;
+        break;
+      }
+    }
+    if (tooCloseToSettlement) continue;
+
+    // 100% Strict Infrastructure & River Clearance: Trees NEVER spawn on roads, railways, or in rivers
+    let tooCloseToInfrastructure = false;
+    for (let r = 0; r < INFRASTRUCTURE_CLEARANCE_POINTS.length; r++) {
+      const ip = INFRASTRUCTURE_CLEARANCE_POINTS[r];
+      const dx = x - ip.x;
+      const dz = z - ip.z;
+      if (Math.abs(dx) < 14.0 && Math.abs(dz) < 14.0) {
+        if (dx * dx + dz * dz < ip.minDistSq) {
+          tooCloseToInfrastructure = true;
+          break;
+        }
+      }
+    }
+    if (tooCloseToInfrastructure) continue;
+
     // Lake clearing (preserve water & immediate shoreline)
     const distLake = Math.hypot(x - ALPINE_LAKE_CENTER.x, z - ALPINE_LAKE_CENTER.z);
-    if (distLake < ALPINE_LAKE_CENTER.radius + 6) continue;
+    if (distLake < ALPINE_LAKE_CENTER.radius + 8) continue;
 
-    // Keep building clearance around all 24 energy sites
+    // Keep building clearance around all 24 energy sites (78m flat plateau)
     let tooCloseToSite = false;
     for (let s = 0; s < KNOWN_SITES.length; s++) {
-      if (Math.hypot(x - KNOWN_SITES[s].x, z - KNOWN_SITES[s].z) < 46) {
+      if (Math.hypot(x - KNOWN_SITES[s].x, z - KNOWN_SITES[s].z) < 78) {
         tooCloseToSite = true;
         break;
       }
@@ -2160,6 +2394,8 @@ function getVegetationLocations() {
     if (tooCloseToSite) continue;
 
     const y = getTerrainHeight(x, z);
+    // Strict water clearance: sea level is Y = 0.0m; no trees can ever spawn underwater or on the seabed
+    if (y < 2.0) continue;
     if (y > 70) continue; // Stay below highest summit crags
 
     // Biome determination matching Firewatch national forest distribution
@@ -2226,11 +2462,19 @@ function IslandVegetation({ season = 'summer' }) {
 
   const vegData = useMemo(() => getVegetationLocations(), []);
 
+  // Global island-wide bounding sphere & box to prevent premature frustum culling on instanced vegetation
+  const islandBounds = useMemo(() => ({
+    sphere: new THREE.Sphere(new THREE.Vector3(0, 0, 0), 2800),
+    box: new THREE.Box3(new THREE.Vector3(-1450, -100, -1450), new THREE.Vector3(1450, 300, 1450))
+  }), []);
+
   const pineTrunkGeo = useMemo(() => {
     const geo = new THREE.CylinderGeometry(0.24, 0.44, 2.6, 5);
     geo.translate(0, 1.3, 0);
+    geo.boundingSphere = islandBounds.sphere;
+    geo.boundingBox = islandBounds.box;
     return geo;
-  }, []);
+  }, [islandBounds]);
 
   // 4-Tier Stepped Conical Pine Foliage Geometry (Signature Firewatch Fir/Spruce Tree)
   const pineFoliageGeo = useMemo(() => {
@@ -2246,27 +2490,36 @@ function IslandVegetation({ season = 'summer' }) {
     const t4 = new THREE.ConeGeometry(0.95, 2.0, 6);
     t4.translate(0, 6.5, 0);
 
-    return BufferGeometryUtils.mergeGeometries([t1, t2, t3, t4]);
-  }, []);
+    const merged = BufferGeometryUtils.mergeGeometries([t1, t2, t3, t4]);
+    merged.boundingSphere = islandBounds.sphere;
+    merged.boundingBox = islandBounds.box;
+    return merged;
+  }, [islandBounds]);
 
   const decTrunkGeo = useMemo(() => {
     const geo = new THREE.CylinderGeometry(0.28, 0.45, 2.2, 5);
     geo.translate(0, 1.1, 0);
+    geo.boundingSphere = islandBounds.sphere;
+    geo.boundingBox = islandBounds.box;
     return geo;
-  }, []);
+  }, [islandBounds]);
 
   const decFoliageGeo = useMemo(() => {
     const geo = new THREE.DodecahedronGeometry(2.2, 1);
     geo.translate(0, 3.8, 0);
+    geo.boundingSphere = islandBounds.sphere;
+    geo.boundingBox = islandBounds.box;
     return geo;
-  }, []);
+  }, [islandBounds]);
 
   const shrubGeo = useMemo(() => {
     const geo = new THREE.DodecahedronGeometry(1.4, 0);
     geo.scale(1.3, 0.75, 1.3);
     geo.translate(0, 0.7, 0);
+    geo.boundingSphere = islandBounds.sphere;
+    geo.boundingBox = islandBounds.box;
     return geo;
-  }, []);
+  }, [islandBounds]);
 
   useEffect(() => {
     const dummy = new THREE.Object3D();
@@ -2301,22 +2554,27 @@ function IslandVegetation({ season = 'summer' }) {
     });
 
     if (pineTrunkRef.current) {
+      pineTrunkRef.current.frustumCulled = false;
       pineTrunkRef.current.instanceMatrix.needsUpdate = true;
       pineTrunkRef.current.count = pCount;
     }
     if (pineFoliageRef.current) {
+      pineFoliageRef.current.frustumCulled = false;
       pineFoliageRef.current.instanceMatrix.needsUpdate = true;
       pineFoliageRef.current.count = pCount;
     }
     if (decTrunkRef.current) {
+      decTrunkRef.current.frustumCulled = false;
       decTrunkRef.current.instanceMatrix.needsUpdate = true;
       decTrunkRef.current.count = dCount;
     }
     if (decFoliageRef.current) {
+      decFoliageRef.current.frustumCulled = false;
       decFoliageRef.current.instanceMatrix.needsUpdate = true;
       decFoliageRef.current.count = dCount;
     }
     if (shrubRef.current) {
+      shrubRef.current.frustumCulled = false;
       shrubRef.current.instanceMatrix.needsUpdate = true;
       shrubRef.current.count = sCount;
     }
@@ -2328,6 +2586,7 @@ function IslandVegetation({ season = 'summer' }) {
       <instancedMesh
         ref={pineTrunkRef}
         args={[pineTrunkGeo, null, 3000]}
+        frustumCulled={false}
         castShadow
       >
         <meshStandardMaterial color="#3b1d12" roughness={0.92} />
@@ -2335,6 +2594,7 @@ function IslandVegetation({ season = 'summer' }) {
       <instancedMesh
         ref={pineFoliageRef}
         args={[pineFoliageGeo, null, 3000]}
+        frustumCulled={false}
         castShadow
       >
         <meshStandardMaterial color={pineFoliageColor} roughness={0.84} />
@@ -2344,6 +2604,7 @@ function IslandVegetation({ season = 'summer' }) {
       <instancedMesh
         ref={decTrunkRef}
         args={[decTrunkGeo, null, 700]}
+        frustumCulled={false}
         castShadow
       >
         <meshStandardMaterial color="#6b3414" roughness={0.9} />
@@ -2351,6 +2612,7 @@ function IslandVegetation({ season = 'summer' }) {
       <instancedMesh
         ref={decFoliageRef}
         args={[decFoliageGeo, null, 700]}
+        frustumCulled={false}
         castShadow
       >
         <meshStandardMaterial color={decFoliageColor} roughness={0.78} />
@@ -2360,6 +2622,7 @@ function IslandVegetation({ season = 'summer' }) {
       <instancedMesh
         ref={shrubRef}
         args={[shrubGeo, null, 500]}
+        frustumCulled={false}
         castShadow
       >
         <meshStandardMaterial color={shrubColor} roughness={0.8} />
@@ -3086,9 +3349,12 @@ export default function WorldCanvas({
   return (
     <div className="w-full h-full relative">
       <Canvas
-        camera={{ position: [-180, 280, 420], fov: 46, near: 0.5, far: 5500 }}
+        camera={{ position: [-180, 280, 420], fov: 46, near: 1.0, far: 4500 }}
         shadows={!isLowGraphics}
         dpr={dpr}
+        gl={{
+          powerPreference: 'high-performance'
+        }}
         className="w-full h-full"
       >
         {/* Dynamic Smooth Camera Controller for Plant Focus & Zoom */}
@@ -3131,8 +3397,8 @@ export default function WorldCanvas({
               shadow-camera-right={850}
               shadow-camera-top={850}
               shadow-camera-bottom={-850}
-              shadow-bias={-0.00008}
-              shadow-normalBias={0.04}
+              shadow-bias={0.00015}
+              shadow-normalBias={0.06}
             />
           </>
         )}
@@ -3171,7 +3437,7 @@ export default function WorldCanvas({
         <IslandVegetation season={season} />
 
         {/* Central High-Voltage Substation */}
-        <SubstationNode position={[0, 0, 0]} showLabels={showInfrastructure} />
+        <SubstationNode position={[0, 0, 0]} showLabels={showSiteLabels} />
 
         {/* Living World: 3D Ribbon Roads with Highway Streetlights (Traffic Roams in Daytime Only) */}
         {showTraffic && (
@@ -3236,10 +3502,32 @@ export default function WorldCanvas({
           const posZ = (worldSite?.center_z || 0) + offsetDistZ;
           const posY = getTerrainHeight(posX, posZ);
 
+          // 1 game week = 168 game hours construction duration
+          const elapsedHours = Math.max(0, (Number(clock?.gameHour) || 0) - Number(asset.installed_game_hour || 0));
+          const isUnderConstruction = elapsedHours < 168;
+          const constructionProgress = Math.min(1.0, Math.max(0.0, elapsedHours / 168));
+
           if (asset.equipment_catalog?.equipment_type === 'wind_turbine') {
             const sitePrevailingAngle = getSitePrevailingWindAngle(worldSite);
             const microOffset = ((turbineIndexInSite * 3) % 7) - 3; // tiny ±3° natural micro-alignment variation
             const siteBaseAngle = sitePrevailingAngle + microOffset;
+
+            // Render active construction site with crane, transport trucks and crew during 1st week
+            if (isUnderConstruction) {
+              const remainingHours = Math.max(0, 168 - elapsedHours);
+              return (
+                <WindTurbineConstructionSite
+                  key={asset.id}
+                  position={[posX, posY, posZ]}
+                  siteBaseAngle={siteBaseAngle}
+                  progress={constructionProgress}
+                  remainingHours={remainingHours}
+                  equipmentName={asset.equipment_catalog?.model_name || 'Rüzgar Türbini'}
+                  isNight={Boolean(clock?.isNight)}
+                  onClick={() => worldSite && onSelectSite(worldSite)}
+                />
+              );
+            }
 
             return (
               <WindTurbine
@@ -3256,6 +3544,22 @@ export default function WorldCanvas({
           }
 
           if (asset.equipment_catalog?.equipment_type === 'solar_pack') {
+            if (isUnderConstruction) {
+              const remainingHours = Math.max(0, 168 - elapsedHours);
+              return (
+                <SolarConstructionSite
+                  key={asset.id}
+                  position={[posX, posY, posZ]}
+                  progress={constructionProgress}
+                  remainingHours={remainingHours}
+                  equipmentName={asset.equipment_catalog?.model_name || 'Güneş Paneli'}
+                  isNight={Boolean(clock?.isNight)}
+                  hasTracker={Boolean(cSite?.has_solar_tracker)}
+                  onClick={() => worldSite && onSelectSite(worldSite)}
+                />
+              );
+            }
+
             return (
               <SolarArray
                 key={asset.id}

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Image from 'next/image';
-import { Factory, Wrench, Check, AlertCircle, Zap, Shield, Edit2, Sun } from 'lucide-react';
+import { Factory, Wrench, Check, AlertCircle, Zap, Shield, Edit2, Sun, ShoppingBag } from 'lucide-react';
 import { dictionaries } from '@/lib/i18n/dictionaries';
 import { useCurrency } from '@/context/CurrencyContext';
 
@@ -17,8 +17,10 @@ export default function PlantsPanel({
   companySites = [],
   installedAssets = [],
   company,
+  clock = {},
   lang,
-  onActionSuccess
+  onActionSuccess,
+  onNavigateToShop = null
 }) {
   const dict = dictionaries[lang] || dictionaries.tr;
   const { formatMoney } = useCurrency();
@@ -115,8 +117,8 @@ export default function PlantsPanel({
           <p className="text-sm text-slate-400 mt-1">{dict.plants.subtitle}</p>
         </div>
 
-        {/* Filter by plant */}
-        <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 p-2 rounded-xl text-xs">
+        {/* Filter by plant & Quick Add Equipment Button */}
+        <div className="flex flex-wrap items-center gap-2 bg-slate-900 border border-slate-800 p-2 rounded-xl text-xs">
           <span className="text-slate-400 font-semibold">Santral Filtresi:</span>
           <select
             value={selectedPlantId}
@@ -130,6 +132,18 @@ export default function PlantsPanel({
               </option>
             ))}
           </select>
+          {selectedPlantId !== 'all' && onNavigateToShop && (
+            <button
+              onClick={() => {
+                const cs = companySites.find((c) => c.id === selectedPlantId);
+                onNavigateToShop(selectedPlantId, cs?.sites?.region_type);
+              }}
+              className="px-2.5 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 rounded-lg font-bold flex items-center gap-1 transition-all cursor-pointer shadow-sm"
+            >
+              <ShoppingBag className="w-3.5 h-3.5" />
+              <span>Ekipman Ekle (Mağaza)</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -194,7 +208,19 @@ export default function PlantsPanel({
       <div className="space-y-4">
         {filteredAssets.length === 0 ? (
           <div className="text-center py-16 bg-slate-900/50 border border-slate-800 rounded-2xl text-slate-400">
-            Henüz kurulu ekipman bulunmuyor. Ekipman Mağazası'ndan rüzgâr türbini veya güneş dizisi satın alabilirsiniz.
+            <p className="mb-3">Henüz kurulu ekipman bulunmuyor. Ekipman Mağazası'ndan rüzgâr türbini veya güneş dizisi satın alabilirsiniz.</p>
+            {onNavigateToShop && (
+              <button
+                onClick={() => {
+                  const cs = companySites.find((c) => c.id === selectedPlantId);
+                  onNavigateToShop(selectedPlantId !== 'all' ? selectedPlantId : null, cs?.sites?.region_type);
+                }}
+                className="px-4 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 rounded-xl text-xs font-bold transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-sm"
+              >
+                <ShoppingBag className="w-3.5 h-3.5" />
+                <span>Ekipman Mağazası'na Git</span>
+              </button>
+            )}
           </div>
         ) : (
           filteredAssets.map((asset) => {
@@ -204,6 +230,13 @@ export default function PlantsPanel({
               condition > 75 ? 'bg-emerald-500' : condition > 45 ? 'bg-amber-500' : 'bg-red-500';
 
             const cSite = companySites.find((cs) => cs.id === asset.company_site_id);
+
+            // 1-week (168 game hours) construction duration
+            const isConstructionType = ['wind_turbine', 'solar_pack'].includes(catalog.equipment_type);
+            const elapsedHours = Math.max(0, (Number(clock?.gameHour) || 0) - Number(asset.installed_game_hour || 0));
+            const isUnderConstruction = isConstructionType && elapsedHours < 168;
+            const progressPct = Math.min(100, Math.max(0, Math.floor((elapsedHours / 168) * 100)));
+            const daysRemaining = Math.max(1, Math.ceil((168 - elapsedHours) / 24));
 
             return (
               <div
@@ -228,12 +261,23 @@ export default function PlantsPanel({
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-3 text-xs text-slate-400 mb-3">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-slate-400 mb-3">
                       <span>Santral: <strong className="text-slate-200">{cSite?.plant_name || 'Bilinmiyor'}</strong></span>
                       <span>•</span>
                       <span>Kapasite: <strong className="text-emerald-400">{catalog.capacity_kw} kW</strong></span>
                       <span>•</span>
-                      <span>Durum: <strong className="text-slate-200">{asset.status}</strong></span>
+                      {isUnderConstruction ? (
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[11px] font-bold">
+                          <span>🚧 Kurulumda</span>
+                          <span className="font-mono">%{progressPct}</span>
+                          <span className="text-amber-400/80 font-normal">({daysRemaining} gün kaldı)</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-emerald-400 font-semibold">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block animate-pulse" />
+                          <span>Üretimde</span>
+                        </span>
+                      )}
                     </div>
 
                     {/* Condition progress */}
@@ -253,10 +297,11 @@ export default function PlantsPanel({
                 {/* Maintenance Button */}
                 <div className="flex items-center gap-3 shrink-0">
                   <button
-                    disabled={condition >= 99 || maintenanceLoadingId === asset.id || Number(company?.cash || 0) < 5000}
+                    disabled={isUnderConstruction || condition >= 99 || maintenanceLoadingId === asset.id || Number(company?.cash || 0) < 5000}
                     onClick={() => handleMaintenance(asset.id)}
+                    title={isUnderConstruction ? 'Ekipman şu anda 1 haftalık kurulum aşamasındadır.' : undefined}
                     className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
-                      condition < 99 && Number(company?.cash || 0) >= 5000
+                      !isUnderConstruction && condition < 99 && Number(company?.cash || 0) >= 5000
                         ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 shadow-md shadow-emerald-500/20'
                         : 'bg-slate-800 text-slate-500 cursor-not-allowed'
                     }`}

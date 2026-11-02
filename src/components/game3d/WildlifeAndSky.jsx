@@ -23,6 +23,107 @@ export default function WildlifeAndSky({ isNight = false }) {
   const tailRotorRef = useRef();
   const deerGroupRef = useRef();
 
+  // Dynamic simulation state for grazing & roaming alpine deer herds
+  const deerSimState = useRef([
+    // Herd 1: Forest Meadow clearing (from user screenshot)
+    {
+      id: 0,
+      hasAntlers: true,
+      scale: 1.05,
+      coatColor: '#92400e',
+      x: -145,
+      z: -115,
+      homeX: -145,
+      homeZ: -115,
+      wanderRadius: 24,
+      targetX: -145,
+      targetZ: -115,
+      rot: 1.2,
+      targetRot: 1.2,
+      state: 'grazing',
+      stateTimer: 6.0,
+      walkSpeed: 1.1,
+      walkPhase: 0
+    },
+    {
+      id: 1,
+      hasAntlers: false,
+      scale: 0.95,
+      coatColor: '#a14611',
+      x: -155,
+      z: -108,
+      homeX: -150,
+      homeZ: -110,
+      wanderRadius: 22,
+      targetX: -155,
+      targetZ: -108,
+      rot: 2.1,
+      targetRot: 2.1,
+      state: 'looking',
+      stateTimer: 4.5,
+      walkSpeed: 1.0,
+      walkPhase: 1.5
+    },
+    {
+      id: 2,
+      hasAntlers: false,
+      scale: 0.82,
+      coatColor: '#b45309',
+      x: -138,
+      z: -125,
+      homeX: -140,
+      homeZ: -120,
+      wanderRadius: 20,
+      targetX: -138,
+      targetZ: -125,
+      rot: -0.8,
+      targetRot: -0.8,
+      state: 'grazing',
+      stateTimer: 9.0,
+      walkSpeed: 0.9,
+      walkPhase: 3.0
+    },
+    // Herd 2: Lakeside Forest Clearing (near western alpine lake)
+    {
+      id: 3,
+      hasAntlers: true,
+      scale: 1.0,
+      coatColor: '#92400e',
+      x: -250,
+      z: -75,
+      homeX: -250,
+      homeZ: -75,
+      wanderRadius: 20,
+      targetX: -250,
+      targetZ: -75,
+      rot: 0.5,
+      targetRot: 0.5,
+      state: 'grazing',
+      stateTimer: 7.5,
+      walkSpeed: 1.05,
+      walkPhase: 2.0
+    },
+    {
+      id: 4,
+      hasAntlers: false,
+      scale: 0.9,
+      coatColor: '#a14611',
+      x: -258,
+      z: -82,
+      homeX: -250,
+      homeZ: -75,
+      wanderRadius: 18,
+      targetX: -258,
+      targetZ: -82,
+      rot: -1.4,
+      targetRot: -1.4,
+      state: 'walking',
+      stateTimer: 5.0,
+      walkSpeed: 1.0,
+      walkPhase: 0.5
+    }
+  ]);
+
   // Route for Energy Patrol Helicopter across the island
   const heliRoute = useMemo(() => {
     const points = [
@@ -44,6 +145,11 @@ export default function WildlifeAndSky({ isNight = false }) {
       wickerBasket: new THREE.MeshStandardMaterial({ color: '#78350f', roughness: 0.85 }),
       planeBody: new THREE.MeshStandardMaterial({ color: '#f8fafc', roughness: 0.3, metalness: 0.4 }),
       planeTrim: new THREE.MeshStandardMaterial({ color: '#0284c7', roughness: 0.3 }),
+      planeWing: new THREE.MeshStandardMaterial({ color: '#e2e8f0', roughness: 0.35, metalness: 0.15 }),
+      planeGlass: new THREE.MeshStandardMaterial({ color: '#0f172a', roughness: 0.1, metalness: 0.85 }),
+      planeChrome: new THREE.MeshStandardMaterial({ color: '#cbd5e1', roughness: 0.2, metalness: 0.75 }),
+      planeEngineCore: new THREE.MeshStandardMaterial({ color: '#334155', roughness: 0.4, metalness: 0.6 }),
+      contrailMat: new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.32, depthWrite: false }),
       heliBody: new THREE.MeshStandardMaterial({ color: '#f59e0b', roughness: 0.35, metalness: 0.25 }),
       heliDark: new THREE.MeshStandardMaterial({ color: '#0f172a', roughness: 0.5 }),
       heliGlass: new THREE.MeshStandardMaterial({ color: '#1e293b', roughness: 0.15, metalness: 0.8 }),
@@ -60,8 +166,16 @@ export default function WildlifeAndSky({ isNight = false }) {
   }, []);
 
   // Sky Animation Loop
-  useFrame(({ clock }) => {
+  useFrame(({ clock }, delta) => {
     const t = clock.getElapsedTime();
+
+    // Synchronized Aviation Lighting Pulses (ICAO double-flash strobes & rotating beacons)
+    const strobeCycle = t % 1.4;
+    const isStrobe = strobeCycle < 0.07 || (strobeCycle > 0.16 && strobeCycle < 0.23);
+    mats.strobeWhite.color.set(isStrobe ? '#ffffff' : '#334155');
+
+    const isBeacon = (t % 1.2) < 0.12;
+    mats.heliBeacon.color.set(isBeacon ? '#ef4444' : '#450a0a');
 
     // 1 & 2. Daytime Sky: Hot Air Balloons, Airplane & Helicopter (Grounded/Inactive at Night)
     if (!isNight) {
@@ -158,13 +272,125 @@ export default function WildlifeAndSky({ isNight = false }) {
       if (helicopterRef.current) helicopterRef.current.visible = false;
     }
 
-    // 4. Deer Grazing / Head Bobbing in Forest Meadow (Active Day & Night)
+    // 4. Natural Wildlife: Deer Wandering, Grazing & Alert Behavior (Active Day & Night)
     if (deerGroupRef.current) {
-      const headAngle = Math.sin(t * 0.8) * 0.25 + 0.35;
-      deerGroupRef.current.children.forEach((deer, idx) => {
-        const neck = deer.getObjectByName('deer_neck');
+      const dt = Math.min(delta, 0.05);
+
+      deerSimState.current.forEach((d, idx) => {
+        const deerObj = deerGroupRef.current.children[idx];
+        if (!deerObj) return;
+
+        d.stateTimer -= dt;
+
+        // State Machine transitions
+        if (d.stateTimer <= 0) {
+          if (d.state === 'grazing') {
+            // After grazing, 60% chance to wander to a fresh grass patch, 40% to look around alertly
+            if (Math.random() < 0.6) {
+              const angle = Math.random() * Math.PI * 2;
+              const dist = 6.0 + Math.random() * (d.wanderRadius - 6.0);
+              d.targetX = d.homeX + Math.cos(angle) * dist;
+              d.targetZ = d.homeZ + Math.sin(angle) * dist;
+              d.targetRot = Math.atan2(d.targetX - d.x, d.targetZ - d.z);
+              d.state = 'walking';
+              d.stateTimer = 18.0; // max walk timeout
+            } else {
+              d.state = 'looking';
+              d.stateTimer = 4.0 + Math.random() * 4.0;
+            }
+          } else if (d.state === 'looking') {
+            // After looking around, either pick up and walk or return to peaceful grazing
+            if (Math.random() < 0.65) {
+              const angle = Math.random() * Math.PI * 2;
+              const dist = 6.0 + Math.random() * (d.wanderRadius - 6.0);
+              d.targetX = d.homeX + Math.cos(angle) * dist;
+              d.targetZ = d.homeZ + Math.sin(angle) * dist;
+              d.targetRot = Math.atan2(d.targetX - d.x, d.targetZ - d.z);
+              d.state = 'walking';
+              d.stateTimer = 18.0;
+            } else {
+              d.state = 'grazing';
+              d.stateTimer = 8.0 + Math.random() * 8.0;
+            }
+          } else if (d.state === 'walking') {
+            // Reached destination or timeout: start grazing
+            d.state = 'grazing';
+            d.stateTimer = 8.0 + Math.random() * 10.0;
+          }
+        }
+
+        // Handle walking movement toward destination
+        if (d.state === 'walking') {
+          const dx = d.targetX - d.x;
+          const dz = d.targetZ - d.z;
+          const dist = Math.hypot(dx, dz);
+
+          if (dist < 0.8) {
+            d.state = 'grazing';
+            d.stateTimer = 8.0 + Math.random() * 10.0;
+          } else {
+            d.targetRot = Math.atan2(dx, dz);
+            let rotDiff = d.targetRot - d.rot;
+            rotDiff = Math.atan2(Math.sin(rotDiff), Math.cos(rotDiff));
+            d.rot += rotDiff * Math.min(dt * 3.2, 1.0);
+
+            const stepDist = Math.min(d.walkSpeed * dt, dist);
+            d.x += Math.sin(d.rot) * stepDist;
+            d.z += Math.cos(d.rot) * stepDist;
+            d.walkPhase += dt * 6.5;
+          }
+        }
+
+        // Apply position & rotation to 3D object
+        const groundY = getTerrainHeight(d.x, d.z);
+        deerObj.position.set(d.x, groundY, d.z);
+        deerObj.rotation.y = d.rot;
+
+        // Articulated Leg Animation
+        const legLF = deerObj.getObjectByName('leg_lf');
+        const legRF = deerObj.getObjectByName('leg_rf');
+        const legLB = deerObj.getObjectByName('leg_lb');
+        const legRB = deerObj.getObjectByName('leg_rb');
+        const body = deerObj.getObjectByName('deer_body');
+
+        if (d.state === 'walking') {
+          const swing = Math.sin(d.walkPhase) * 0.42;
+          if (legLF) legLF.rotation.x = swing;
+          if (legRB) legRB.rotation.x = swing;
+          if (legRF) legRF.rotation.x = -swing;
+          if (legLB) legLB.rotation.x = -swing;
+          if (body) body.position.y = 1.3 + Math.abs(Math.sin(d.walkPhase)) * 0.05;
+        } else {
+          // Standing still, legs relax vertically
+          if (legLF) legLF.rotation.x *= 0.85;
+          if (legRF) legRF.rotation.x *= 0.85;
+          if (legLB) legLB.rotation.x *= 0.85;
+          if (legRB) legRB.rotation.x *= 0.85;
+          if (body) body.position.y = 1.3;
+        }
+
+        // Articulated Head & Neck Animation
+        const neck = deerObj.getObjectByName('deer_neck');
         if (neck) {
-          neck.rotation.x = headAngle + Math.sin(t * 0.5 + idx) * 0.15;
+          let targetPitch = 0.35;
+          let targetYaw = 0;
+
+          if (d.state === 'grazing') {
+            // Head down eating grass, gentle chewing bob
+            targetPitch = 0.95 + Math.sin(t * 2.8 + idx) * 0.08;
+            targetYaw = Math.sin(t * 0.6 + idx) * 0.1;
+          } else if (d.state === 'looking') {
+            // Head high alertly, looking around
+            targetPitch = -0.15 + Math.sin(t * 0.6 + idx) * 0.06;
+            targetYaw = Math.sin(t * 1.2 + idx) * 0.45;
+          } else if (d.state === 'walking') {
+            // Neutral forward angle with subtle stride bob
+            targetPitch = 0.35 + Math.sin(d.walkPhase) * 0.08;
+            targetYaw = 0;
+          }
+
+          neck.rotation.x += (targetPitch - neck.rotation.x) * Math.min(dt * 4.5, 1.0);
+          neck.rotation.y += (targetYaw - neck.rotation.y) * Math.min(dt * 4.5, 1.0);
         }
       });
     }
@@ -221,59 +447,277 @@ export default function WildlifeAndSky({ isNight = false }) {
           </group>
 
           {/* ========================================================= */}
-          {/* 2. TWIN-ENGINE COMMUTER AIRPLANE                          */}
+          {/* 2. REGIONAL TWIN-TURBOFAN AIRLINER (Aerodynamic Jet)      */}
           {/* ========================================================= */}
           <group ref={airplaneRef} position={[0, 285, 1000]}>
-            {/* Aerodynamic Fuselage */}
-            <mesh position={[0, 0, 0]} material={mats.planeBody} castShadow>
-              <cylinderGeometry args={[1.2, 0.6, 18, 16]} rotation={[Math.PI / 2, 0, 0]} />
+            {/* 1. AERODYNAMIC FUSELAGE */}
+            {/* Rounded Aerodynamic Nose Radome */}
+            <mesh position={[0, -0.05, 10.2]} rotation={[Math.PI / 2, 0, 0]} material={mats.planeBody} castShadow>
+              <sphereGeometry args={[0.55, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.5]} />
             </mesh>
-            {/* Cockpit Canopy */}
-            <mesh position={[0, 0.8, 5.2]} material={mats.planeTrim}>
-              <boxGeometry args={[1.6, 0.9, 3.2]} />
+
+            {/* Forward Fuselage / Nose Taper */}
+            <mesh position={[0, 0, 8.4]} rotation={[Math.PI / 2, 0, 0]} material={mats.planeBody} castShadow>
+              <cylinderGeometry args={[1.28, 0.55, 3.6, 24]} />
             </mesh>
-            {/* Main Wingspan */}
-            <mesh position={[0, 0.2, 1.2]} material={mats.planeBody} castShadow>
-              <boxGeometry args={[22, 0.25, 3.2]} />
+
+            {/* Sleek Curved Cockpit Windshield (Wrap-around glass) */}
+            <mesh position={[0, 0.52, 8.2]} rotation={[-0.24, 0, 0]} material={mats.planeGlass}>
+              <cylinderGeometry args={[1.3, 1.25, 1.3, 16, 1, false, Math.PI * 0.65, Math.PI * 0.7]} />
             </mesh>
-            {/* Tail Fin & Horizontal Stabilizer */}
-            <mesh position={[0, 2.4, -7.5]} material={mats.planeTrim}>
-              <boxGeometry args={[0.2, 3.8, 2.4]} />
+
+            {/* Main Cylindrical Passenger Cabin */}
+            <mesh position={[0, 0, 1.8]} rotation={[Math.PI / 2, 0, 0]} material={mats.planeBody} castShadow>
+              <cylinderGeometry args={[1.28, 1.28, 10.2, 24]} />
             </mesh>
-            <mesh position={[0, 0.8, -7.8]} material={mats.planeBody}>
-              <boxGeometry args={[7.2, 0.2, 1.8]} />
+
+            {/* Airline Teal Accent Stripe along the Beltline */}
+            <mesh position={[0, 0.05, 1.8]} rotation={[Math.PI / 2, 0, 0]} material={mats.planeTrim}>
+              <cylinderGeometry args={[1.29, 1.29, 9.8, 24, 1, false, -Math.PI * 0.12, Math.PI * 0.24]} />
             </mesh>
-            {/* Left & Right Engine Pods */}
-            <mesh position={[-4.2, -0.2, 2.4]} material={mats.planeTrim}>
-              <cylinderGeometry args={[0.7, 0.7, 3.6, 12]} rotation={[Math.PI / 2, 0, 0]} />
+
+            {/* Port & Starboard Cabin Passenger Windows (Dark oval strip) */}
+            <mesh position={[-1.27, 0.28, 1.8]} material={mats.planeGlass}>
+              <boxGeometry args={[0.06, 0.32, 7.8]} />
             </mesh>
-            <mesh position={[4.2, -0.2, 2.4]} material={mats.planeTrim}>
-              <cylinderGeometry args={[0.7, 0.7, 3.6, 12]} rotation={[Math.PI / 2, 0, 0]} />
+            <mesh position={[1.27, 0.28, 1.8]} material={mats.planeGlass}>
+              <boxGeometry args={[0.06, 0.32, 7.8]} />
             </mesh>
-            {/* Spinning Propellers */}
-            <group ref={propLRef} position={[-4.2, -0.2, 4.3]}>
-              <mesh material={mats.planeTrim}>
-                <boxGeometry args={[3.2, 0.15, 0.05]} />
+
+            {/* Aft Fuselage Taper (Graceful upward sweep toward tail - Zero Square Cutoff) */}
+            <mesh position={[0, 0.22, -8.2]} rotation={[Math.PI / 2 - 0.045, 0, 0]} material={mats.planeBody} castShadow>
+              <cylinderGeometry args={[1.28, 0.42, 10.2, 24]} />
+            </mesh>
+
+            {/* APU (Auxiliary Power Unit) Exhaust Cone & Nozzle at Tail Tip */}
+            <mesh position={[0, 0.44, -13.4]} rotation={[Math.PI / 2, 0, 0]} material={mats.planeEngineCore}>
+              <cylinderGeometry args={[0.22, 0.3, 0.6, 16]} />
+            </mesh>
+            <mesh position={[0, 0.44, -13.72]} rotation={[Math.PI / 2, 0, 0]} material={mats.planeGlass}>
+              <circleGeometry args={[0.18, 12]} />
+            </mesh>
+
+            {/* Wing Center Wingbox & Belly Fairing */}
+            <mesh position={[0, -0.45, 1.6]} material={mats.planeBody} castShadow>
+              <boxGeometry args={[3.4, 0.65, 5.2]} />
+            </mesh>
+
+            {/* 2. SWEPT-BACK WINGS WITH UPWARD DIHEDRAL & WINGLETS */}
+            {/* PORT (LEFT) SWEPT WING */}
+            <group position={[-1.3, -0.22, 2.2]} rotation={[0.04, -0.34, 0.07]}>
+              {/* Main Wing Body */}
+              <mesh position={[-5.2, 0, -0.3]} material={mats.planeWing} castShadow>
+                <boxGeometry args={[9.8, 0.18, 2.4]} />
               </mesh>
+              {/* Chrome Leading Edge De-icing Slat */}
+              <mesh position={[-5.2, 0, 0.95]} material={mats.planeChrome}>
+                <boxGeometry args={[9.85, 0.19, 0.14]} />
+              </mesh>
+              {/* Inner Flap Extension */}
+              <mesh position={[-2.4, -0.02, -1.8]} material={mats.planeWing}>
+                <boxGeometry args={[4.2, 0.14, 0.9]} />
+              </mesh>
+              {/* Under-Wing Flap Track Fairings (Canoes) */}
+              <mesh position={[-3.6, -0.2, -1.2]} material={mats.planeBody}>
+                <boxGeometry args={[0.24, 0.3, 1.6]} />
+              </mesh>
+              <mesh position={[-6.8, -0.18, -1.0]} material={mats.planeBody}>
+                <boxGeometry args={[0.2, 0.26, 1.4]} />
+              </mesh>
+              {/* Upswept Port Winglet / Sharklet */}
+              <group position={[-10.1, 0.45, -0.3]} rotation={[0, 0, 0.85]}>
+                <mesh material={mats.planeTrim}>
+                  <boxGeometry args={[1.2, 0.08, 0.95]} />
+                </mesh>
+                {/* Port Red Navigation Light */}
+                <mesh position={[0.6, 0.06, 0.35]}>
+                  <sphereGeometry args={[0.15, 8, 8]} />
+                  <primitive object={mats.navRed} />
+                </mesh>
+                {/* High-Intensity Wingtip Strobe */}
+                <mesh position={[0.6, 0.06, -0.35]}>
+                  <sphereGeometry args={[0.16, 8, 8]} />
+                  <primitive object={mats.strobeWhite} />
+                </mesh>
+              </group>
             </group>
-            <group ref={propRRef} position={[4.2, -0.2, 4.3]}>
-              <mesh material={mats.planeTrim}>
-                <boxGeometry args={[3.2, 0.15, 0.05]} />
+
+            {/* STARBOARD (RIGHT) SWEPT WING */}
+            <group position={[1.3, -0.22, 2.2]} rotation={[-0.04, 0.34, -0.07]}>
+              {/* Main Wing Body */}
+              <mesh position={[5.2, 0, -0.3]} material={mats.planeWing} castShadow>
+                <boxGeometry args={[9.8, 0.18, 2.4]} />
+              </mesh>
+              {/* Chrome Leading Edge De-icing Slat */}
+              <mesh position={[5.2, 0, 0.95]} material={mats.planeChrome}>
+                <boxGeometry args={[9.85, 0.19, 0.14]} />
+              </mesh>
+              {/* Inner Flap Extension */}
+              <mesh position={[2.4, -0.02, -1.8]} material={mats.planeWing}>
+                <boxGeometry args={[4.2, 0.14, 0.9]} />
+              </mesh>
+              {/* Under-Wing Flap Track Fairings */}
+              <mesh position={[3.6, -0.2, -1.2]} material={mats.planeBody}>
+                <boxGeometry args={[0.24, 0.3, 1.6]} />
+              </mesh>
+              <mesh position={[6.8, -0.18, -1.0]} material={mats.planeBody}>
+                <boxGeometry args={[0.2, 0.26, 1.4]} />
+              </mesh>
+              {/* Upswept Starboard Winglet / Sharklet */}
+              <group position={[10.1, 0.45, -0.3]} rotation={[0, 0, -0.85]}>
+                <mesh material={mats.planeTrim}>
+                  <boxGeometry args={[1.2, 0.08, 0.95]} />
+                </mesh>
+                {/* Starboard Green Navigation Light */}
+                <mesh position={[-0.6, 0.06, 0.35]}>
+                  <sphereGeometry args={[0.15, 8, 8]} />
+                  <primitive object={mats.navGreen} />
+                </mesh>
+                {/* High-Intensity Wingtip Strobe */}
+                <mesh position={[-0.6, 0.06, -0.35]}>
+                  <sphereGeometry args={[0.16, 8, 8]} />
+                  <primitive object={mats.strobeWhite} />
+                </mesh>
+              </group>
+            </group>
+
+            {/* 3. UNDER-WING HIGH-BYPASS TURBOFAN ENGINES */}
+            {/* PORT (LEFT) JET ENGINE */}
+            <group position={[-4.0, -0.82, 1.5]}>
+              {/* Aerodynamic Mounting Pylon */}
+              <mesh position={[0, 0.42, -0.3]} material={mats.planeWing}>
+                <boxGeometry args={[0.16, 0.65, 2.2]} />
+              </mesh>
+              {/* Streamlined Engine Nacelle Cowl */}
+              <mesh rotation={[Math.PI / 2, 0, 0]} material={mats.planeBody} castShadow>
+                <cylinderGeometry args={[0.82, 0.74, 3.6, 20]} />
+              </mesh>
+              {/* Polished Chrome Intake Lip */}
+              <mesh position={[0, 0, 1.8]} material={mats.planeChrome}>
+                <torusGeometry args={[0.76, 0.08, 12, 24]} />
+              </mesh>
+              {/* Spinning Turbofan Fan Blades */}
+              <group ref={propLRef} position={[0, 0, 1.3]}>
+                <mesh material={mats.planeEngineCore}>
+                  <coneGeometry args={[0.24, 0.55, 12]} rotation={[Math.PI / 2, 0, 0]} />
+                </mesh>
+                {[0, 1, 2, 3, 4, 5].map((bIdx) => (
+                  <mesh key={`fanL_${bIdx}`} rotation={[0, 0, (bIdx * Math.PI) / 3]} material={mats.planeEngineCore}>
+                    <boxGeometry args={[1.4, 0.08, 0.02]} />
+                  </mesh>
+                ))}
+              </group>
+              {/* Titanium Exhaust Duct & Core Cone */}
+              <mesh position={[0, 0, -1.8]} rotation={[Math.PI / 2, 0, 0]} material={mats.planeEngineCore}>
+                <cylinderGeometry args={[0.62, 0.68, 0.7, 16]} />
+              </mesh>
+              <mesh position={[0, 0, -2.15]} rotation={[-Math.PI / 2, 0, 0]} material={mats.planeEngineCore}>
+                <coneGeometry args={[0.26, 0.65, 12]} />
+              </mesh>
+              {/* Dynamic Atmospheric Vapor Contrail */}
+              <mesh position={[0, 0, -26.0]} rotation={[Math.PI / 2, 0, 0]} material={mats.contrailMat}>
+                <cylinderGeometry args={[0.35, 2.4, 48, 12, 1, true]} />
               </mesh>
             </group>
 
-            {/* Aviation Navigation Lights (Port Red, Starboard Green, Tail White) */}
-            <mesh position={[-10.9, 0.2, 1.2]}>
-              <sphereGeometry args={[0.2, 6, 6]} />
-              <primitive object={mats.navRed} />
+            {/* STARBOARD (RIGHT) JET ENGINE */}
+            <group position={[4.0, -0.82, 1.5]}>
+              {/* Aerodynamic Mounting Pylon */}
+              <mesh position={[0, 0.42, -0.3]} material={mats.planeWing}>
+                <boxGeometry args={[0.16, 0.65, 2.2]} />
+              </mesh>
+              {/* Streamlined Engine Nacelle Cowl */}
+              <mesh rotation={[Math.PI / 2, 0, 0]} material={mats.planeBody} castShadow>
+                <cylinderGeometry args={[0.82, 0.74, 3.6, 20]} />
+              </mesh>
+              {/* Polished Chrome Intake Lip */}
+              <mesh position={[0, 0, 1.8]} material={mats.planeChrome}>
+                <torusGeometry args={[0.76, 0.08, 12, 24]} />
+              </mesh>
+              {/* Spinning Turbofan Fan Blades */}
+              <group ref={propRRef} position={[0, 0, 1.3]}>
+                <mesh material={mats.planeEngineCore}>
+                  <coneGeometry args={[0.24, 0.55, 12]} rotation={[Math.PI / 2, 0, 0]} />
+                </mesh>
+                {[0, 1, 2, 3, 4, 5].map((bIdx) => (
+                  <mesh key={`fanR_${bIdx}`} rotation={[0, 0, (bIdx * Math.PI) / 3]} material={mats.planeEngineCore}>
+                    <boxGeometry args={[1.4, 0.08, 0.02]} />
+                  </mesh>
+                ))}
+              </group>
+              {/* Titanium Exhaust Duct & Core Cone */}
+              <mesh position={[0, 0, -1.8]} rotation={[Math.PI / 2, 0, 0]} material={mats.planeEngineCore}>
+                <cylinderGeometry args={[0.62, 0.68, 0.7, 16]} />
+              </mesh>
+              <mesh position={[0, 0, -2.15]} rotation={[-Math.PI / 2, 0, 0]} material={mats.planeEngineCore}>
+                <coneGeometry args={[0.26, 0.65, 12]} />
+              </mesh>
+              {/* Dynamic Atmospheric Vapor Contrail */}
+              <mesh position={[0, 0, -26.0]} rotation={[Math.PI / 2, 0, 0]} material={mats.contrailMat}>
+                <cylinderGeometry args={[0.35, 2.4, 48, 12, 1, true]} />
+              </mesh>
+            </group>
+
+            {/* 4. SWEPT EMPENNAGE (TAIL ASSEMBLY) */}
+            {/* Swept Vertical Stabilizer (Tail Fin) */}
+            <group position={[0, 1.1, -8.2]}>
+              {/* Dorsal Fillet (Fairing leading into the tail) */}
+              <mesh position={[0, 0.35, 2.0]} rotation={[-0.42, 0, 0]} material={mats.planeTrim}>
+                <boxGeometry args={[0.16, 0.5, 3.2]} />
+              </mesh>
+              {/* Main Swept Vertical Fin */}
+              <group position={[0, 1.9, -1.2]} rotation={[0.48, 0, 0]}>
+                <mesh material={mats.planeTrim} castShadow>
+                  <boxGeometry args={[0.18, 4.4, 2.2]} />
+                </mesh>
+                {/* Chrome Leading Edge */}
+                <mesh position={[0, 0, 1.15]} material={mats.planeChrome}>
+                  <boxGeometry args={[0.19, 4.42, 0.12]} />
+                </mesh>
+                {/* Top Tail Cap / Fairing */}
+                <mesh position={[0, 2.25, -0.1]} material={mats.planeTrim}>
+                  <cylinderGeometry args={[0.16, 0.16, 2.4, 12]} rotation={[Math.PI / 2, 0, 0]} />
+                </mesh>
+                {/* Flashing Tail Beacon */}
+                <mesh position={[0, 2.45, -0.6]}>
+                  <sphereGeometry args={[0.18, 8, 8]} />
+                  <primitive object={mats.strobeWhite} />
+                </mesh>
+              </group>
+            </group>
+
+            {/* Swept Horizontal Stabilizers */}
+            <group position={[0, 0.85, -10.8]}>
+              {/* Port (Left) Horizontal Stabilizer */}
+              <group rotation={[0.04, -0.42, 0.08]}>
+                <mesh position={[-2.4, 0, -0.3]} material={mats.planeWing}>
+                  <boxGeometry args={[4.4, 0.12, 1.5]} />
+                </mesh>
+                <mesh position={[-2.4, 0, 0.5]} material={mats.planeChrome}>
+                  <boxGeometry args={[4.42, 0.13, 0.1]} />
+                </mesh>
+              </group>
+              {/* Starboard (Right) Horizontal Stabilizer */}
+              <group rotation={[-0.04, 0.42, -0.08]}>
+                <mesh position={[2.4, 0, -0.3]} material={mats.planeWing}>
+                  <boxGeometry args={[4.4, 0.12, 1.5]} />
+                </mesh>
+                <mesh position={[2.4, 0, 0.5]} material={mats.planeChrome}>
+                  <boxGeometry args={[4.42, 0.13, 0.1]} />
+                </mesh>
+              </group>
+            </group>
+
+            {/* 5. FUSELAGE ANTI-COLLISION RED BEACONS */}
+            {/* Top Roof Beacon */}
+            <mesh position={[0, 1.34, 2.4]}>
+              <sphereGeometry args={[0.16, 8, 8]} />
+              <primitive object={mats.heliBeacon} />
             </mesh>
-            <mesh position={[10.9, 0.2, 1.2]}>
-              <sphereGeometry args={[0.2, 6, 6]} />
-              <primitive object={mats.navGreen} />
-            </mesh>
-            <mesh position={[0, 4.2, -7.5]}>
-              <sphereGeometry args={[0.25, 6, 6]} />
-              <primitive object={mats.strobeWhite} />
+            {/* Bottom Belly Beacon */}
+            <mesh position={[0, -1.34, 2.4]}>
+              <sphereGeometry args={[0.16, 8, 8]} />
+              <primitive object={mats.heliBeacon} />
             </mesh>
           </group>
 
@@ -399,29 +843,45 @@ export default function WildlifeAndSky({ isNight = false }) {
       )}
 
       {/* ========================================================= */}
-      {/* 4. GRAZING ALPINE DEER / WILDLIFE                         */}
+      {/* 4. LIVING ALPINE DEER HERDS (GRAZING & ROAMING)          */}
       {/* ========================================================= */}
       <group ref={deerGroupRef}>
-        {[
-          { x: -145, z: -115, rot: 1.2 },
-          { x: -155, z: -108, rot: 2.1 },
-          { x: -138, z: -125, rot: -0.8 }
-        ].map((d, i) => {
+        {deerSimState.current.map((d, i) => {
           const dy = getTerrainHeight(d.x, d.z);
           return (
-            <group key={`deer_${i}`} position={[d.x, dy, d.z]} rotation={[0, d.rot, 0]}>
+            <group
+              key={`deer_${i}`}
+              position={[d.x, dy, d.z]}
+              rotation={[0, d.rot, 0]}
+              scale={[d.scale, d.scale, d.scale]}
+            >
               {/* Deer Body */}
-              <mesh position={[0, 1.3, 0]} material={mats.deerCoat} castShadow>
+              <mesh name="deer_body" position={[0, 1.3, 0]} material={mats.deerCoat} castShadow>
                 <boxGeometry args={[0.9, 0.85, 2.0]} />
               </mesh>
-              {/* 4 Slender Legs */}
-              {[-0.32, 0.32].map((lx) =>
-                [-0.7, 0.7].map((lz, lzi) => (
-                  <mesh key={`dleg_${lx}_${lzi}`} position={[lx, 0.65, lz]} material={mats.deerCoat}>
-                    <cylinderGeometry args={[0.08, 0.06, 1.3, 6]} />
-                  </mesh>
-                ))
-              )}
+
+              {/* 4 Articulated Swinging Legs (Pivoting from hip/shoulder joints) */}
+              <group name="leg_lf" position={[-0.32, 1.3, 0.7]}>
+                <mesh position={[0, -0.65, 0]} material={mats.deerCoat}>
+                  <cylinderGeometry args={[0.07, 0.05, 1.3, 6]} />
+                </mesh>
+              </group>
+              <group name="leg_rf" position={[0.32, 1.3, 0.7]}>
+                <mesh position={[0, -0.65, 0]} material={mats.deerCoat}>
+                  <cylinderGeometry args={[0.07, 0.05, 1.3, 6]} />
+                </mesh>
+              </group>
+              <group name="leg_lb" position={[-0.32, 1.3, -0.7]}>
+                <mesh position={[0, -0.65, 0]} material={mats.deerCoat}>
+                  <cylinderGeometry args={[0.07, 0.05, 1.3, 6]} />
+                </mesh>
+              </group>
+              <group name="leg_rb" position={[0.32, 1.3, -0.7]}>
+                <mesh position={[0, -0.65, 0]} material={mats.deerCoat}>
+                  <cylinderGeometry args={[0.07, 0.05, 1.3, 6]} />
+                </mesh>
+              </group>
+
               {/* Articulated Neck & Head */}
               <group name="deer_neck" position={[0, 1.6, 0.9]}>
                 <mesh position={[0, 0.35, 0.3]} rotation={[0.45, 0, 0]} material={mats.deerCoat}>
@@ -431,13 +891,20 @@ export default function WildlifeAndSky({ isNight = false }) {
                   <boxGeometry args={[0.42, 0.38, 0.75]} />
                 </mesh>
                 {/* Antlers for the Stag */}
-                {i === 0 && (
+                {d.hasAntlers && (
                   <group position={[0, 0.9, 0.5]}>
                     <mesh position={[-0.25, 0.35, 0]} rotation={[0, 0, -0.35]} material={mats.deerAntler}>
                       <cylinderGeometry args={[0.04, 0.05, 0.75, 5]} />
                     </mesh>
                     <mesh position={[0.25, 0.35, 0]} rotation={[0, 0, 0.35]} material={mats.deerAntler}>
                       <cylinderGeometry args={[0.04, 0.05, 0.75, 5]} />
+                    </mesh>
+                    {/* Secondary Antler Tines */}
+                    <mesh position={[-0.32, 0.55, 0.08]} rotation={[0.3, 0, -0.6]} material={mats.deerAntler}>
+                      <cylinderGeometry args={[0.03, 0.03, 0.35, 4]} />
+                    </mesh>
+                    <mesh position={[0.32, 0.55, 0.08]} rotation={[0.3, 0, 0.6]} material={mats.deerAntler}>
+                      <cylinderGeometry args={[0.03, 0.03, 0.35, 4]} />
                     </mesh>
                   </group>
                 )}
