@@ -14,7 +14,7 @@ import VirtualJoystick from './VirtualJoystick';
 
 export default function DriveOverlay({
   stats = {},
-  cameraMode = 'cockpit',
+  cameraMode = 'chase',
   onCameraModeChange = () => { },
   onTouchInputChange = () => { },
   onExit = () => { },
@@ -50,7 +50,7 @@ export default function DriveOverlay({
   };
 
   const handleCycleCamera = () => {
-    const modes = ['cockpit', 'chase', 'hood'];
+    const modes = ['chase', 'cockpit', 'hood'];
     const nextIdx = (modes.indexOf(cameraMode) + 1) % modes.length;
     onCameraModeChange(modes[nextIdx]);
   };

@@ -131,20 +131,27 @@ export const SETTLEMENT_ZONES = [
   { name: 'Sunfire City', x: 380, z: 90, radius: 75, innerRadius: 48 },
   { name: 'Energy Logistics Park', x: 85, z: -45, radius: 55, innerRadius: 36 },
   { name: 'Pine Ridge Village', x: -75, z: -175, radius: 42, innerRadius: 24 },
-  { name: 'Agri Farm', x: -35, z: 230, radius: 48, innerRadius: 28 },
-  { name: 'Marina Harbor', x: 195, z: -570, radius: 44, innerRadius: 22 }
+  { name: 'Agri Farm', x: -35, z: 248, radius: 82, innerRadius: 58 },
+  { name: 'Marina Harbor', x: 195, z: -570, radius: 44, innerRadius: 22 },
+  { name: 'Sunflower Farm', x: 430, z: -140, radius: 72, innerRadius: 50 },
+  { name: 'Valley Orchard Farm', x: -290, z: 80, radius: 72, innerRadius: 50 },
+  { name: 'North Sea Port Terminal', x: 345, z: -710, radius: 65, innerRadius: 42, customHeight: 1.4 },
+  { name: 'Sunset Dunes Beach Camp', x: 372, z: -835, radius: 24, innerRadius: 14, customHeight: 2.1 },
+  { name: 'South Sands Beach Camp', x: 75, z: 1030, radius: 26, innerRadius: 15, customHeight: 3.3 },
+  { name: 'Pine Cove Beach Camp', x: -115, z: 1020, radius: 25, innerRadius: 14, customHeight: 2.5 },
+  { name: 'East Dunes Beach Camp', x: 915, z: -590, radius: 25, innerRadius: 14, customHeight: 4.6 }
 ];
-const SETTLEMENT_ANCHOR_HEIGHTS = SETTLEMENT_ZONES.map((s) => getRawTerrainHeight(s.x, s.z));
+const SETTLEMENT_ANCHOR_HEIGHTS = SETTLEMENT_ZONES.map((s) => s.customHeight !== undefined ? s.customHeight : getRawTerrainHeight(s.x, s.z));
 
 // Global terrain height function (shared between mesh, objects, power lines, and markers)
 export function getTerrainHeight(x, z) {
   let h = getRawTerrainHeight(x, z);
 
-  // Central Substation leveled terrace (radius 44m)
-  const distSub = Math.hypot(x, z);
-  if (distSub < 44) {
-    const t = smoothstep(44, 14, distSub);
-    h = h * (1 - t * 0.94) + SUBSTATION_ANCHOR_HEIGHT * (t * 0.94);
+  // Central Substation & Interchange leveled terrace (radius 88m, innerRadius 62m centered at (0, -30))
+  const distSub = Math.hypot(x, z + 30);
+  if (distSub < 88) {
+    const t = smoothstep(88, 62, distSub);
+    h = h * (1 - t * 0.95) + SUBSTATION_ANCHOR_HEIGHT * (t * 0.95);
   }
 
   // Stable leveled terraces around Living Settlements (Eliminates ground clipping and flickering)
@@ -154,7 +161,8 @@ export function getTerrainHeight(x, z) {
       const d = Math.hypot(x - sz.x, z - sz.z);
       if (d < sz.radius) {
         const t = smoothstep(sz.radius, sz.innerRadius, d);
-        h = h * (1 - t * 0.96) + SETTLEMENT_ANCHOR_HEIGHTS[i] * (t * 0.96);
+        const targetH = sz.customHeight !== undefined ? sz.customHeight : SETTLEMENT_ANCHOR_HEIGHTS[i];
+        h = h * (1 - t * 0.96) + targetH * (t * 0.96);
         break;
       }
     }
@@ -585,59 +593,369 @@ function BatteryContainer({ position, onClick }) {
   );
 }
 
-// Central High-Voltage Substation (Trafo Merkezi)
-function SubstationNode({ position = [0, 0, 0], showLabels = true }) {
+// =============================================================================
+// REALISTIC HIGH-VOLTAGE CENTRAL SUBSTATION FACILITY (154/380 kV - 100 MW)
+// =============================================================================
+function SubstationNode({ position = [-5, 0, -64], showLabels = true }) {
   const y = getTerrainHeight(position[0], position[2]);
 
   return (
     <group position={[position[0], y, position[2]]}>
-      <mesh position={[0, 0.5, 0]} receiveShadow>
-        <boxGeometry args={[44, 1.0, 44]} />
+      {/* 1. Permeable Crushed-Stone Gravel Switchyard Bed */}
+      <mesh position={[0, 0.4, 0]} receiveShadow>
+        <boxGeometry args={[66, 0.8, 54]} />
         <meshStandardMaterial
-          color="#475569"
-          roughness={0.95}
+          color="#526071"
+          roughness={0.96}
           polygonOffset
           polygonOffsetFactor={-2}
           polygonOffsetUnits={-2}
         />
       </mesh>
 
-      <mesh position={[0, 2.6, 0]}>
-        <boxGeometry args={[43, 3.4, 43]} />
-        <meshBasicMaterial color="#94a3b8" wireframe transparent opacity={0.3} />
+      {/* Concrete Curb Perimeter Ring */}
+      <mesh position={[0, 0.82, 0]} receiveShadow>
+        <boxGeometry args={[66.8, 0.14, 54.8]} />
+        <meshStandardMaterial color="#94a3b8" roughness={0.9} />
       </mesh>
 
-      {[-12, 0, 12].map((offset, idx) => (
-        <group key={idx} position={[offset, 2.4, 0]}>
-          <mesh castShadow>
-            <boxGeometry args={[5.5, 4.8, 5.5]} />
-            <meshStandardMaterial color="#1e293b" roughness={0.5} metalness={0.6} />
+      {/* 2. Perimeter Galvanized Chain-Link Security Fence with Barbed Wire */}
+      <group position={[0, 0.8, 0]}>
+        {/* North Fence (-Z) */}
+        <mesh position={[0, 1.6, -26.8]}>
+          <boxGeometry args={[65.6, 3.2, 0.08]} />
+          <meshBasicMaterial color="#94a3b8" wireframe transparent opacity={0.4} />
+        </mesh>
+        {/* South Fence (+Z) with Gate Opening */}
+        <mesh position={[-18, 1.6, 26.8]}>
+          <boxGeometry args={[28, 3.2, 0.08]} />
+          <meshBasicMaterial color="#94a3b8" wireframe transparent opacity={0.4} />
+        </mesh>
+        <mesh position={[18, 1.6, 26.8]}>
+          <boxGeometry args={[28, 3.2, 0.08]} />
+          <meshBasicMaterial color="#94a3b8" wireframe transparent opacity={0.4} />
+        </mesh>
+        {/* West Fence (-X) */}
+        <mesh position={[-32.8, 1.6, 0]}>
+          <boxGeometry args={[0.08, 3.2, 53.6]} />
+          <meshBasicMaterial color="#94a3b8" wireframe transparent opacity={0.4} />
+        </mesh>
+        {/* East Fence (+X) */}
+        <mesh position={[32.8, 1.6, 0]}>
+          <boxGeometry args={[0.08, 3.2, 53.6]} />
+          <meshBasicMaterial color="#94a3b8" wireframe transparent opacity={0.4} />
+        </mesh>
+
+        {/* Fence Corner & Intermediate Steel Tubular Posts */}
+        {[-32.8, -16.4, 0, 16.4, 32.8].map((px, pi) =>
+          [-26.8, 26.8].map((pz, pzi) => (
+            <mesh key={`post_ns_${pi}_${pzi}`} position={[px, 1.8, pz]}>
+              <cylinderGeometry args={[0.1, 0.1, 3.6, 6]} />
+              <meshStandardMaterial color="#64748b" metalness={0.7} />
+            </mesh>
+          ))
+        )}
+
+        {/* High-Voltage Danger Warning Signboards on Fence */}
+        {[-14, 14].map((sx, si) => (
+          <group key={`danger_sign_${si}`} position={[sx, 1.8, 26.9]}>
+            <mesh>
+              <boxGeometry args={[3.2, 1.6, 0.1]} />
+              <meshStandardMaterial color="#dc2626" roughness={0.3} />
+            </mesh>
+            <mesh position={[0, 0, 0.06]}>
+              <boxGeometry args={[2.9, 1.3, 0.02]} />
+              <meshStandardMaterial color="#fef08a" />
+            </mesh>
+            <Text
+              position={[0, 0.1, 0.08]}
+              fontSize={0.32}
+              color="#0f172a"
+              fontWeight="bold"
+              anchorX="center"
+              anchorY="middle"
+            >
+              {'DİKKAT!\nYÜKSEK GERİLİM\n154 kV / 380 kV'}
+            </Text>
+          </group>
+        ))}
+
+        {/* Sliding Main Entrance Security Gate */}
+        <group position={[0, 0, 26.8]}>
+          <mesh position={[0, 1.4, 0]}>
+            <boxGeometry args={[7.2, 2.8, 0.12]} />
+            <meshStandardMaterial color="#475569" metalness={0.7} roughness={0.4} />
           </mesh>
-          {[-1.6, 0, 1.6].map((ins, i) => (
-            <mesh key={i} position={[ins, 3.4, 0]}>
-              <cylinderGeometry args={[0.3, 0.45, 2.2, 8]} />
-              <meshStandardMaterial color="#b45309" roughness={0.2} />
+          {/* Yellow / Black Hazard Stripe on Gate */}
+          <mesh position={[0, 0.4, 0.08]}>
+            <boxGeometry args={[6.8, 0.25, 0.02]} />
+            <meshBasicMaterial color="#facc15" />
+          </mesh>
+        </group>
+
+        {/* Security Guard Booth & Barrier Arm */}
+        <group position={[6.0, 0, 23.5]}>
+          <mesh position={[0, 1.5, 0]} castShadow>
+            <boxGeometry args={[3.2, 3.0, 2.8]} />
+            <meshStandardMaterial color="#e2e8f0" roughness={0.4} />
+          </mesh>
+          <mesh position={[0, 3.1, 0]}>
+            <boxGeometry args={[3.6, 0.2, 3.2]} />
+            <meshStandardMaterial color="#1e293b" />
+          </mesh>
+          {/* Glass Windows */}
+          <mesh position={[-0.8, 1.6, 1.42]}>
+            <planeGeometry args={[1.2, 1.2]} />
+            <meshBasicMaterial color="#38bdf8" transparent opacity={0.6} />
+          </mesh>
+          {/* Barrier Arm */}
+          <mesh position={[-3.2, 1.0, 3.0]} rotation={[0, 0, 0]}>
+            <boxGeometry args={[4.2, 0.15, 0.08]} />
+            <meshStandardMaterial color="#dc2626" />
+          </mesh>
+        </group>
+      </group>
+
+      {/* 3. Three Massive 3-Phase High-Voltage Power Transformers */}
+      {[-16, 0, 16].map((tx, ti) => (
+        <group key={`trafo_${ti}`} position={[tx, 0.8, 2]}>
+          {/* Concrete Foundation Plinth */}
+          <mesh position={[0, 0.35, 0]} receiveShadow>
+            <boxGeometry args={[7.2, 0.7, 6.2]} />
+            <meshStandardMaterial color="#94a3b8" roughness={0.9} />
+          </mesh>
+
+          {/* Heavy Main Transformer Steel Tank */}
+          <mesh position={[0, 2.7, 0]} castShadow receiveShadow>
+            <boxGeometry args={[5.2, 4.0, 4.4]} />
+            <meshStandardMaterial color="#2d3748" roughness={0.45} metalness={0.6} />
+          </mesh>
+
+          {/* Left Cooling Radiator Bank */}
+          <group position={[-3.1, 2.6, 0]}>
+            <mesh castShadow>
+              <boxGeometry args={[0.8, 3.4, 3.8]} />
+              <meshStandardMaterial color="#1a202c" roughness={0.7} metalness={0.5} />
+            </mesh>
+            {[-1.2, 0, 1.2].map((rz, ri) => (
+              <mesh key={`fan_l_${ri}`} position={[-0.45, 0, rz]}>
+                <cylinderGeometry args={[0.55, 0.55, 0.1, 12]} rotation={[0, 0, Math.PI / 2]} />
+                <meshStandardMaterial color="#4a5568" />
+              </mesh>
+            ))}
+          </group>
+
+          {/* Right Cooling Radiator Bank */}
+          <group position={[3.1, 2.6, 0]}>
+            <mesh castShadow>
+              <boxGeometry args={[0.8, 3.4, 3.8]} />
+              <meshStandardMaterial color="#1a202c" roughness={0.7} metalness={0.5} />
+            </mesh>
+            {[-1.2, 0, 1.2].map((rz, ri) => (
+              <mesh key={`fan_r_${ri}`} position={[0.45, 0, rz]}>
+                <cylinderGeometry args={[0.55, 0.55, 0.1, 12]} rotation={[0, 0, Math.PI / 2]} />
+                <meshStandardMaterial color="#4a5568" />
+              </mesh>
+            ))}
+          </group>
+
+          {/* Overhead Oil Conservator Drum */}
+          <mesh position={[0, 5.2, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+            <cylinderGeometry args={[0.7, 0.7, 4.6, 16]} />
+            <meshStandardMaterial color="#334155" metalness={0.7} roughness={0.3} />
+          </mesh>
+
+          {/* High-Voltage Primary Porcelain Bushings (3-Phase Terracotta Brown) */}
+          {[-1.5, 0, 1.5].map((bx, bi) => (
+            <group key={`bushing_hv_${bi}`} position={[bx, 4.8, -1.2]}>
+              <mesh rotation={[0.15, 0, 0]}>
+                <cylinderGeometry args={[0.22, 0.38, 2.2, 10]} />
+                <meshStandardMaterial color="#b45309" roughness={0.25} />
+              </mesh>
+              {/* Terminal Cap & Spark Gap Horn */}
+              <mesh position={[0, 1.2, 0]}>
+                <sphereGeometry args={[0.2, 8, 8]} />
+                <meshStandardMaterial color="#e2e8f0" metalness={0.9} />
+              </mesh>
+            </group>
+          ))}
+
+          {/* Medium-Voltage Secondary Bushings */}
+          {[-1.4, 0, 1.4].map((bx, bi) => (
+            <mesh key={`bushing_mv_${bi}`} position={[bx, 4.8, 1.3]}>
+              <cylinderGeometry args={[0.18, 0.28, 1.5, 8]} />
+              <meshStandardMaterial color="#b45309" roughness={0.3} />
             </mesh>
           ))}
         </group>
       ))}
 
-      <mesh position={[0, 14, 0]} castShadow>
-        <cylinderGeometry args={[0.4, 1.5, 26, 6]} />
-        <meshStandardMaterial color="#cbd5e1" metalness={0.8} />
-      </mesh>
+      {/* Concrete Blast Containment Firewalls between Transformers */}
+      {[-8, 8].map((fx, fi) => (
+        <mesh key={`firewall_${fi}`} position={[fx, 4.0, 2]} receiveShadow castShadow>
+          <boxGeometry args={[0.8, 6.8, 7.8]} />
+          <meshStandardMaterial color="#94a3b8" roughness={0.9} />
+        </mesh>
+      ))}
 
+      {/* 4. High-Voltage Steel Lattice Portal Gantries (Overhead Busbars) */}
+      {[-7, -17].map((gz, gi) => (
+        <group key={`gantry_${gi}`} position={[0, 0.8, gz]}>
+          {/* Left Lattice Pylon Column */}
+          <mesh position={[-25, 6.5, 0]} castShadow>
+            <cylinderGeometry args={[0.35, 1.1, 13.0, 4]} />
+            <meshStandardMaterial color="#cbd5e1" metalness={0.8} roughness={0.3} />
+          </mesh>
+          {/* Center Lattice Pylon Column */}
+          <mesh position={[0, 6.5, 0]} castShadow>
+            <cylinderGeometry args={[0.35, 1.1, 13.0, 4]} />
+            <meshStandardMaterial color="#cbd5e1" metalness={0.8} roughness={0.3} />
+          </mesh>
+          {/* Right Lattice Pylon Column */}
+          <mesh position={[25, 6.5, 0]} castShadow>
+            <cylinderGeometry args={[0.35, 1.1, 13.0, 4]} />
+            <meshStandardMaterial color="#cbd5e1" metalness={0.8} roughness={0.3} />
+          </mesh>
+
+          {/* Overhead Horizontal Lattice Box Truss Crossbeam */}
+          <mesh position={[0, 13.0, 0]} castShadow>
+            <boxGeometry args={[52, 0.9, 0.9]} />
+            <meshStandardMaterial color="#cbd5e1" metalness={0.8} roughness={0.3} />
+          </mesh>
+
+          {/* Suspended Porcelain Insulator Strings & 3-Phase Busbars */}
+          {[-20, -14, -8, -2, 4, 10, 16, 22].map((bx, bi) => (
+            <group key={`busbar_${bi}`} position={[bx, 13.0, 0]}>
+              <mesh position={[0, -0.9, 0]}>
+                <cylinderGeometry args={[0.09, 0.09, 1.8, 8]} />
+                <meshStandardMaterial color="#b45309" roughness={0.3} />
+              </mesh>
+              {/* Horizontal Tubular Busbar Conductor */}
+              <mesh position={[0, -1.8, 0]} rotation={[0, 0, Math.PI / 2]}>
+                <cylinderGeometry args={[0.07, 0.07, 6.0, 8]} />
+                <meshStandardMaterial color="#e2e8f0" metalness={0.9} roughness={0.2} />
+              </mesh>
+            </group>
+          ))}
+        </group>
+      ))}
+
+      {/* 5. SF6 High-Voltage Gas Circuit Breakers & Disconnector Switches */}
+      {[-16, 0, 16].map((bx, bi) => (
+        <group key={`switchgear_${bi}`} position={[bx, 0.8, -12]}>
+          {/* Base Cabinet */}
+          <mesh position={[0, 1.0, 0]}>
+            <boxGeometry args={[2.4, 2.0, 1.2]} />
+            <meshStandardMaterial color="#334155" />
+          </mesh>
+          {/* 3 Vertical SF6 Interrupt Chambers */}
+          {[-0.7, 0, 0.7].map((px, pi) => (
+            <mesh key={`breaker_${pi}`} position={[px, 2.8, 0]}>
+              <cylinderGeometry args={[0.22, 0.22, 1.8, 8]} />
+              <meshStandardMaterial color="#475569" metalness={0.6} />
+            </mesh>
+          ))}
+        </group>
+      ))}
+
+      {/* 6. SCADA Operations & Substation Control Center Building */}
+      <group position={[-20, 0.8, -16]}>
+        <mesh position={[0, 2.3, 0]} castShadow receiveShadow>
+          <boxGeometry args={[14, 4.6, 9]} />
+          <meshStandardMaterial color="#334155" roughness={0.6} />
+        </mesh>
+        {/* Parapet Roof with HVAC Chillers */}
+        <mesh position={[0, 4.7, 0]}>
+          <boxGeometry args={[14.4, 0.3, 9.4]} />
+          <meshStandardMaterial color="#1e293b" />
+        </mesh>
+        <mesh position={[3.5, 5.2, 0]}>
+          <boxGeometry args={[2.8, 1.0, 2.2]} />
+          <meshStandardMaterial color="#64748b" />
+        </mesh>
+        {/* Rooftop Telemetry Microwave Dish & Antenna Mast */}
+        <group position={[-4.5, 4.8, -2.5]}>
+          <mesh position={[0, 4.0, 0]}>
+            <cylinderGeometry args={[0.08, 0.14, 8.0, 6]} />
+            <meshStandardMaterial color="#cbd5e1" metalness={0.8} />
+          </mesh>
+          <mesh position={[0, 6.5, 0.3]} rotation={[0.2, 0, 0]}>
+            <cylinderGeometry args={[0.7, 0.2, 0.2, 16]} />
+            <meshStandardMaterial color="#f8fafc" />
+          </mesh>
+        </group>
+        {/* Front Glass Windows */}
+        <mesh position={[0, 2.4, 4.55]}>
+          <planeGeometry args={[7.5, 1.8]} />
+          <meshBasicMaterial color="#38bdf8" transparent opacity={0.65} />
+        </mesh>
+      </group>
+
+      {/* 7. Main High-Voltage Grid Interconnection Take-Off Terminal Pylon */}
+      <group position={[0, 0.8, -22]}>
+        {/* Base Lattice Mast */}
+        <mesh position={[0, 13.0, 0]} castShadow>
+          <cylinderGeometry args={[0.6, 3.2, 26.0, 4]} />
+          <meshStandardMaterial color="#cbd5e1" metalness={0.8} roughness={0.3} />
+        </mesh>
+        {/* Upper Transmission Crossarms */}
+        <mesh position={[0, 20.0, 0]} castShadow>
+          <boxGeometry args={[24, 0.8, 0.8]} />
+          <meshStandardMaterial color="#cbd5e1" metalness={0.8} roughness={0.3} />
+        </mesh>
+        <mesh position={[0, 24.0, 0]} castShadow>
+          <boxGeometry args={[16, 0.7, 0.7]} />
+          <meshStandardMaterial color="#cbd5e1" metalness={0.8} roughness={0.3} />
+        </mesh>
+        {/* Red Flashing FAA Safety Beacon */}
+        <mesh position={[0, 26.5, 0]}>
+          <sphereGeometry args={[0.3, 8, 8]} />
+          <meshBasicMaterial color="#ef4444" />
+        </mesh>
+      </group>
+
+      {/* 8. Four High-Mast Night Floodlight Towers at Yard Corners */}
+      {[
+        [-31, -25],
+        [31, -25],
+        [-31, 25],
+        [31, 25]
+      ].map(([fx, fz], fi) => (
+        <group key={`yard_light_${fi}`} position={[fx, 0.8, fz]}>
+          <mesh position={[0, 7.0, 0]}>
+            <cylinderGeometry args={[0.12, 0.25, 14.0, 6]} />
+            <meshStandardMaterial color="#64748b" metalness={0.7} />
+          </mesh>
+          <mesh position={[0, 14.1, 0]}>
+            <boxGeometry args={[1.6, 0.6, 0.8]} />
+            <meshStandardMaterial color="#1e293b" />
+          </mesh>
+          <mesh position={[0, 13.9, 0.4]}>
+            <planeGeometry args={[1.4, 0.5]} />
+            <meshBasicMaterial color="#fef08a" />
+          </mesh>
+        </group>
+      ))}
+
+      {/* 9. Top HUD Label */}
       {showLabels && (
-        <Text
-          position={[0, 30, 0]}
-          color="#38bdf8"
-          fontSize={5.5}
-          outlineWidth={0.6}
-          outlineColor="#020617"
-          textAlign="center"
-        >
-          MERKEZİ TRAFO & ŞEBEKE DAĞITIM (100 MW)
-        </Text>
+        <group position={[0, 31, -12]}>
+          <mesh position={[0, 0, -0.1]}>
+            <planeGeometry args={[36, 4.2]} />
+            <meshBasicMaterial color="#020617" transparent opacity={0.75} />
+          </mesh>
+          <Text
+            color="#38bdf8"
+            fontSize={2.4}
+            outlineWidth={0.25}
+            outlineColor="#020617"
+            textAlign="center"
+            anchorX="center"
+            anchorY="middle"
+          >
+            {'MERKEZİ TRAFO & ULUSAL ŞEBEKE DAĞITIM (100 MW)\n154 kV / 380 kV İNDİRİCİ MERKEZ'}
+          </Text>
+        </group>
       )}
     </group>
   );
@@ -646,16 +964,18 @@ function SubstationNode({ position = [0, 0, 0], showLabels = true }) {
 // High-Voltage Power Lines connecting sites to central substation
 function PowerLine({ from, to }) {
   const points = useMemo(() => {
-    const fx = Number.isFinite(from?.[0]) ? from[0] : 0;
-    const fz = Number.isFinite(from?.[2]) ? from[2] : 0;
+    const fx = Number.isFinite(from?.[0]) ? from[0] : -5;
+    const fz = Number.isFinite(from?.[2]) ? from[2] : -86;
     const tx = Number.isFinite(to?.[0]) ? to[0] : 0;
     const tz = Number.isFinite(to?.[2]) ? to[2] : 0;
 
-    const fromY = getTerrainHeight(fx, fz) + 4.5;
-    const toY = getTerrainHeight(tx, tz) + 4.5;
+    // Substation terminal pylon upper crossarm connection (24.5m)
+    const fromY = getTerrainHeight(fx, fz) + (Number.isFinite(from?.[1]) && from[1] > 0 ? from[1] : 24.5);
+    const toY = getTerrainHeight(tx, tz) + 5.5;
     const midX = (fx + tx) / 2;
     const midZ = (fz + tz) / 2;
-    const midY = (fromY + toY) / 2 + 7;
+    // Natural catenary cable sag under gravity
+    const midY = Math.max(getTerrainHeight(midX, midZ) + 6.0, (fromY + toY) / 2 - 2.8);
 
     const curve = new THREE.CatmullRomCurve3([
       new THREE.Vector3(fx, fromY, fz),
@@ -912,8 +1232,8 @@ function IslandTerrain({ season = 'summer' }) {
       const falloff = getIslandFalloff(x, z);
       const distLake = Math.hypot(x - ALPINE_LAKE_CENTER.x, z - ALPINE_LAKE_CENTER.z);
 
-      // Baseline meadow tone adapting to Season
-      let r = 0.32, g = 0.48, b = 0.20; // Summer default
+      // 1. Inland Biome Coloring (Mountains, Desert Steppe, Alpine Lake, or Seasonal Meadow)
+      let r = 0.32, g = 0.48, b = 0.20; // Default summer valley meadow
       if (season === 'autumn') {
         r = 0.52; g = 0.50; b = 0.22; // Golden harvest autumn grass
       } else if (season === 'winter') {
@@ -922,18 +1242,7 @@ function IslandTerrain({ season = 'summer' }) {
         r = 0.24; g = 0.56; b = 0.22; // Lush spring emerald meadow
       }
 
-      if (falloff < 0.25 || y < 1.0) {
-        // Shallow turquoise coastal reef & lagoon
-        r = 0.08;
-        g = 0.46;
-        b = 0.56;
-      } else if (falloff < 0.85 || y < 4.5) {
-        // Sunny warm golden ocean beach & coastal sands
-        const t = Math.max(0, Math.min(1, (y - 1.0) / 3.5));
-        r = 0.86 - t * 0.16;
-        g = 0.72 - t * 0.12;
-        b = 0.46 - t * 0.12;
-      } else if (distLake < ALPINE_LAKE_CENTER.radius + 12) {
+      if (distLake < ALPINE_LAKE_CENTER.radius + 12) {
         // Alpine Lake Shoreline & Banks
         if (y < ALPINE_LAKE_CENTER.waterLevel + 0.8) {
           // Soft golden pebble & sand lakeshore
@@ -996,11 +1305,60 @@ function IslandTerrain({ season = 'summer' }) {
           g = 0.44;
           b = 0.20;
         }
-      } else {
-        // Central Hybrid Valleys & River Plain
-        r = 0.32;
-        g = 0.48;
-        b = 0.20;
+      }
+
+      // 2. Coastal Shoreline & Marine Seabed Gradient (100% Smooth, Continuous, Flicker-Free)
+      // Sea level is Y = 0.0m. Blends smoothly without hard color steps or depth artifacts.
+      if (y < 4.2 || falloff < 0.82) {
+        // Warm golden dry beach sand palette
+        const sandR = 0.86, sandG = 0.72, sandB = 0.46;
+        // Wet intertidal shoreline sand palette (damp, darker earth-gold)
+        const wetR = 0.68, wetG = 0.56, wetB = 0.38;
+        // Shallow coastal reef & turquoise lagoon seabed
+        const reefR = 0.10, reefG = 0.44, reefB = 0.52;
+        // Deep ocean abyss seabed
+        const abyssR = 0.03, abyssG = 0.16, abyssB = 0.28;
+
+        if (y >= 2.0) {
+          // Transition: Inland Biome Grass/Steppe -> Dry Beach Sand
+          const t = Math.max(0, Math.min(1, (4.2 - y) / 2.2));
+          r = r * (1 - t) + sandR * t;
+          g = g * (1 - t) + sandG * t;
+          b = b * (1 - t) + sandB * t;
+        } else if (y >= 0.5) {
+          // Pure Dry Golden Beach Sand
+          r = sandR;
+          g = sandG;
+          b = sandB;
+        } else if (y >= 0.0) {
+          // Wet Shoreline Intertidal Sand (sloping down to water's edge at Y = 0.0)
+          const t = y / 0.5; // 0 at water line, 1 at dry sand
+          r = wetR * (1 - t) + sandR * t;
+          g = wetG * (1 - t) + sandG * t;
+          b = wetB * (1 - t) + sandB * t;
+
+          // Subtle organic surf froth foam hint near water's edge
+          if (y < 0.28) {
+            const foam = Math.sin(x * 0.15 + z * 0.15) * 0.5 + 0.5;
+            const foamT = (1.0 - y / 0.28) * foam * 0.35;
+            r = r * (1 - foamT) + 0.95 * foamT;
+            g = g * (1 - foamT) + 0.98 * foamT;
+            b = b * (1 - foamT) + 1.00 * foamT;
+          }
+        } else if (y >= -3.0) {
+          // Submerged Coastal Lagoon & Reef (Y in [-3.0, 0.0])
+          // At Y = 0, matches wet sand smoothly; at Y = -3.0, reaches rich turquoise reef
+          const t = (y - (-3.0)) / 3.0; // 0 at -3.0m, 1 at 0.0m
+          r = reefR * (1 - t) + (wetR * 0.8) * t;
+          g = reefG * (1 - t) + (wetG * 0.85) * t;
+          b = reefB * (1 - t) + (wetB * 0.9) * t;
+        } else {
+          // Deep Ocean Abyss Floor (Y < -3.0m)
+          const t = Math.min(1.0, (-y - 3.0) / 6.0);
+          r = reefR * (1 - t) + abyssR * t;
+          g = reefG * (1 - t) + abyssG * t;
+          b = reefB * (1 - t) + abyssB * t;
+        }
       }
 
       // Natural organic noise variation for rich texture
@@ -1099,13 +1457,15 @@ function AlpineLake() {
   );
 }
 
-// Expansive Animated Ocean with Gentle Wave Swell
-function AnimatedOcean() {
+// =============================================================================
+// EXPANSIVE ANIMATED OCEAN (STABLE ZERO-FLICKER COASTLINE & DEEP SEA SWELL)
+// =============================================================================
+function AnimatedOcean({ isNight = false }) {
   const meshRef = useRef();
 
+  // 4800x4800 expansive ocean extending cleanly to the horizon
   const oceanGeo = useMemo(() => {
-    // 4400x4400 expansive ocean extending to the horizon
-    const geo = new THREE.PlaneGeometry(4400, 4400, 56, 56);
+    const geo = new THREE.PlaneGeometry(4800, 4800, 72, 72);
     geo.rotateX(-Math.PI / 2);
     return geo;
   }, []);
@@ -1114,39 +1474,48 @@ function AnimatedOcean() {
     if (!meshRef.current) return;
     const t = clock.getElapsedTime();
     const pos = meshRef.current.geometry.attributes.position;
+
+    // Only roll gentle waves in the deep open sea far outside the island (>1180m from center and not in harbor)
+    // The island coast and harbor bay remain 100% stationary and perfectly flat at Y = 0.0 (Eliminates all flickering & clipping)
+    let needsUpdate = false;
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i);
       const z = pos.getZ(i);
-      // Gentle ocean rolling wave swell (height oscillation -0.25 to +0.25m around y = 0.0)
-      const wave =
-        Math.sin(x * 0.012 + t * 0.8) * Math.cos(z * 0.012 + t * 0.6) * 0.28 +
-        Math.sin(x * 0.024 - t * 1.1) * 0.12;
-      pos.setY(i, wave);
+      const dist = Math.hypot(x, z);
+      const inHarbor = z < -380 && Math.abs(x - 280) < 260;
+
+      if (dist < 1180 || inHarbor) {
+        // Perfectly still sea level at the island coast, beaches, harbor piers & ships
+        if (pos.getY(i) !== 0.0) {
+          pos.setY(i, 0.0);
+          needsUpdate = true;
+        }
+      } else {
+        // Gentle oceanic horizon swell (fades in smoothly beyond 1180m)
+        const swellFactor = Math.min(1.0, (dist - 1180) / 260);
+        const wave =
+          (Math.sin(x * 0.008 + t * 0.6) * Math.cos(z * 0.008 + t * 0.5) * 0.24 +
+           Math.sin(x * 0.016 - t * 0.8) * 0.10) * swellFactor;
+        pos.setY(i, wave);
+        needsUpdate = true;
+      }
     }
-    pos.needsUpdate = true;
+    if (needsUpdate) {
+      pos.needsUpdate = true;
+    }
   });
 
   return (
     <group>
+      {/* Pristine Ocean Surface Deck (depthWrite=false completely eliminates any Z-fighting with terrain & seabed) */}
       <mesh ref={meshRef} geometry={oceanGeo}>
         <meshStandardMaterial
-          color="#0284c7"
-          roughness={0.10}
-          metalness={0.35}
+          color={isNight ? '#0369a1' : '#0284c7'}
+          roughness={0.12}
+          metalness={0.28}
           transparent
-          opacity={0.85}
-          flatShading
-        />
-      </mesh>
-
-      {/* Coastal Surf Foam Ring around Island Periphery */}
-      <mesh position={[0, 0.4, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[1040, 1260, 64]} />
-        <meshBasicMaterial
-          color="#e0f2fe"
-          transparent
-          opacity={0.24}
-          side={THREE.DoubleSide}
+          opacity={0.82}
+          depthWrite={false}
         />
       </mesh>
     </group>
@@ -1657,11 +2026,11 @@ function createRoadRibbon(points, width = 7.8, isClosed = true) {
   return { roadGeo, shoulderGeo, stripeGeo, edgeGeo, curve };
 }
 
-// 3 Seamless Closed-Loop Regional Highway Systems
+// 3 Seamless Closed-Loop Regional Highway Systems (Connecting to Outer Rim of Roundabout)
 const HIGHWAY_CURVES = [
-  // Highway 1: West Mountain, Firewatch & Alpine Lake Scenic Loop
+  // Highway 1: West Mountain, Firewatch & Alpine Lake Scenic Loop (Branching West from Roundabout)
   new THREE.CatmullRomCurve3([
-    new THREE.Vector3(0, 0, 0),
+    new THREE.Vector3(-34, 0, 8),
     new THREE.Vector3(-75, 0, -25),
     new THREE.Vector3(-130, 0, -50),
     new THREE.Vector3(-210, 0, -65),
@@ -1673,12 +2042,13 @@ const HIGHWAY_CURVES = [
     new THREE.Vector3(-440, 0, -430),
     new THREE.Vector3(-290, 0, -380),
     new THREE.Vector3(-170, 0, -260),
-    new THREE.Vector3(-80, 0, -140)
+    new THREE.Vector3(-80, 0, -140),
+    new THREE.Vector3(-34, 0, -12)
   ], true),
 
-  // Highway 2: East Sunfire Solar Steppe Expressway Loop
+  // Highway 2: East Sunfire Solar Steppe Expressway Loop (Branching East from Roundabout)
   new THREE.CatmullRomCurve3([
-    new THREE.Vector3(0, 0, 0),
+    new THREE.Vector3(34, 0, 14),
     new THREE.Vector3(115, 0, 75),
     new THREE.Vector3(215, 0, 165),
     new THREE.Vector3(325, 0, 245),
@@ -1690,12 +2060,13 @@ const HIGHWAY_CURVES = [
     new THREE.Vector3(585, 0, 185),
     new THREE.Vector3(415, 0, 155),
     new THREE.Vector3(265, 0, 95),
-    new THREE.Vector3(125, 0, 35)
+    new THREE.Vector3(125, 0, 35),
+    new THREE.Vector3(34, 0, -2)
   ], true),
 
-  // Highway 3: South Alpine Lake Shoreline & Hybrid Plains Circuit
+  // Highway 3: South Alpine Lake Shoreline & Hybrid Plains Circuit (Branching South from Roundabout)
   new THREE.CatmullRomCurve3([
-    new THREE.Vector3(0, 0, 0),
+    new THREE.Vector3(-8, 0, 34),
     new THREE.Vector3(-50, 0, 70),
     new THREE.Vector3(-105, 0, 125),
     new THREE.Vector3(-170, 0, 195),
@@ -1704,24 +2075,27 @@ const HIGHWAY_CURVES = [
     new THREE.Vector3(-45, 0, 365),
     new THREE.Vector3(65, 0, 325),
     new THREE.Vector3(125, 0, 215),
-    new THREE.Vector3(70, 0, 115)
+    new THREE.Vector3(70, 0, 115),
+    new THREE.Vector3(10, 0, 34)
   ], true)
 ];
 
 // Pre-sampled road and railway clearance checkpoints ensuring 100% tree-free corridors
 const RAIL_CURVE_CHECK = new THREE.CatmullRomCurve3([
-  new THREE.Vector3(0, 0, 0),
-  new THREE.Vector3(140, 0, -85),
-  new THREE.Vector3(285, 0, -180),
-  new THREE.Vector3(450, 0, -290),
-  new THREE.Vector3(560, 0, -210),
-  new THREE.Vector3(620, 0, -80),
-  new THREE.Vector3(580, 0, 90),
-  new THREE.Vector3(490, 0, 210),
-  new THREE.Vector3(340, 0, 310),
-  new THREE.Vector3(180, 0, 250),
-  new THREE.Vector3(40, 0, 160),
-  new THREE.Vector3(-90, 0, 95)
+  new THREE.Vector3(220, 0, -340), // Harbor Freight Terminal
+  new THREE.Vector3(175, 0, -220),
+  new THREE.Vector3(120, 0, -110),
+  new THREE.Vector3(85, 0, -25),   // Industrial Park Siding
+  new THREE.Vector3(85, 0, 60),    // Level Crossing with Highway 2
+  new THREE.Vector3(65, 0, 150),   // Scenic Valley Green Corridor
+  new THREE.Vector3(35, 0, 220),   // Agri-Valley Farm Station
+  new THREE.Vector3(105, 0, 230),  // River Trestle Crossing
+  new THREE.Vector3(195, 0, 205),
+  new THREE.Vector3(270, 0, 165),
+  new THREE.Vector3(316, 0, 85),   // Sunfire City Bypass Station
+  new THREE.Vector3(350, 0, -15),  // City North Bypass
+  new THREE.Vector3(395, 0, -130), // Scenic Eastern Coastal Plain
+  new THREE.Vector3(330, 0, -260)
 ], true);
 
 const INFRASTRUCTURE_CLEARANCE_POINTS = [];
@@ -1779,33 +2153,235 @@ for (let rc = 0; rc < RIVER_CLEARANCE_CURVES.length; rc++) {
   }
 }
 
-// Central Substation Roundabout Interchange Hub
+// =============================================================================
+// CENTRAL MULTI-LANE HIGHWAY ROUNDABOUT & ENERGY MONUMENT (DÖNEL KAVŞAK)
+// =============================================================================
 function SubstationInterchange() {
-  const geo = useMemo(() => {
-    // Ring from radius 24 to 38 (never overlaps SubstationNode's 44x44 pad which has half-width 22)
-    const ring = new THREE.RingGeometry(24, 38, 48);
+  const centerY = getTerrainHeight(0, 0);
+
+  // 1. Multi-lane asphalt roundabout deck (Radius 22m to 36m)
+  const asphaltGeo = useMemo(() => {
+    const ring = new THREE.RingGeometry(22, 36, 64);
     ring.rotateX(-Math.PI / 2);
     const pos = ring.attributes.position;
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i);
       const z = pos.getZ(i);
-      pos.setY(i, Math.max(getMeshHeightAt(x, z), getTerrainHeight(x, z)) + 0.45);
+      pos.setY(i, Math.max(getMeshHeightAt(x, z), getTerrainHeight(x, z)) + 0.46);
     }
     ring.computeVertexNormals();
     return ring;
   }, []);
 
+  // 2. Raised granite curbstone perimeter of central traffic island (Radius 21.4m to 22.4m)
+  const curbGeo = useMemo(() => {
+    const ring = new THREE.RingGeometry(21.4, 22.4, 64);
+    ring.rotateX(-Math.PI / 2);
+    const pos = ring.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const z = pos.getZ(i);
+      pos.setY(i, Math.max(getMeshHeightAt(x, z), getTerrainHeight(x, z)) + 0.62);
+    }
+    ring.computeVertexNormals();
+    return ring;
+  }, []);
+
+  // 3. Landscaped interior green turf lawn (Radius 21.4m)
+  const lawnGeo = useMemo(() => {
+    const circle = new THREE.CircleGeometry(21.4, 64);
+    circle.rotateX(-Math.PI / 2);
+    const pos = circle.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const z = pos.getZ(i);
+      pos.setY(i, Math.max(getMeshHeightAt(x, z), getTerrainHeight(x, z)) + 0.54);
+    }
+    circle.computeVertexNormals();
+    return circle;
+  }, []);
+
+  // 4. White Lane Divider Dashes on Roundabout (Radius 29m)
+  const laneDashes = useMemo(() => {
+    const count = 36;
+    const dashes = [];
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2;
+      const x = Math.cos(angle) * 29.0;
+      const z = Math.sin(angle) * 29.0;
+      const y = Math.max(getMeshHeightAt(x, z), getTerrainHeight(x, z)) + 0.49;
+      dashes.push({ x, y, z, rotY: -angle });
+    }
+    return dashes;
+  }, []);
+
   return (
     <group>
-      <mesh geometry={geo} receiveShadow>
+      {/* 1. Elevated Asphalt Deck */}
+      <mesh geometry={asphaltGeo} receiveShadow>
         <meshStandardMaterial
-          color="#1f242d"
+          color="#1a202c"
           roughness={0.9}
+          metalness={0.12}
           polygonOffset
           polygonOffsetFactor={-4}
           polygonOffsetUnits={-4}
         />
       </mesh>
+
+      {/* 2. White Lane Divider Dashes */}
+      {laneDashes.map((d, i) => (
+        <mesh key={`dash_${i}`} position={[d.x, d.y, d.z]} rotation={[0, d.rotY, 0]}>
+          <boxGeometry args={[0.24, 0.04, 1.8]} />
+          <meshBasicMaterial color="#f8fafc" />
+        </mesh>
+      ))}
+
+      {/* 3. Granite Curbstone Border */}
+      <mesh geometry={curbGeo} receiveShadow>
+        <meshStandardMaterial color="#94a3b8" roughness={0.8} />
+      </mesh>
+
+      {/* 4. Landscaped Interior Turf */}
+      <mesh geometry={lawnGeo} receiveShadow>
+        <meshStandardMaterial color="#15803d" roughness={0.92} />
+      </mesh>
+
+      {/* 5. Substation Northern Access Spur Road (Connects Roundabout to Substation Gate) */}
+      <group position={[-2.5, getTerrainHeight(-2.5, -35) + 0.47, -35]}>
+        {/* Asphalt Road Surface */}
+        <mesh receiveShadow>
+          <boxGeometry args={[9.2, 0.14, 12]} />
+          <meshStandardMaterial color="#1a202c" roughness={0.9} />
+        </mesh>
+        {/* Yellow Lateral Warning Line Markings */}
+        <mesh position={[-4.3, 0.08, 0]}>
+          <boxGeometry args={[0.18, 0.03, 12]} />
+          <meshBasicMaterial color="#eab308" />
+        </mesh>
+        <mesh position={[4.3, 0.08, 0]}>
+          <boxGeometry args={[0.18, 0.03, 12]} />
+          <meshBasicMaterial color="#eab308" />
+        </mesh>
+      </group>
+
+      {/* 6. Central Island Clean Energy Monument (Kinetic Transition Sculpture) */}
+      <group position={[0, centerY + 0.55, 0]}>
+        {/* Tier 1 Stepped Granite Plinth */}
+        <mesh position={[0, 0.35, 0]} receiveShadow castShadow>
+          <cylinderGeometry args={[6.2, 7.0, 0.7, 16]} />
+          <meshStandardMaterial color="#334155" roughness={0.8} />
+        </mesh>
+        {/* Tier 2 Stepped Granite Plinth */}
+        <mesh position={[0, 0.85, 0]} receiveShadow castShadow>
+          <cylinderGeometry args={[4.4, 5.0, 0.5, 16]} />
+          <meshStandardMaterial color="#475569" roughness={0.7} />
+        </mesh>
+
+        {/* Polished Stainless Steel Sculptural Base Mast */}
+        <mesh position={[0, 3.2, 0]} castShadow>
+          <cylinderGeometry args={[0.35, 0.65, 4.8, 16]} />
+          <meshStandardMaterial color="#cbd5e1" metalness={0.9} roughness={0.15} />
+        </mesh>
+
+        {/* Kinetic Clean Energy Rings (Wind Cyan & Solar Gold) */}
+        <mesh position={[0, 5.2, 0]} rotation={[0.42, 0.55, 0.2]} castShadow>
+          <torusGeometry args={[2.5, 0.18, 12, 32]} />
+          <meshStandardMaterial color="#38bdf8" metalness={0.8} roughness={0.2} emissive="#0284c7" emissiveIntensity={0.5} />
+        </mesh>
+        <mesh position={[0, 5.2, 0]} rotation={[-0.52, -0.38, 0.85]} castShadow>
+          <torusGeometry args={[1.8, 0.16, 12, 32]} />
+          <meshStandardMaterial color="#f59e0b" metalness={0.8} roughness={0.2} emissive="#d97706" emissiveIntensity={0.4} />
+        </mesh>
+
+        {/* Glowing Central Energy Core */}
+        <mesh position={[0, 5.2, 0]}>
+          <octahedronGeometry args={[0.75, 0]} />
+          <meshStandardMaterial color="#67e8f9" emissive="#38bdf8" emissiveIntensity={0.9} roughness={0.1} />
+        </mesh>
+
+        {/* 4 Low Evergreen Ornamental Topiary Shrubs around Plinth */}
+        {[
+          [-3.6, -3.6],
+          [3.6, -3.6],
+          [-3.6, 3.6],
+          [3.6, 3.6]
+        ].map(([bx, bz], bi) => (
+          <mesh key={`shrub_${bi}`} position={[bx, 0.9, bz]} castShadow>
+            <sphereGeometry args={[0.85, 8, 8]} />
+            <meshStandardMaterial color="#166534" roughness={0.9} />
+          </mesh>
+        ))}
+
+        {/* Monument Direction Signboard */}
+        <group position={[0, 2.0, 4.4]} rotation={[0, 0, 0]}>
+          <mesh>
+            <boxGeometry args={[4.2, 0.8, 0.12]} />
+            <meshStandardMaterial color="#0f172a" roughness={0.5} />
+          </mesh>
+          <Text
+            position={[0, 0, 0.08]}
+            fontSize={0.28}
+            color="#38bdf8"
+            outlineWidth={0.03}
+            outlineColor="#020617"
+            anchorX="center"
+            anchorY="middle"
+          >
+            MERKEZİ ENERJİ KAVŞAĞI
+          </Text>
+        </group>
+      </group>
+
+      {/* 7. Directional Highway Overhead Gantry Signs on Approaches */}
+      {[
+        { pos: [-36, getTerrainHeight(-36, -2), -2], rot: Math.PI / 2, title: "BATI", desc: "DAĞ VE GÖL GEÇİDİ (WIND PARK)" },
+        { pos: [36, getTerrainHeight(36, 6), 6], rot: -Math.PI / 2, title: "DOĞU", desc: "SUNFİRE ŞEHİR MERKEZİ & BOZKIR" },
+        { pos: [1, getTerrainHeight(1, 36), 36], rot: Math.PI, title: "GÜNEY", desc: "TARIM VADİSİ & KIYI BÖLGESİ" },
+        { pos: [-2.5, getTerrainHeight(-2.5, -34), -34], rot: 0, title: "KUZEY", desc: "MERKEZİ TRAFO (154/380 kV)" }
+      ].map((gantry, gi) => (
+        <group key={`gantry_sign_${gi}`} position={gantry.pos} rotation={[0, gantry.rot, 0]}>
+          {/* Steel Support Posts */}
+          {[-4.6, 4.6].map((px, pi) => (
+            <mesh key={`g_post_${pi}`} position={[px, 3.0, 0]}>
+              <cylinderGeometry args={[0.12, 0.12, 6.0, 8]} />
+              <meshStandardMaterial color="#64748b" metalness={0.7} />
+            </mesh>
+          ))}
+          {/* Overhead Crossbar Beam */}
+          <mesh position={[0, 5.8, 0]}>
+            <boxGeometry args={[9.8, 0.35, 0.35]} />
+            <meshStandardMaterial color="#64748b" metalness={0.7} />
+          </mesh>
+          {/* Green Highway Signboard */}
+          <mesh position={[0, 5.4, 0.2]}>
+            <boxGeometry args={[8.6, 1.3, 0.1]} />
+            <meshStandardMaterial color="#15803d" roughness={0.4} />
+          </mesh>
+          <Text
+            position={[0, 5.65, 0.27]}
+            fontSize={0.34}
+            color="#f8fafc"
+            outlineWidth={0.04}
+            outlineColor="#0f172a"
+            anchorX="center"
+            anchorY="middle"
+          >
+            {gantry.title}
+          </Text>
+          <Text
+            position={[0, 5.25, 0.27]}
+            fontSize={0.22}
+            color="#fef08a"
+            outlineWidth={0.03}
+            outlineColor="#0f172a"
+            anchorX="center"
+            anchorY="middle"
+          >
+            {gantry.desc}
+          </Text>
+        </group>
+      ))}
     </group>
   );
 }
@@ -2325,7 +2901,21 @@ function TrafficVehicles() {
   );
 }
 
-// Procedural Deterministic Firewatch Dense Forest Locations
+// =============================================================================
+// DENSE FOREST RESERVES & PROCEDURAL FIREWATCH VEGETATION BIOMES
+// =============================================================================
+export const DENSE_FOREST_ZONES = [
+  // 1. Whispering Pines National Reserve (Northwest Mountain Valleys & Lookout Ridge - Evergreen Canopy)
+  { name: 'Whispering Pines Forest', x: -260, z: -220, radius: 185, pineRatio: 0.94, targetTrees: 1400 },
+  // 2. Emerald River Valley Woodlands (Southwest Mountain Foothills & River Basin - Dense Mixed Forest)
+  { name: 'Emerald River Woods', x: -140, z: 340, radius: 170, pineRatio: 0.72, targetTrees: 1200 },
+  // 3. East Ridge Great Forest (Northeast Highland Woods overlooking Bay & Railway)
+  { name: 'East Ridge Forest', x: 260, z: -320, radius: 165, pineRatio: 0.86, targetTrees: 1200 },
+  // 4. Alpine Lake Pine Sanctuary (Lush Mountain Spruce Forest Ringing Alpine Lake)
+  { name: 'Alpine Lake Woods', x: -430, z: 140, radius: 140, pineRatio: 0.96, targetTrees: 900 }
+];
+
+// Procedural Deterministic Firewatch Dense Forest & Woodland Generator
 function getVegetationLocations() {
   const locations = [];
   let seed = 1337;
@@ -2338,97 +2928,164 @@ function getVegetationLocations() {
   let decCount = 0;
   let shrubCount = 0;
 
-  for (let i = 0; i < 11000; i++) {
-    const angle = random() * Math.PI * 2;
-    const rad = Math.sqrt(random()) * 1050;
-    const x = Math.cos(angle) * rad;
-    const z = Math.sin(angle) * rad;
+  const MAX_PINES = 5400;
+  const MAX_DEC = 1400;
+  const MAX_SHRUBS = 800;
 
+  // Strict clearance verification for all candidate tree positions
+  function isTreePositionClear(x, z, y) {
     const falloff = getIslandFalloff(x, z);
-    if (falloff < 0.94) continue;
+    if (falloff < 0.94) return false;
 
     // Strict Water & Bay Clearance: Never spawn trees in the ocean, carved harbor bay, or under ships
-    if (z < -490 && Math.abs(x - 280) < 220) continue;
+    if (z < -490 && Math.abs(x - 280) < 220) return false;
 
-    // Keep clearings around central substation
-    if (Math.hypot(x, z) < 56) continue;
+    // Keep clearings around central substation & interchange
+    if (Math.hypot(x, z + 30) < 88) return false;
 
-    // Keep clearings around all Living Settlements (city, farm, logistics park, village & harbor)
-    let tooCloseToSettlement = false;
+    // Keep clearings around all Living Settlements & Beach Campgrounds
     for (let s = 0; s < SETTLEMENT_ZONES.length; s++) {
       const sz = SETTLEMENT_ZONES[s];
       if (Math.hypot(x - sz.x, z - sz.z) < sz.radius + 6) {
-        tooCloseToSettlement = true;
-        break;
+        return false;
       }
     }
-    if (tooCloseToSettlement) continue;
 
     // 100% Strict Infrastructure & River Clearance: Trees NEVER spawn on roads, railways, or in rivers
-    let tooCloseToInfrastructure = false;
     for (let r = 0; r < INFRASTRUCTURE_CLEARANCE_POINTS.length; r++) {
       const ip = INFRASTRUCTURE_CLEARANCE_POINTS[r];
       const dx = x - ip.x;
       const dz = z - ip.z;
       if (Math.abs(dx) < 14.0 && Math.abs(dz) < 14.0) {
         if (dx * dx + dz * dz < ip.minDistSq) {
-          tooCloseToInfrastructure = true;
-          break;
+          return false;
         }
       }
     }
-    if (tooCloseToInfrastructure) continue;
 
     // Lake clearing (preserve water & immediate shoreline)
     const distLake = Math.hypot(x - ALPINE_LAKE_CENTER.x, z - ALPINE_LAKE_CENTER.z);
-    if (distLake < ALPINE_LAKE_CENTER.radius + 8) continue;
+    if (distLake < ALPINE_LAKE_CENTER.radius + 8) return false;
 
     // Keep building clearance around all 24 energy sites (78m flat plateau)
-    let tooCloseToSite = false;
     for (let s = 0; s < KNOWN_SITES.length; s++) {
       if (Math.hypot(x - KNOWN_SITES[s].x, z - KNOWN_SITES[s].z) < 78) {
-        tooCloseToSite = true;
-        break;
+        return false;
       }
     }
-    if (tooCloseToSite) continue;
 
+    // Strict water clearance & summit crag clearance
+    if (y < 2.0 || y > 70) return false;
+
+    return true;
+  }
+
+  // ===========================================================================
+  // PHASE 1: TARGETED HIGH-DENSITY FOREST BIOMES (SIK AĞAÇLI ORMANLIK ALANLAR)
+  // Creates realistic, dense forest canopies with natural tree clusters & groves
+  // ===========================================================================
+  for (let b = 0; b < DENSE_FOREST_ZONES.length; b++) {
+    const fz = DENSE_FOREST_ZONES[b];
+    let treesInZone = 0;
+    const maxAttempts = fz.targetTrees * 4;
+
+    for (let a = 0; a < maxAttempts && treesInZone < fz.targetTrees; a++) {
+      const ang = random() * Math.PI * 2;
+      const rad = Math.sqrt(random()) * fz.radius;
+      const x = fz.x + Math.cos(ang) * rad;
+      const z = fz.z + Math.sin(ang) * rad;
+      const y = getTerrainHeight(x, z);
+
+      if (!isTreePositionClear(x, z, y)) continue;
+
+      const isPine = random() < fz.pineRatio;
+      let type = isPine ? 'pine' : (random() > 0.35 ? 'deciduous' : 'shrub');
+
+      if (type === 'pine' && pineCount >= MAX_PINES) continue;
+      if (type === 'deciduous' && decCount >= MAX_DEC) continue;
+      if (type === 'shrub' && shrubCount >= MAX_SHRUBS) continue;
+
+      if (type === 'pine') pineCount++;
+      else if (type === 'deciduous') decCount++;
+      else if (type === 'shrub') shrubCount++;
+
+      // Multi-story canopy scaling (mature tall trees and younger understory)
+      const scale = 0.75 + random() * 0.85;
+      const rotY = random() * Math.PI * 2;
+      locations.push({ x, y, z, scale, rotY, type });
+      treesInZone++;
+
+      // Natural Dense Forest Clumping: 45% chance to add a companion tree / shrub in a close grove
+      if (random() < 0.45 && treesInZone < fz.targetTrees) {
+        const cAngle = random() * Math.PI * 2;
+        const cDist = 3.2 + random() * 4.2;
+        const cx = x + Math.cos(cAngle) * cDist;
+        const cz = z + Math.sin(cAngle) * cDist;
+        const cy = getTerrainHeight(cx, cz);
+
+        if (isTreePositionClear(cx, cz, cy)) {
+          const cType = random() < 0.75 ? type : 'shrub';
+          if (cType === 'pine' && pineCount < MAX_PINES) {
+            pineCount++;
+            locations.push({ x: cx, y: cy, z: cz, scale: scale * (0.65 + random() * 0.35), rotY: random() * Math.PI * 2, type: 'pine' });
+            treesInZone++;
+          } else if (cType === 'deciduous' && decCount < MAX_DEC) {
+            decCount++;
+            locations.push({ x: cx, y: cy, z: cz, scale: scale * (0.65 + random() * 0.35), rotY: random() * Math.PI * 2, type: 'deciduous' });
+            treesInZone++;
+          } else if (cType === 'shrub' && shrubCount < MAX_SHRUBS) {
+            shrubCount++;
+            locations.push({ x: cx, y: cy, z: cz, scale: 0.8 + random() * 0.6, rotY: random() * Math.PI * 2, type: 'shrub' });
+            treesInZone++;
+          }
+        }
+      }
+    }
+  }
+
+  // ===========================================================================
+  // PHASE 2: ISLAND-WIDE NATURAL VEGETATION FILL
+  // Disperses natural trees across meadows, valleys, hills & savannas
+  // ===========================================================================
+  for (let i = 0; i < 9000; i++) {
+    if (pineCount >= MAX_PINES && decCount >= MAX_DEC && shrubCount >= MAX_SHRUBS) break;
+
+    const angle = random() * Math.PI * 2;
+    const rad = Math.sqrt(random()) * 1050;
+    const x = Math.cos(angle) * rad;
+    const z = Math.sin(angle) * rad;
     const y = getTerrainHeight(x, z);
-    // Strict water clearance: sea level is Y = 0.0m; no trees can ever spawn underwater or on the seabed
-    if (y < 2.0) continue;
-    if (y > 70) continue; // Stay below highest summit crags
+
+    if (!isTreePositionClear(x, z, y)) continue;
 
     // Biome determination matching Firewatch national forest distribution
     let type = 'pine';
     const isWesternHighlands = x < -45;
     const isNearTower = Math.hypot(x - (-230), z - (-15)) < 190;
+    const distLake = Math.hypot(x - ALPINE_LAKE_CENTER.x, z - ALPINE_LAKE_CENTER.z);
     const isNearLake = distLake < 170;
 
     if (isWesternHighlands || isNearTower || isNearLake || y > 24) {
-      // Dense highland coniferous forest (92% pine)
       type = random() > 0.08 ? 'pine' : 'deciduous';
     } else if (x > 140 && z > 60) {
-      // Eastern solar savanna & dunes
       type = random() > 0.55 ? 'shrub' : random() > 0.4 ? 'deciduous' : 'pine';
     } else {
-      // Central hybrid valley meadows
       type = random() > 0.45 ? 'pine' : random() > 0.4 ? 'deciduous' : 'shrub';
     }
 
-    if (type === 'pine' && pineCount >= 2800) continue;
-    if (type === 'deciduous' && decCount >= 550) continue;
-    if (type === 'shrub' && shrubCount >= 350) continue;
+    if (type === 'pine' && pineCount >= MAX_PINES) continue;
+    if (type === 'deciduous' && decCount >= MAX_DEC) continue;
+    if (type === 'shrub' && shrubCount >= MAX_SHRUBS) continue;
 
     if (type === 'pine') pineCount++;
     else if (type === 'deciduous') decCount++;
     else if (type === 'shrub') shrubCount++;
 
-    const scale = 0.85 + random() * 0.75; // Scale heights from 6m to 15m
+    const scale = 0.82 + random() * 0.78;
     const rotY = random() * Math.PI * 2;
-
     locations.push({ x, y, z, scale, rotY, type });
-    if (pineCount >= 2800 && decCount >= 550 && shrubCount >= 350) break;
   }
+
   return locations;
 }
 
@@ -2585,7 +3242,7 @@ function IslandVegetation({ season = 'summer' }) {
       {/* 4-Tier Firewatch Coniferous Pines */}
       <instancedMesh
         ref={pineTrunkRef}
-        args={[pineTrunkGeo, null, 3000]}
+        args={[pineTrunkGeo, null, 5600]}
         frustumCulled={false}
         castShadow
       >
@@ -2593,7 +3250,7 @@ function IslandVegetation({ season = 'summer' }) {
       </instancedMesh>
       <instancedMesh
         ref={pineFoliageRef}
-        args={[pineFoliageGeo, null, 3000]}
+        args={[pineFoliageGeo, null, 5600]}
         frustumCulled={false}
         castShadow
       >
@@ -2603,7 +3260,7 @@ function IslandVegetation({ season = 'summer' }) {
       {/* Deciduous Valley Trees */}
       <instancedMesh
         ref={decTrunkRef}
-        args={[decTrunkGeo, null, 700]}
+        args={[decTrunkGeo, null, 1500]}
         frustumCulled={false}
         castShadow
       >
@@ -2611,7 +3268,7 @@ function IslandVegetation({ season = 'summer' }) {
       </instancedMesh>
       <instancedMesh
         ref={decFoliageRef}
-        args={[decFoliageGeo, null, 700]}
+        args={[decFoliageGeo, null, 1500]}
         frustumCulled={false}
         castShadow
       >
@@ -2621,7 +3278,7 @@ function IslandVegetation({ season = 'summer' }) {
       {/* Flowering Meadow Shrubs */}
       <instancedMesh
         ref={shrubRef}
-        args={[shrubGeo, null, 500]}
+        args={[shrubGeo, null, 900]}
         frustumCulled={false}
         castShadow
       >
@@ -3117,7 +3774,9 @@ function BirdFlock() {
   );
 }
 
-// Camera Controller for Smooth Plant Focus & Auto-Zoom (Cancels immediately on user pan/wheel)
+// =============================================================================
+// CAMERA CONTROLLER: SMART CURSOR-CENTRIC ZOOM, ANTI-STALL & AUTO-FOCUS
+// =============================================================================
 function CameraController({ focusedSite, worldSites, controlsRef, enabled = true }) {
   const { camera, gl } = useThree();
   const targetLookAt = useRef(null);
@@ -3150,13 +3809,43 @@ function CameraController({ focusedSite, worldSites, controlsRef, enabled = true
       site.center_z + viewDist * 0.68
     );
     isAnimating.current = true;
-  }, [focusedSite, worldSites]);
+  }, [focusedSite, worldSites, enabled]);
 
-  // Cancel auto-animation IMMEDIATELY on any user interaction (mouse drag, wheel zoom, touch)
+  // Ray-terrain ground intersection helper under mouse pointer
+  const getGroundIntersection = useCallback(
+    (e) => {
+      const rect = gl.domElement.getBoundingClientRect();
+      const ndcX = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      const ndcY = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+      const raycaster = new THREE.Raycaster();
+      raycaster.setFromCamera({ x: ndcX, y: ndcY }, camera);
+      const ray = raycaster.ray;
+
+      if (ray.direction.y < -0.008) {
+        // Intersects downward towards terrain: 3 rapid mathematical iterations
+        let t = Math.max(0, -ray.origin.y / ray.direction.y);
+        let p = ray.origin.clone().addScaledVector(ray.direction, t);
+        let h = getTerrainHeight(p.x, p.z);
+        t = Math.max(0, (h - ray.origin.y) / ray.direction.y);
+        p = ray.origin.clone().addScaledVector(ray.direction, t);
+        h = getTerrainHeight(p.x, p.z);
+        t = Math.max(0, (h - ray.origin.y) / ray.direction.y);
+        p = ray.origin.clone().addScaledVector(ray.direction, t);
+        return { point: p, isGround: true };
+      }
+
+      const currentTarget = controlsRef?.current?.target || new THREE.Vector3(0, 0, 0);
+      return { point: currentTarget.clone(), isGround: false };
+    },
+    [camera, gl, controlsRef]
+  );
+
+  // Smart Rotation-Free Zoom & Anti-Stall Controller (Effortless, Fast, Zero Rotation, Closes down to 3.5m)
   useEffect(() => {
     const controls = controlsRef?.current;
     const domElement = gl?.domElement;
-    if (!controls) return;
+    if (!controls || !domElement) return;
 
     const cancelAnimation = () => {
       isAnimating.current = false;
@@ -3164,21 +3853,103 @@ function CameraController({ focusedSite, worldSites, controlsRef, enabled = true
       targetCamPos.current = null;
     };
 
-    controls.addEventListener('start', cancelAnimation);
+    const handleWheel = (e) => {
+      if (!enabled || !controlsRef?.current) return;
+      e.preventDefault();
+      e.stopPropagation();
 
-    if (domElement) {
-      domElement.addEventListener('wheel', cancelAnimation, { passive: true });
-      domElement.addEventListener('pointerdown', cancelAnimation, { passive: true });
-    }
+      cancelAnimation();
+
+      const ctrl = controlsRef.current;
+      const target = ctrl.target;
+      const camPos = camera.position;
+
+      // 1. Current offset vector from target to camera defines the exact line of sight
+      const offset = new THREE.Vector3().subVectors(camPos, target);
+      const currentDist = offset.length();
+
+      // Guard against degenerate distances
+      if (currentDist < 0.1) return;
+
+      // Line-of-sight unit vector pointing from target to camera (fixed heading & pitch!)
+      // Keeping this vector strictly invariant guarantees the map NEVER rotates or twists during zoom!
+      const lookUnit = offset.clone().normalize();
+
+      // 2. Wheel event sensitivity & trackpad handling
+      const isZoomIn = e.deltaY < 0;
+      const isTrackpad = Math.abs(e.deltaY) < 30;
+      const deltaMag = Math.min(Math.abs(e.deltaY), 120);
+      const intensity = isTrackpad
+        ? Math.max(0.25, deltaMag * 0.05)
+        : Math.max(0.65, Math.min(1.8, deltaMag / 60));
+
+      if (isZoomIn) {
+        // Fast yet smooth step that NEVER stalls: guaranteed minimum step of 2.5m
+        const step = Math.max(2.5, currentDist * 0.18) * intensity;
+        const newDist = Math.max(3.5, currentDist - step);
+
+        // Smoothly shift target towards cursor ground point WITHOUT altering lookUnit orientation
+        const { point: anchorPoint, isGround } = getGroundIntersection(e);
+        if (isGround && anchorPoint) {
+          // Slide target horizontally towards anchor point under cursor
+          const shiftX = (anchorPoint.x - target.x) * 0.10 * intensity;
+          const shiftZ = (anchorPoint.z - target.z) * 0.10 * intensity;
+          target.x += shiftX;
+          target.z += shiftZ;
+          const desiredGroundY = getTerrainHeight(target.x, target.z) + 1.2;
+          target.y = THREE.MathUtils.lerp(target.y, desiredGroundY, 0.25);
+        }
+
+        // Apply new camera position STRICTLY along lookUnit:
+        // camPos = target + lookUnit * newDist -> preserves azimuth & polar angles identically!
+        camPos.copy(target).addScaledVector(lookUnit, newDist);
+
+        // Terrain collision guard: ensure camera never dips below terrain
+        const terrainH = getTerrainHeight(camPos.x, camPos.z);
+        const minCamY = terrainH + 1.8;
+        if (camPos.y < minCamY) {
+          if (lookUnit.y > 0.05) {
+            const safeDist = (minCamY - target.y) / lookUnit.y;
+            if (safeDist > newDist) {
+              camPos.copy(target).addScaledVector(lookUnit, safeDist);
+            }
+          } else {
+            camPos.y = minCamY;
+          }
+        }
+      } else {
+        // Zoom OUT: smoothly pull back strictly along lookUnit without changing orientation
+        const step = Math.max(3.5, currentDist * 0.18) * intensity;
+        const newDist = Math.min(2400, currentDist + step);
+
+        camPos.copy(target).addScaledVector(lookUnit, newDist);
+      }
+
+      // 3. Neutralize any residual rotational or pan damping inertia from prior drag gestures
+      if (ctrl._sphericalDelta) {
+        ctrl._sphericalDelta.set(0, 0, 0);
+      }
+      if (ctrl._panOffset) {
+        ctrl._panOffset.set(0, 0, 0);
+      }
+      if (ctrl._scale !== undefined) {
+        ctrl._scale = 1;
+      }
+
+      // 4. Update OrbitControls with new position and target
+      ctrl.update();
+    };
+
+    controls.addEventListener('start', cancelAnimation);
+    domElement.addEventListener('wheel', handleWheel, { passive: false, capture: true });
+    domElement.addEventListener('pointerdown', cancelAnimation, { passive: true });
 
     return () => {
       controls.removeEventListener('start', cancelAnimation);
-      if (domElement) {
-        domElement.removeEventListener('wheel', cancelAnimation);
-        domElement.removeEventListener('pointerdown', cancelAnimation);
-      }
+      domElement.removeEventListener('wheel', handleWheel, { capture: true });
+      domElement.removeEventListener('pointerdown', cancelAnimation);
     };
-  }, [controlsRef, gl]);
+  }, [controlsRef, gl, camera, enabled, getGroundIntersection]);
 
   useFrame((_, delta) => {
     if (!enabled || !isAnimating.current || !targetLookAt.current || !targetCamPos.current) return;
@@ -3224,7 +3995,7 @@ export default function WorldCanvas({
   initialSpawnCoords = null,
   onSelectSite,
   isDrivingMode = false,
-  drivingCameraMode = 'cockpit',
+  drivingCameraMode = 'chase',
   onDrivingCameraModeChange = () => {},
   touchInput = {},
   onVehicleStatsUpdate = () => {},
@@ -3353,7 +4124,8 @@ export default function WorldCanvas({
         shadows={!isLowGraphics}
         dpr={dpr}
         gl={{
-          powerPreference: 'high-performance'
+          powerPreference: 'high-performance',
+          antialias: true
         }}
         className="w-full h-full"
       >
@@ -3362,7 +4134,7 @@ export default function WorldCanvas({
           focusedSite={focusedSite}
           worldSites={worldSites}
           controlsRef={controlsRef}
-          enabled={!isDrivingMode}
+          enabled={!isGroundMode && !isCinematicMode}
         />
 
         {/* Sky, Fog & Lighting */}
@@ -3409,8 +4181,8 @@ export default function WorldCanvas({
         {/* Distant Multi-Layered Firewatch Mountain Silhouette Ridges */}
         <FirewatchDistantMountains />
 
-        {/* Expansive Animated Ocean */}
-        <AnimatedOcean />
+        {/* Expansive Animated Ocean (Zero-Flicker Shoreline & Smooth Horizon Swell) */}
+        <AnimatedOcean isNight={isNight} />
 
         {/* Cohesive Island 3D Terrain adapting to Season */}
         <IslandTerrain season={season} />
@@ -3436,8 +4208,8 @@ export default function WorldCanvas({
         {/* Living World Nature: Dense Firewatch Coniferous Pines, Valley Trees & Shrubs with Seasonal Foliage */}
         <IslandVegetation season={season} />
 
-        {/* Central High-Voltage Substation */}
-        <SubstationNode position={[0, 0, 0]} showLabels={showSiteLabels} />
+        {/* Central High-Voltage Substation Facility (Dedicated Compound North of Roundabout) */}
+        <SubstationNode position={[-5, 0, -64]} showLabels={showSiteLabels} />
 
         {/* Living World: 3D Ribbon Roads with Highway Streetlights (Traffic Roams in Daytime Only) */}
         {showTraffic && (
@@ -3453,7 +4225,7 @@ export default function WorldCanvas({
         {/* Living World: Wildlife Birds (Daytime Only - Resting at Night) */}
         {showWildlife && !isNight && <BirdFlock />}
 
-        {/* Power Grid Lines from Central Substation to key sites (Toggled via Settings) */}
+        {/* Power Grid Lines from Central Substation Terminal Pylon to key sites (Toggled via Settings) */}
         {showInfrastructure &&
           worldSites.slice(0, 10).map((site) => {
             const cx = Number(site?.center_x);
@@ -3462,7 +4234,7 @@ export default function WorldCanvas({
             return (
               <PowerLine
                 key={`line_${site.id}`}
-                from={[0, 0, 0]}
+                from={[-5, 24.5, -86]}
                 to={[cx, 0, cz]}
               />
             );
@@ -3627,11 +4399,11 @@ export default function WorldCanvas({
           ref={controlsRef}
           enabled={!isGroundMode && !isCinematicMode}
           maxPolarAngle={Math.PI / 2.05}
-          minDistance={1.2}
-          maxDistance={1800}
+          minDistance={1.0}
+          maxDistance={2800}
           enablePan={true}
-          panSpeed={2.4}
-          zoomSpeed={2.5}
+          panSpeed={2.2}
+          zoomSpeed={2.0}
           rotateSpeed={0.9}
           screenSpacePanning={true}
           enableDamping={true}

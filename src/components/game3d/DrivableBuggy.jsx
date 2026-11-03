@@ -124,7 +124,7 @@ export default function DrivableBuggy({
       // Camera view toggle (C or V)
       if (code === 'KeyC' || code === 'KeyV') {
         e.preventDefault();
-        const modes = ['cockpit', 'chase', 'hood'];
+        const modes = ['chase', 'cockpit', 'hood'];
         const nextIdx = (modes.indexOf(cameraMode) + 1) % modes.length;
         onCameraModeChange(modes[nextIdx]);
       }
@@ -410,8 +410,8 @@ export default function DrivableBuggy({
 
       _lookTarget.set(s.x, s.y + 0.9, s.z);
 
-      const idealDist = 6.0;
-      const idealHeight = 2.4;
+      const idealDist = 6.4;
+      const idealHeight = 2.8;
 
       _targetCamPos.set(
         s.x - Math.sin(s.yaw) * idealDist,

@@ -410,11 +410,11 @@ export default function WildlifeAndSky({ isNight = false }) {
             {/* Teardrop Envelope */}
             <mesh position={[0, 12, 0]} castShadow>
               <sphereGeometry args={[9.5, 24, 18, 0, Math.PI * 2, 0, Math.PI * 0.85]} />
-              <primitive object={mats.balloonStripes1} />
+              <primitive attach="material" object={mats.balloonStripes1} />
             </mesh>
             <mesh position={[0, 4.5, 0]}>
               <coneGeometry args={[5.2, 7.5, 24, 1, true]} rotation={[Math.PI, 0, 0]} />
-              <primitive object={mats.balloonStripes2} />
+              <primitive attach="material" object={mats.balloonStripes2} />
             </mesh>
             {/* Wicker Basket */}
             <mesh position={[0, -1.8, 0]} material={mats.wickerBasket} castShadow>
@@ -532,12 +532,12 @@ export default function WildlifeAndSky({ isNight = false }) {
                 {/* Port Red Navigation Light */}
                 <mesh position={[0.6, 0.06, 0.35]}>
                   <sphereGeometry args={[0.15, 8, 8]} />
-                  <primitive object={mats.navRed} />
+                  <primitive attach="material" object={mats.navRed} />
                 </mesh>
                 {/* High-Intensity Wingtip Strobe */}
                 <mesh position={[0.6, 0.06, -0.35]}>
                   <sphereGeometry args={[0.16, 8, 8]} />
-                  <primitive object={mats.strobeWhite} />
+                  <primitive attach="material" object={mats.strobeWhite} />
                 </mesh>
               </group>
             </group>
@@ -571,12 +571,12 @@ export default function WildlifeAndSky({ isNight = false }) {
                 {/* Starboard Green Navigation Light */}
                 <mesh position={[-0.6, 0.06, 0.35]}>
                   <sphereGeometry args={[0.15, 8, 8]} />
-                  <primitive object={mats.navGreen} />
+                  <primitive attach="material" object={mats.navGreen} />
                 </mesh>
                 {/* High-Intensity Wingtip Strobe */}
                 <mesh position={[-0.6, 0.06, -0.35]}>
                   <sphereGeometry args={[0.16, 8, 8]} />
-                  <primitive object={mats.strobeWhite} />
+                  <primitive attach="material" object={mats.strobeWhite} />
                 </mesh>
               </group>
             </group>
@@ -681,7 +681,7 @@ export default function WildlifeAndSky({ isNight = false }) {
                 {/* Flashing Tail Beacon */}
                 <mesh position={[0, 2.45, -0.6]}>
                   <sphereGeometry args={[0.18, 8, 8]} />
-                  <primitive object={mats.strobeWhite} />
+                  <primitive attach="material" object={mats.strobeWhite} />
                 </mesh>
               </group>
             </group>
@@ -712,12 +712,12 @@ export default function WildlifeAndSky({ isNight = false }) {
             {/* Top Roof Beacon */}
             <mesh position={[0, 1.34, 2.4]}>
               <sphereGeometry args={[0.16, 8, 8]} />
-              <primitive object={mats.heliBeacon} />
+              <primitive attach="material" object={mats.heliBeacon} />
             </mesh>
             {/* Bottom Belly Beacon */}
             <mesh position={[0, -1.34, 2.4]}>
               <sphereGeometry args={[0.16, 8, 8]} />
-              <primitive object={mats.heliBeacon} />
+              <primitive attach="material" object={mats.heliBeacon} />
             </mesh>
           </group>
 
@@ -836,7 +836,7 @@ export default function WildlifeAndSky({ isNight = false }) {
             {/* Anti-Collision Red Beacon */}
             <mesh position={[0, 3.25, -9.1]}>
               <sphereGeometry args={[0.2, 8, 8]} />
-              <primitive object={mats.heliBeacon} />
+              <primitive attach="material" object={mats.heliBeacon} />
             </mesh>
           </group>
         </>

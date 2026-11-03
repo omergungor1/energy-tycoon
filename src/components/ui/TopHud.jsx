@@ -47,6 +47,8 @@ export default function TopHud({
   clock,
   spotPrice,
   totalCapacityKw,
+  last24hStats = null,
+  recentSettlements = [],
   activeTab,
   setActiveTab,
   lang,
@@ -68,6 +70,63 @@ export default function TopHud({
 
   const streakInfo = useMemo(() => getDailyStreakInfo(company), [company]);
   const canClaimToday = streakInfo?.canClaim ?? false;
+
+  // Calculate Last 24 Hours Electricity Sales and Hourly Average Revenue
+  const last24hSummary = useMemo(() => {
+    if (last24hStats && typeof last24hStats.avgHourlyNetRevenue === 'number') {
+      return last24hStats;
+    }
+
+    const settlements = Array.isArray(recentSettlements) ? recentSettlements : [];
+    if (settlements.length === 0) {
+      return {
+        totalSoldKwh: 0,
+        totalNetRevenue: 0,
+        avgHourlyKwh: 0,
+        avgHourlyNetRevenue: 0,
+        avgPricePerKwh: 0,
+        recordedHours: 0
+      };
+    }
+
+    const currentHour = Number(clock?.gameHour || 0);
+    const startHour = Math.max(0, currentHour - 24);
+
+    let totalSoldKwh = 0;
+    let totalNetRevenue = 0;
+    const hourMap = new Map();
+
+    for (const s of settlements) {
+      const gh = Number(s.game_hour);
+      if (currentHour > 0 && (gh < startHour || gh > currentHour)) continue;
+
+      const kwh = Number(s.direct_sold_kwh || 0) + Number(s.battery_sold_kwh || 0);
+      const net = Number(s.net_revenue || 0);
+
+      totalSoldKwh += kwh;
+      totalNetRevenue += net;
+      if (!hourMap.has(gh)) {
+        hourMap.set(gh, { kwh: 0, net: 0 });
+      }
+      const item = hourMap.get(gh);
+      item.kwh += kwh;
+      item.net += net;
+    }
+
+    const divisor = Math.max(1, Math.min(24, currentHour > 0 ? currentHour : hourMap.size));
+    const avgHourlyKwh = totalSoldKwh / divisor;
+    const avgHourlyNetRevenue = totalNetRevenue / divisor;
+    const avgPricePerKwh = totalSoldKwh > 0 ? totalNetRevenue / totalSoldKwh : 0;
+
+    return {
+      totalSoldKwh,
+      totalNetRevenue,
+      avgHourlyKwh,
+      avgHourlyNetRevenue,
+      avgPricePerKwh,
+      recordedHours: hourMap.size
+    };
+  }, [last24hStats, recentSettlements, clock?.gameHour]);
 
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [plantMenuOpen, setPlantMenuOpen] = useState(false);
@@ -158,9 +217,9 @@ export default function TopHud({
   ];
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-40 bg-slate-950/90 backdrop-blur-xl border-b border-slate-800/90 text-slate-100 px-1.5 xs:px-2 sm:px-3 lg:px-4 xl:px-6 py-1.5 sm:py-2 shadow-xl select-none overflow-x-clip">
+    <header className="fixed top-0 left-0 right-0 z-40 bg-slate-950/90 backdrop-blur-xl border-b border-slate-800/90 text-slate-100 px-1.5 xs:px-2 sm:px-3 lg:px-4 2xl:px-6 py-1.5 sm:py-2 shadow-xl select-none overflow-x-clip">
       {/* Unified Single Navbar Row */}
-      <div className="w-full max-w-[1760px] mx-auto flex items-center justify-between gap-1 xs:gap-1.5 sm:gap-2 xl:gap-3">
+      <div className="w-full max-w-[1760px] mx-auto flex items-center justify-between gap-1 xs:gap-1.5 sm:gap-2 2xl:gap-3">
         {/* Left: Brand Identity & Quick Plant Selector */}
         <div className="flex items-center gap-1 xs:gap-1.5 sm:gap-2 shrink-0 min-w-0">
           <button
@@ -202,7 +261,7 @@ export default function TopHud({
                 </div>
               </div>
               <div className="min-w-0">
-                <div className="font-extrabold text-sm tracking-wide bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent truncate max-w-[95px] lg:max-w-[120px] xl:max-w-[160px] group-hover:from-emerald-300 group-hover:to-cyan-300 flex items-center gap-1">
+                <div className="font-extrabold text-sm tracking-wide bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent truncate max-w-[95px] lg:max-w-[120px] 2xl:max-w-[160px] group-hover:from-emerald-300 group-hover:to-cyan-300 flex items-center gap-1">
                   <span>{company?.name || 'Energy Corp'}</span>
                 </div>
                 <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
@@ -210,8 +269,8 @@ export default function TopHud({
                     <Award className="w-3 h-3" />
                     Lv.{currentLevel}
                   </span>
-                  <span className="hidden xl:inline">•</span>
-                  <div className="hidden xl:inline-block w-14 2xl:w-16 h-1.5 bg-slate-800 rounded-full overflow-hidden align-middle">
+                  <span className="hidden 2xl:inline">•</span>
+                  <div className="hidden 2xl:inline-block w-14 2xl:w-16 h-1.5 bg-slate-800 rounded-full overflow-hidden align-middle">
                     <div
                       className="h-full bg-gradient-to-r from-emerald-500 to-teal-400"
                       style={{ width: `${xpProgressPct}%` }}
@@ -247,8 +306,8 @@ export default function TopHud({
             >
               <Factory className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
               
-              {/* Plant Name: Compact on mobile & tablet (< xl), full on desktop (>= xl) */}
-              <span className="hidden xl:inline font-bold truncate max-w-[120px] 2xl:max-w-[160px]">
+              {/* Plant Name: Compact on mobile, tablet & laptop (< 2xl), full on large desktop (>= 2xl) */}
+              <span className="hidden 2xl:inline font-bold truncate max-w-[120px] 2xl:max-w-[160px]">
                 {selectedPlant?.plantName || (lang === 'tr' ? 'Santrallerim' : 'My Plants')}
               </span>
 
@@ -259,9 +318,9 @@ export default function TopHud({
                 </span>
               )}
 
-              {/* Chevron Icon: Shown on desktop */}
+              {/* Chevron Icon: Shown on large desktop */}
               <ChevronDown
-                className={`hidden xl:inline-block w-3 h-3 text-slate-400 transition-transform duration-200 shrink-0 ${
+                className={`hidden 2xl:inline-block w-3 h-3 text-slate-400 transition-transform duration-200 shrink-0 ${
                   plantMenuOpen ? 'rotate-180 text-cyan-400' : ''
                 }`}
               />
@@ -382,7 +441,7 @@ export default function TopHud({
         </div>
 
         {/* Center: Web Navigation Tabs (TABLET / DESKTOP: lg:flex) */}
-        <nav className="hidden lg:flex items-center gap-0.5 xl:gap-1 bg-slate-900/90 border border-slate-800/90 rounded-2xl p-1 shadow-inner backdrop-blur-md shrink-0">
+        <nav className="hidden lg:flex items-center gap-0.5 2xl:gap-1 bg-slate-900/90 border border-slate-800/90 rounded-2xl p-1 shadow-inner backdrop-blur-md shrink-0">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -392,14 +451,14 @@ export default function TopHud({
                 type="button"
                 onClick={() => setActiveTab(isActive ? null : item.id)}
                 title={item.label}
-                className={`flex items-center gap-1.5 px-2 xl:px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-2.5 2xl:px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                   isActive
                     ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm ring-1 ring-emerald-500/30 font-bold'
                     : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/80 border border-transparent'
                 }`}
               >
                 <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-emerald-400' : 'text-slate-400'}`} />
-                <span className={isActive ? 'inline' : 'hidden xl:inline'}>{item.label}</span>
+                <span className="hidden 2xl:inline">{item.label}</span>
               </button>
             );
           })}
@@ -475,7 +534,61 @@ export default function TopHud({
                   </div>
                 </div>
 
-                {/* 2. Şirket Değeri */}
+                {/* 2. Son 24 Saat Satılan Elektrik & Saatlik Ortalama Gelir */}
+                <div className="bg-slate-950/60 border border-slate-800/80 p-2.5 rounded-xl hover:border-slate-700 transition-colors">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-1.5 text-slate-400 text-xs">
+                      <Coins className="w-3.5 h-3.5 text-emerald-400" />
+                      <span className="font-medium text-slate-300">
+                        {lang === 'tr' ? 'Saatlik Ortalama Gelir' : 'Hourly Avg Revenue'}
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-mono text-emerald-400/90 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                      {lang === 'tr' ? 'Son 24s' : 'Last 24h'}
+                    </span>
+                  </div>
+                  <div className="flex items-baseline justify-between">
+                    <div className="text-xl font-black text-emerald-400 font-mono tracking-tight flex items-baseline">
+                      <span>{formatMoney(last24hSummary.avgHourlyNetRevenue, { decimals: 2 })}</span>
+                      <span className="text-xs font-semibold text-slate-400 font-sans ml-1">
+                        / {lang === 'tr' ? 'saat' : 'hr'}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[11px] font-mono font-bold text-cyan-400 block">
+                        {last24hSummary.avgHourlyKwh >= 1000
+                          ? `${(last24hSummary.avgHourlyKwh / 1000).toFixed(2)} MW`
+                          : `${Math.round(last24hSummary.avgHourlyKwh).toLocaleString()} kW`}
+                        <span className="text-slate-400 font-sans font-normal text-[10px]"> / {lang === 'tr' ? 's' : 'h'}</span>
+                      </span>
+                      <span className="text-[10px] text-slate-500">
+                        {lang === 'tr' ? 'Ort. Satış' : 'Avg Sales'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-slate-800/60 text-[10px]">
+                    <div>
+                      <span className="text-slate-500 block">
+                        {lang === 'tr' ? '24s Toplam Satış:' : '24h Total Sold:'}
+                      </span>
+                      <span className="text-slate-300 font-mono font-semibold">
+                        {last24hSummary.totalSoldKwh >= 1000
+                          ? `${(last24hSummary.totalSoldKwh / 1000).toFixed(1)} MWh`
+                          : `${Math.round(last24hSummary.totalSoldKwh).toLocaleString()} kWh`}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block">
+                        {lang === 'tr' ? '24s Toplam Gelir:' : '24h Total Revenue:'}
+                      </span>
+                      <span className="text-emerald-400 font-mono font-semibold">
+                        {formatMoney(last24hSummary.totalNetRevenue, { decimals: 0 })}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Şirket Değeri */}
                 <div className="bg-slate-950/60 border border-slate-800/80 p-2.5 rounded-xl hover:border-slate-700 transition-colors">
                   <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-1.5 text-slate-400 text-xs">
@@ -503,7 +616,7 @@ export default function TopHud({
                   </div>
                 </div>
 
-                {/* 3. Spot Elektrik Piyasası (Clickable card that opens Market Modal) */}
+                {/* 4. Spot Elektrik Piyasası (Clickable card that opens Market Modal) */}
                 <button
                   type="button"
                   onClick={() => {
@@ -708,8 +821,8 @@ export default function TopHud({
             title={dict.treasury?.viewDetails || 'Kasa Detayları için Tıklayın'}
             className="flex items-center justify-center bg-emerald-950/70 hover:bg-emerald-900/80 border border-emerald-500/40 hover:border-emerald-400 px-1.5 xs:px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl text-emerald-300 font-bold text-[10px] xs:text-[11px] sm:text-xs transition-all shadow-sm active:scale-95 cursor-pointer font-mono shrink-0 select-none"
           >
-            <span className="xl:hidden">{formatCompactMoney(company?.cash || 0)}</span>
-            <span className="hidden xl:inline">{formatMoney(company?.cash || 0, { decimals: 0 })}</span>
+            <span className="2xl:hidden">{formatCompactMoney(company?.cash || 0)}</span>
+            <span className="hidden 2xl:inline">{formatMoney(company?.cash || 0, { decimals: 0 })}</span>
           </button>
 
           {/* Desktop Quick Audio Mute / Unmute Button */}

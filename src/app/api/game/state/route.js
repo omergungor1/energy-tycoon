@@ -142,7 +142,7 @@ export async function GET() {
       admin.from('battery_settings').select('*').eq('company_id', company.id),
       admin.from('loans').select('*').eq('company_id', company.id).eq('status', 'active'),
       admin.from('company_notifications').select('*').eq('company_id', company.id).order('created_at', { ascending: false }).limit(20),
-      admin.from('hourly_energy_settlements').select('*').eq('company_id', company.id).order('game_hour', { ascending: false }).limit(24),
+      admin.from('hourly_energy_settlements').select('*').eq('company_id', company.id).order('game_hour', { ascending: false }).limit(100),
       admin.from('companies').select('id, name, level, cash, xp').order('cash', { ascending: false }).limit(20)
     ]);
 
@@ -174,6 +174,51 @@ export async function GET() {
       }
     }
 
+    // Calculate 24-hour electricity sales and hourly average revenue
+    const startHour24 = Math.max(0, currentGameHour - 24);
+    const last24Settlements = (recentSettlementsRes.data || []).filter(
+      (s) => Number(s.game_hour) >= startHour24 && Number(s.game_hour) <= currentGameHour
+    );
+
+    const hourlyMap24 = new Map();
+    let total24hKwh = 0;
+    let total24hGross = 0;
+    let total24hNet = 0;
+
+    for (const s of last24Settlements) {
+      const gh = Number(s.game_hour);
+      const kwh = Number(s.direct_sold_kwh || 0) + Number(s.battery_sold_kwh || 0);
+      const gross = Number(s.gross_revenue || 0);
+      const net = Number(s.net_revenue || 0);
+
+      total24hKwh += kwh;
+      total24hGross += gross;
+      total24hNet += net;
+
+      if (!hourlyMap24.has(gh)) {
+        hourlyMap24.set(gh, { kwh: 0, net: 0, gross: 0 });
+      }
+      const item = hourlyMap24.get(gh);
+      item.kwh += kwh;
+      item.net += net;
+      item.gross += gross;
+    }
+
+    const divisor24 = Math.max(1, Math.min(24, currentGameHour > 0 ? currentGameHour : hourlyMap24.size));
+    const avgHourlyKwh = total24hKwh / divisor24;
+    const avgHourlyNetRevenue = total24hNet / divisor24;
+    const avgPricePerKwh = total24hKwh > 0 ? total24hNet / total24hKwh : 0;
+
+    const last24hStats = {
+      totalSoldKwh: total24hKwh,
+      totalNetRevenue: total24hNet,
+      totalGrossRevenue: total24hGross,
+      avgHourlyKwh,
+      avgHourlyNetRevenue,
+      avgPricePerKwh,
+      recordedHours: hourlyMap24.size
+    };
+
     return NextResponse.json({
       success: true,
       clock,
@@ -194,6 +239,7 @@ export async function GET() {
       activeLoans: loansRes.data || [],
       notifications: notificationsRes.data || [],
       recentSettlements: recentSettlementsRes.data || [],
+      last24hStats,
       leaderboard: leaderboardRes.data || [],
       finance,
       totalCapacityKw

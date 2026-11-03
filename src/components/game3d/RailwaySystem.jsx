@@ -25,22 +25,58 @@ export default function RailwaySystem({ isNight = false }) {
   // Closed-loop scenic railway route connecting Harbor, Industrial Park, Central Substation & Sunfire City
   const railCurve = useMemo(() => {
     return new THREE.CatmullRomCurve3([
-      new THREE.Vector3(220, 0, -340), // Harbor Freight Terminal
+      new THREE.Vector3(220, 0, -340), // Harbor Freight Terminal (Station 2)
       new THREE.Vector3(175, 0, -220),
       new THREE.Vector3(120, 0, -110),
-      new THREE.Vector3(75, 0, -35),   // Industrial Park Siding
-      new THREE.Vector3(15, 0, 45),    // Central Substation South
-      new THREE.Vector3(85, 0, 140),   // River Trestle Crossing
-      new THREE.Vector3(185, 0, 195),
-      new THREE.Vector3(285, 0, 175),  // Sunfire City West Depot
-      new THREE.Vector3(375, 0, 85),   // Sunfire City Central Station
-      new THREE.Vector3(420, 0, -35),
-      new THREE.Vector3(390, 0, -165), // Scenic Eastern Coastal Plain
-      new THREE.Vector3(320, 0, -270)
+      new THREE.Vector3(85, 0, -25),   // Industrial Park Siding
+      new THREE.Vector3(85, 0, 60),    // Level Crossing with East Highway 2
+      new THREE.Vector3(65, 0, 150),   // Scenic Valley Green Corridor
+      new THREE.Vector3(35, 0, 220),   // Agri-Valley Farm Station (Station 3)
+      new THREE.Vector3(105, 0, 230),  // River Trestle Crossing
+      new THREE.Vector3(195, 0, 205),
+      new THREE.Vector3(270, 0, 165),
+      new THREE.Vector3(316, 0, 85),   // Sunfire City Bypass Station (Station 1)
+      new THREE.Vector3(350, 0, -15),  // City North Bypass (Never intersects buildings)
+      new THREE.Vector3(395, 0, -130), // Scenic Eastern Coastal Plain
+      new THREE.Vector3(330, 0, -260)
     ], true);
   }, []);
 
   const totalLength = useMemo(() => railCurve.getLength(), [railCurve]);
+
+  // Pre-calculate exact curve parameters (u in [0, 1]) for all 3 railway stations
+  const STATIONS = useMemo(() => {
+    const stationTargets = [
+      { id: 'harbor', name: 'LİMAN YÜK TERMİNALİ', pos: new THREE.Vector3(220, 0, -340) },
+      { id: 'agri', name: 'AGRI-VALLEY İSTASYONU', pos: new THREE.Vector3(35, 0, 220) },
+      { id: 'sunfire', name: 'SUNFIRE ŞEHİR İSTASYONU', pos: new THREE.Vector3(316, 0, 85) }
+    ];
+
+    const findClosestU = (targetPos) => {
+      let bestU = 0;
+      let minDistSq = Infinity;
+      const samples = 600;
+      for (let s = 0; s <= samples; s++) {
+        const u = s / samples;
+        const pt = railCurve.getPointAt(u);
+        const dx = pt.x - targetPos.x;
+        const dz = pt.z - targetPos.z;
+        const distSq = dx * dx + dz * dz;
+        if (distSq < minDistSq) {
+          minDistSq = distSq;
+          bestU = u;
+        }
+      }
+      return bestU;
+    };
+
+    return stationTargets
+      .map((st) => ({
+        ...st,
+        u: findClosestU(st.pos)
+      }))
+      .sort((a, b) => a.u - b.u);
+  }, [railCurve]);
 
   // Generate 3D Railroad Track: Raised Gravel Ballast Bed & Dual Polished Steel Rails
   const trackGeometry = useMemo(() => {
@@ -185,6 +221,8 @@ export default function RailwaySystem({ isNight = false }) {
       stationPlat: new THREE.MeshStandardMaterial({ color: '#475569', roughness: 0.9 }),
       stationRoof: new THREE.MeshStandardMaterial({ color: '#1e293b', roughness: 0.7, metalness: 0.3 }),
       tactileYellow: new THREE.MeshBasicMaterial({ color: '#fbbf24' }),
+      signWhite: new THREE.MeshStandardMaterial({ color: '#f8fafc', roughness: 0.4 }),
+      barrierRed: new THREE.MeshStandardMaterial({ color: '#dc2626', roughness: 0.5 }),
       headlightBeam: new THREE.MeshBasicMaterial({
         color: '#fef08a',
         transparent: true,
@@ -195,19 +233,75 @@ export default function RailwaySystem({ isNight = false }) {
     };
   }, []);
 
-  // Animate Train Motion along the closed loop spline with realistic close coupler spacing
-  useFrame(({ clock }, delta) => {
-    const t = clock.getElapsedTime();
+  // Train Simulation State: Station dwelling, realistic deceleration and smooth cruise
+  const trainSimRef = useRef({
+    progress: 0.05,
+    speed: 0.0,
+    maxSpeed: 22.0, // meters per second (~79 km/h)
+    state: 'cruising',
+    targetStationIdx: 1,
+    dwellTimer: 0.0,
+    isDwelling: false
+  });
+
+  // Track station dwell status for dynamic station signals
+  const [activeDwellStation, setActiveDwellStation] = React.useState(null);
+
+  // Animate Train Motion along the closed loop spline with station stops
+  useFrame((_, delta) => {
     const dt = Math.min(delta, 0.05);
-    const trainSpeed = 0.009; // Realistic scenic cruising pace
+    const sim = trainSimRef.current;
+    const targetStation = STATIONS[sim.targetStationIdx];
+    const targetU = targetStation.u;
 
-    const updateCarriage = (ref, progressOffset) => {
+    // Forward distance to target station along closed loop
+    let distU = targetU - sim.progress;
+    if (distU < 0) distU += 1.0;
+    const distMeters = distU * totalLength;
+
+    if (sim.isDwelling) {
+      sim.speed = 0;
+      sim.dwellTimer -= dt;
+      if (sim.dwellTimer <= 0) {
+        // Depart station!
+        sim.isDwelling = false;
+        setActiveDwellStation(null);
+        sim.targetStationIdx = (sim.targetStationIdx + 1) % STATIONS.length;
+      }
+    } else {
+      const BRAKE_DIST = 42.0; // Start braking 42 meters before station platform
+
+      if (distMeters < 0.75) {
+        // Train arrived and stopped at station platform!
+        sim.progress = targetU;
+        sim.speed = 0;
+        sim.isDwelling = true;
+        sim.dwellTimer = 8.5; // Waits for 8.5 seconds at each station
+        setActiveDwellStation(targetStation.id);
+      } else if (distMeters < BRAKE_DIST) {
+        // Smooth deceleration into station
+        const brakeFactor = Math.max(0.12, distMeters / BRAKE_DIST);
+        const targetSpeed = Math.max(2.8, sim.maxSpeed * Math.sqrt(brakeFactor));
+        sim.speed = Math.max(targetSpeed, sim.speed - dt * 14.0);
+      } else {
+        // Smooth acceleration up to cruising speed
+        sim.speed = Math.min(sim.maxSpeed, sim.speed + dt * 8.5);
+      }
+
+      // Move progress forward along curve
+      const deltaU = (sim.speed * dt) / totalLength;
+      sim.progress = (sim.progress + deltaU) % 1.0;
+    }
+
+    const stepOffset = 7.5 / totalLength;
+
+    const updateCarriage = (ref, carriageIdx) => {
       if (!ref.current) return;
-      let progress = ((t * trainSpeed - progressOffset) % 1.0 + 1.0) % 1.0;
+      const carriageProgress = ((sim.progress - carriageIdx * stepOffset) % 1.0 + 1.0) % 1.0;
 
-      const p = railCurve.getPointAt(progress);
+      const p = railCurve.getPointAt(carriageProgress);
       const groundY = getTerrainHeight(p.x, p.z);
-      const nextProgress = (progress + 0.003) % 1.0;
+      const nextProgress = (carriageProgress + 0.003) % 1.0;
       const pNext = railCurve.getPointAt(nextProgress);
       const nextGroundY = getTerrainHeight(pNext.x, pNext.z);
 
@@ -215,31 +309,28 @@ export default function RailwaySystem({ isNight = false }) {
       ref.current.lookAt(pNext.x, nextGroundY + 0.54, pNext.z);
     };
 
-    // Realistic close spacing: wagon length 6.8m + 0.7m gap = ~7.5m center-to-center
-    const stepOffset = 7.5 / totalLength;
-
     // 1. Locomotive (Front)
-    updateCarriage(locomotiveRef, 0.0);
+    updateCarriage(locomotiveRef, 0);
 
     // 2. Freight Container Wagon 1
-    updateCarriage(wagon1Ref, stepOffset);
+    updateCarriage(wagon1Ref, 1);
 
     // 3. Freight Container Wagon 2
-    updateCarriage(wagon2Ref, stepOffset * 2);
+    updateCarriage(wagon2Ref, 2);
 
     // 4. Cylindrical Oil / Chemical Tanker Wagon
-    updateCarriage(tankerRef, stepOffset * 3);
+    updateCarriage(tankerRef, 3);
 
     // 5. Red Caboose (Rear)
-    updateCarriage(cabooseRef, stepOffset * 4);
+    updateCarriage(cabooseRef, 4);
 
     // 6. Dynamic Locomotive Exhaust Smoke Puffs
     if (smokeRef.current && locomotiveRef.current) {
-      // Chimney position at front of locomotive cab (local: [0, 3.2, 1.8])
       const chimneyWorld = new THREE.Vector3(0, 3.2, 1.8);
       locomotiveRef.current.localToWorld(chimneyWorld);
 
       const dummy = new THREE.Object3D();
+      const smokeSpeed = sim.isDwelling ? 0.75 : 1.95;
 
       smokeParticles.current.forEach((sp, i) => {
         sp.age += dt;
@@ -249,15 +340,13 @@ export default function RailwaySystem({ isNight = false }) {
           sp.driftX = (Math.random() - 0.5) * 0.45;
           sp.driftZ = (Math.random() - 0.5) * 0.45;
         } else {
-          // Smoke billows upward and drifts softly in the mountain wind
-          sp.pos.y += dt * 1.85;
+          sp.pos.y += dt * smokeSpeed;
           sp.pos.x += dt * sp.driftX;
           sp.pos.z += dt * sp.driftZ;
         }
 
         const tNorm = sp.age / sp.maxAge;
-        // Scale grows from 0.4m up to 2.2m
-        const scale = 0.38 + tNorm * 1.95;
+        const scale = 0.38 + tNorm * (sim.isDwelling ? 1.4 : 1.95);
         dummy.position.copy(sp.pos);
         dummy.scale.set(scale, scale * 1.08, scale);
         dummy.updateMatrix();
@@ -306,17 +395,21 @@ export default function RailwaySystem({ isNight = false }) {
       </instancedMesh>
 
       {/* ========================================================= */}
-      {/* 5. SCENIC TRAIN STATIONS                                  */}
+      {/* 5. 3 SCENIC TRAIN STATIONS (WITH DWELL & ACTIVE SIGNALS)  */}
       {/* ========================================================= */}
 
-      {/* STATION 1: Sunfire City Central Passenger Station (at [375, 0, 85]) */}
-      <group position={[380, getTerrainHeight(380, 85), 85]}>
-        {/* Passenger Platform */}
-        <mesh position={[6.0, 0.45, 0]} receiveShadow material={mats.stationPlat}>
+      {/* STATION 1: Sunfire City Bypass Passenger Station (at [316, 0, 85]) */}
+      <group position={[316, getTerrainHeight(316, 85), 85]}>
+        {/* Passenger Platform (On the city side at x = +6.5) */}
+        <mesh position={[6.5, 0.45, 0]} receiveShadow material={mats.stationPlat}>
           <boxGeometry args={[7.5, 0.9, 38]} />
         </mesh>
+        {/* Pedestrian Promenade Ramp connecting directly into City Sidewalk at x = 334 */}
+        <mesh position={[12.5, 0.45, 0]} receiveShadow material={mats.stationPlat}>
+          <boxGeometry args={[4.5, 0.85, 16]} />
+        </mesh>
         {/* Yellow Safety Tactile Edge */}
-        <mesh position={[2.5, 0.91, 0]} material={mats.tactileYellow}>
+        <mesh position={[2.85, 0.91, 0]} material={mats.tactileYellow}>
           <boxGeometry args={[0.35, 0.05, 38]} />
         </mesh>
         {/* Modern Canopy Roof */}
@@ -332,7 +425,7 @@ export default function RailwaySystem({ isNight = false }) {
         {/* Station Name Board */}
         <group position={[6.5, 5.0, 0]}>
           <mesh material={mats.metalChassis}>
-            <boxGeometry args={[0.2, 0.9, 12]} />
+            <boxGeometry args={[0.2, 0.9, 13]} />
           </mesh>
           <Text
             position={[-0.15, 0, 0]}
@@ -344,10 +437,10 @@ export default function RailwaySystem({ isNight = false }) {
             anchorX="center"
             anchorY="middle"
           >
-            SUNFIRE MERKEZ İSTASYONU
+            SUNFIRE ŞEHİR İSTASYONU
           </Text>
         </group>
-        {/* Trackside Signal Lamp */}
+        {/* Trackside Signal Lamp (Turns RED when train dwells, GREEN when departing) */}
         <group position={[2.5, 0, -20]}>
           <mesh position={[0, 2.5, 0]} material={mats.metalChassis}>
             <cylinderGeometry args={[0.1, 0.1, 5.0, 6]} />
@@ -357,11 +450,11 @@ export default function RailwaySystem({ isNight = false }) {
           </mesh>
           <mesh position={[0, 5.0, 0.22]}>
             <sphereGeometry args={[0.14, 8, 8]} />
-            <meshBasicMaterial color="#10b981" />
+            <meshBasicMaterial color={activeDwellStation === 'sunfire' ? '#1e293b' : '#10b981'} />
           </mesh>
           <mesh position={[0, 4.6, 0.22]}>
             <sphereGeometry args={[0.14, 8, 8]} />
-            <meshBasicMaterial color="#ef4444" />
+            <meshBasicMaterial color={activeDwellStation === 'sunfire' ? '#ef4444' : '#1e293b'} />
           </mesh>
         </group>
       </group>
@@ -380,7 +473,6 @@ export default function RailwaySystem({ isNight = false }) {
           <mesh position={[10.5, 3.8, 0]} material={mats.locoNose} castShadow>
             <boxGeometry args={[0.5, 7.6, 0.5]} />
           </mesh>
-          {/* Horizontal Gantry Beam over track */}
           <mesh position={[3.5, 7.6, 0]} material={mats.locoNose} castShadow>
             <boxGeometry args={[14.5, 0.8, 1.2]} />
           </mesh>
@@ -410,40 +502,161 @@ export default function RailwaySystem({ isNight = false }) {
             LİMAN YÜK TERMİNALİ
           </Text>
         </group>
+        {/* Trackside Signal Lamp */}
+        <group position={[2.5, 0, -22]}>
+          <mesh position={[0, 2.5, 0]} material={mats.metalChassis}>
+            <cylinderGeometry args={[0.1, 0.1, 5.0, 6]} />
+          </mesh>
+          <mesh position={[0, 4.8, 0]} material={mats.metalChassis}>
+            <boxGeometry args={[0.4, 0.8, 0.4]} />
+          </mesh>
+          <mesh position={[0, 5.0, 0.22]}>
+            <sphereGeometry args={[0.14, 8, 8]} />
+            <meshBasicMaterial color={activeDwellStation === 'harbor' ? '#1e293b' : '#10b981'} />
+          </mesh>
+          <mesh position={[0, 4.6, 0.22]}>
+            <sphereGeometry args={[0.14, 8, 8]} />
+            <meshBasicMaterial color={activeDwellStation === 'harbor' ? '#ef4444' : '#1e293b'} />
+          </mesh>
+        </group>
       </group>
 
-      {/* STATION 3: Central Substation & Junction Depot (at [25, 0, 48]) */}
-      <group position={[25, getTerrainHeight(25, 48), 48]} rotation={[0, 0.8, 0]}>
-        {/* Maintenance Platform */}
-        <mesh position={[5.5, 0.45, 0]} receiveShadow material={mats.stationPlat}>
-          <boxGeometry args={[6.5, 0.9, 30]} />
+      {/* STATION 3: Agri-Valley Farm & Rural Station (at [35, 0, 220] near Agri Farm) */}
+      <group position={[35, getTerrainHeight(35, 220), 220]} rotation={[0, 0.95, 0]}>
+        {/* Rustic Stone & Timber Platform */}
+        <mesh position={[6.0, 0.45, 0]} receiveShadow material={mats.stationPlat}>
+          <boxGeometry args={[7.0, 0.9, 32]} />
         </mesh>
         {/* Yellow Safety Line */}
-        <mesh position={[2.5, 0.91, 0]} material={mats.tactileYellow}>
-          <boxGeometry args={[0.3, 0.05, 30]} />
+        <mesh position={[2.6, 0.91, 0]} material={mats.tactileYellow}>
+          <boxGeometry args={[0.3, 0.05, 32]} />
         </mesh>
-        {/* Trackside Electrical Relay Tool Shed */}
-        <mesh position={[6.5, 2.1, -6]} material={mats.metalChassis} castShadow>
-          <boxGeometry args={[3.4, 2.4, 4.6]} />
-        </mesh>
-        {/* Depot Signboard */}
-        <group position={[5.5, 2.8, 6]}>
-          <mesh material={mats.metalChassis}>
-            <boxGeometry args={[0.2, 0.8, 10]} />
+        {/* Rustic Timber Passenger Shelter */}
+        <group position={[6.8, 0.9, 0]}>
+          {/* Wooden Back & Side Walls */}
+          <mesh position={[1.5, 1.4, 0]} material={mats.woodenTie}>
+            <boxGeometry args={[0.2, 2.8, 12]} />
+          </mesh>
+          <mesh position={[0, 1.4, -6.0]} material={mats.woodenTie}>
+            <boxGeometry args={[3.2, 2.8, 0.2]} />
+          </mesh>
+          <mesh position={[0, 1.4, 6.0]} material={mats.woodenTie}>
+            <boxGeometry args={[3.2, 2.8, 0.2]} />
+          </mesh>
+          {/* Shingle Pitch Roof */}
+          <mesh position={[0, 3.0, 0]} rotation={[0, 0, 0.15]} material={mats.stationRoof} castShadow>
+            <boxGeometry args={[4.2, 0.2, 13.5]} />
+          </mesh>
+          {/* Waiting Benches */}
+          <mesh position={[0.6, 0.45, 0]} material={mats.woodenTie}>
+            <boxGeometry args={[0.9, 0.4, 6.0]} />
+          </mesh>
+        </group>
+        {/* Milk Cans & Sacks on Platform */}
+        {[-8, -6, 8].map((mz, mi) => (
+          <mesh key={`milk_${mi}`} position={[6.5, 1.3, mz]}>
+            <cylinderGeometry args={[0.35, 0.35, 0.8, 8]} />
+            <meshStandardMaterial color="#94a3b8" metalness={0.8} />
+          </mesh>
+        ))}
+        {/* Station Name Board */}
+        <group position={[6.0, 4.4, 0]}>
+          <mesh material={mats.woodenTie}>
+            <boxGeometry args={[0.2, 0.9, 12]} />
           </mesh>
           <Text
             position={[-0.15, 0, 0]}
             rotation={[0, -Math.PI / 2, 0]}
-            fontSize={0.50}
-            color="#10b981"
+            fontSize={0.52}
+            color="#facc15"
             outlineWidth={0.06}
             outlineColor="#020617"
             anchorX="center"
             anchorY="middle"
           >
-            TRAFO DEPO İSTASYONU
+            AGRI-VALLEY İSTASYONU
           </Text>
         </group>
+        {/* Trackside Signal Lamp */}
+        <group position={[2.5, 0, -18]}>
+          <mesh position={[0, 2.5, 0]} material={mats.metalChassis}>
+            <cylinderGeometry args={[0.1, 0.1, 5.0, 6]} />
+          </mesh>
+          <mesh position={[0, 4.8, 0]} material={mats.metalChassis}>
+            <boxGeometry args={[0.4, 0.8, 0.4]} />
+          </mesh>
+          <mesh position={[0, 5.0, 0.22]}>
+            <sphereGeometry args={[0.14, 8, 8]} />
+            <meshBasicMaterial color={activeDwellStation === 'agri' ? '#1e293b' : '#10b981'} />
+          </mesh>
+          <mesh position={[0, 4.6, 0.22]}>
+            <sphereGeometry args={[0.14, 8, 8]} />
+            <meshBasicMaterial color={activeDwellStation === 'agri' ? '#ef4444' : '#1e293b'} />
+          </mesh>
+        </group>
+      </group>
+
+      {/* ========================================================= */}
+      {/* RAILROAD HIGHWAY LEVEL CROSSING (HEMZEMİN GEÇİT)          */}
+      {/* Highway 2 Crossing with East Railway Corridor at [85, 60] */}
+      {/* ========================================================= */}
+      <group position={[85, getTerrainHeight(85, 60), 60]} rotation={[0, -0.65, 0]}>
+        {/* Rubber & Asphalt Flangeway Crossing Deck */}
+        <mesh position={[0, 0.44, 0]} receiveShadow>
+          <boxGeometry args={[6.2, 0.22, 11]} />
+          <meshStandardMaterial color="#1e293b" roughness={0.9} />
+        </mesh>
+        {/* Yellow Warning Edge Curbs */}
+        {[-3.0, 3.0].map((cx, ci) => (
+          <mesh key={`cross_curb_${ci}`} position={[cx, 0.52, 0]}>
+            <boxGeometry args={[0.25, 0.18, 11]} />
+            <meshStandardMaterial color="#eab308" roughness={0.4} />
+          </mesh>
+        ))}
+
+        {/* 2 Cantilever Level Crossing Warning Masts (Both Approaches) */}
+        {[-4.6, 4.6].map((sx, si) => (
+          <group
+            key={`cross_mast_${si}`}
+            position={[sx, 0, si === 0 ? 5.2 : -5.2]}
+            rotation={[0, si === 0 ? 0 : Math.PI, 0]}
+          >
+            {/* Concrete Pedestal */}
+            <mesh position={[0, 0.35, 0]}>
+              <boxGeometry args={[0.9, 0.7, 0.9]} />
+              <meshStandardMaterial color="#94a3b8" roughness={0.9} />
+            </mesh>
+            {/* Steel Mast */}
+            <mesh position={[0, 2.8, 0]} material={mats.metalChassis}>
+              <cylinderGeometry args={[0.1, 0.1, 5.0, 8]} />
+            </mesh>
+            {/* St. Andrew Cross ("X") */}
+            <group position={[0, 4.6, 0.12]}>
+              <mesh rotation={[0, 0, Math.PI / 4]} material={mats.signWhite}>
+                <boxGeometry args={[1.6, 0.25, 0.04]} />
+              </mesh>
+              <mesh rotation={[0, 0, -Math.PI / 4]} material={mats.signWhite}>
+                <boxGeometry args={[1.6, 0.25, 0.04]} />
+              </mesh>
+            </group>
+            {/* Alternating Red Hazard Warning Signals */}
+            <mesh position={[-0.45, 4.0, 0.22]}>
+              <sphereGeometry args={[0.18, 10, 10]} />
+              <meshBasicMaterial color="#ef4444" />
+            </mesh>
+            <mesh position={[0.45, 4.0, 0.22]}>
+              <sphereGeometry args={[0.18, 10, 10]} />
+              <meshBasicMaterial color="#ef4444" />
+            </mesh>
+            <mesh position={[0, 4.0, 0.12]} material={mats.metalChassis}>
+              <boxGeometry args={[1.2, 0.16, 0.1]} />
+            </mesh>
+            {/* Striped Barrier Boom Gate */}
+            <mesh position={[0.2, 1.3, 0.2]} rotation={[0, 0, 0.35]} material={mats.barrierRed}>
+              <boxGeometry args={[4.6, 0.14, 0.08]} />
+            </mesh>
+          </group>
+        ))}
       </group>
 
       {/* ========================================================= */}
@@ -496,7 +709,7 @@ export default function RailwaySystem({ isNight = false }) {
           [-2.6, -1.6, 1.6, 2.6].map((wz, wi) => (
             <mesh key={`loco_w_${wx}_${wz}_${wi}`} position={[wx, 0.28, wz]} rotation={[0, 0, Math.PI / 2]}>
               <cylinderGeometry args={[0.38, 0.38, 0.2, 12]} />
-              <primitive object={mats.trainWheel} />
+              <primitive attach="material" object={mats.trainWheel} />
             </mesh>
           ))
         )}
@@ -524,7 +737,7 @@ export default function RailwaySystem({ isNight = false }) {
           [-2.2, -1.2, 1.2, 2.2].map((wz, wi) => (
             <mesh key={`w1_w_${wx}_${wz}_${wi}`} position={[wx, 0.28, wz]} rotation={[0, 0, Math.PI / 2]}>
               <cylinderGeometry args={[0.36, 0.36, 0.18, 12]} />
-              <primitive object={mats.trainWheel} />
+              <primitive attach="material" object={mats.trainWheel} />
             </mesh>
           ))
         )}
@@ -552,7 +765,7 @@ export default function RailwaySystem({ isNight = false }) {
           [-2.2, -1.2, 1.2, 2.2].map((wz, wi) => (
             <mesh key={`w2_w_${wx}_${wz}_${wi}`} position={[wx, 0.28, wz]} rotation={[0, 0, Math.PI / 2]}>
               <cylinderGeometry args={[0.36, 0.36, 0.18, 12]} />
-              <primitive object={mats.trainWheel} />
+              <primitive attach="material" object={mats.trainWheel} />
             </mesh>
           ))
         )}
@@ -580,7 +793,7 @@ export default function RailwaySystem({ isNight = false }) {
           [-2.2, -1.2, 1.2, 2.2].map((wz, wi) => (
             <mesh key={`w3_w_${wx}_${wz}_${wi}`} position={[wx, 0.28, wz]} rotation={[0, 0, Math.PI / 2]}>
               <cylinderGeometry args={[0.36, 0.36, 0.18, 12]} />
-              <primitive object={mats.trainWheel} />
+              <primitive attach="material" object={mats.trainWheel} />
             </mesh>
           ))
         )}
@@ -614,7 +827,7 @@ export default function RailwaySystem({ isNight = false }) {
           [-2.0, -1.0, 1.0, 2.0].map((wz, wi) => (
             <mesh key={`w4_w_${wx}_${wz}_${wi}`} position={[wx, 0.28, wz]} rotation={[0, 0, Math.PI / 2]}>
               <cylinderGeometry args={[0.36, 0.36, 0.18, 12]} />
-              <primitive object={mats.trainWheel} />
+              <primitive attach="material" object={mats.trainWheel} />
             </mesh>
           ))
         )}

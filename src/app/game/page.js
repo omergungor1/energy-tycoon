@@ -79,7 +79,7 @@ function GameContent() {
 
   // Vehicle Exploration Driving Mode State
   const [isDrivingMode, setIsDrivingMode] = useState(false);
-  const [drivingCameraMode, setDrivingCameraMode] = useState('cockpit');
+  const [drivingCameraMode, setDrivingCameraMode] = useState('chase');
   const [vehicleStats, setVehicleStats] = useState({});
 
   // Pedestrian Walk & Run Exploration Mode State
@@ -384,6 +384,8 @@ function GameContent() {
               clock={gameState.clock}
               spotPrice={gameState.spotPrice}
               totalCapacityKw={gameState.totalCapacityKw}
+              last24hStats={gameState.last24hStats}
+              recentSettlements={gameState.recentSettlements}
               activeTab={activeTab}
               setActiveTab={setActiveTab}
               lang={lang}
@@ -482,7 +484,7 @@ function GameContent() {
                   type="button"
                   onClick={() => {
                     setIsDrivingMode(true);
-                    setDrivingCameraMode('cockpit');
+                    setDrivingCameraMode('chase');
                   }}
                   title={lang === 'tr' ? 'Araç Sürüş Modu (Adayı Keşfet)' : 'Drive Buggy Mode (Explore Island)'}
                   className="w-12 h-12 sm:w-13 sm:h-13 bg-slate-900/90 hover:bg-emerald-950/90 text-emerald-400 hover:text-emerald-300 border border-emerald-500/50 hover:border-emerald-400 rounded-2xl shadow-2xl backdrop-blur-xl flex items-center justify-center transition-all hover:scale-110 active:scale-95 group cursor-pointer"
