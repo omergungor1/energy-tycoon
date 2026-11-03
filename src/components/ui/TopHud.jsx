@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import Image from 'next/image';
+import RevenueTrendChart from '@/components/ui/RevenueTrendChart';
 import {
   Zap,
   DollarSign,
@@ -495,7 +496,7 @@ export default function TopHud({
 
             {/* Dropdown Menu */}
             {statsMenuOpen && (
-              <div className="max-sm:fixed max-sm:left-3 max-sm:right-3 max-sm:top-14 max-sm:w-auto sm:absolute sm:right-0 sm:left-auto sm:top-full sm:mt-2 sm:w-80 bg-slate-900/98 backdrop-blur-xl border border-slate-800 rounded-2xl p-3.5 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150 space-y-2.5 max-h-[85vh] overflow-y-auto">
+              <div className="max-sm:fixed max-sm:left-3 max-sm:right-3 max-sm:top-14 max-sm:w-auto sm:absolute sm:right-0 sm:left-auto sm:top-full sm:mt-2 sm:w-[420px] bg-slate-900/98 backdrop-blur-xl border border-slate-800 rounded-2xl p-3.5 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150 space-y-2.5 max-h-[85vh] overflow-y-auto">
                 {/* Header */}
                 <div className="flex items-center justify-between pb-2 border-b border-slate-800/80">
                   <div className="flex items-center gap-2">
@@ -510,6 +511,16 @@ export default function TopHud({
                     {mySites.length} {lang === 'tr' ? 'Santral' : 'Plants'}
                   </span>
                 </div>
+
+                {/* 1. Günlük Gelir Grafiği (Daily Revenue Trend Chart) */}
+                <RevenueTrendChart
+                  companyId={company?.id}
+                  lang={lang}
+                  onOpenTreasury={() => {
+                    setStatsMenuOpen(false);
+                    if (onOpenTreasury) onOpenTreasury();
+                  }}
+                />
 
                 {/* 1. Kurulu Güç */}
                 <div className="bg-slate-950/60 border border-slate-800/80 p-2.5 rounded-xl hover:border-slate-700 transition-colors">
@@ -530,6 +541,15 @@ export default function TopHud({
                       {mySites.length > 0
                         ? `${mySites.length} ${lang === 'tr' ? 'aktif saha' : 'active sites'}`
                         : lang === 'tr' ? 'Tesis yok' : 'No plants'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-slate-800/60 text-[10px]">
+                    <span className="text-slate-400">
+                      {lang === 'tr' ? 'Şebeke İletim Hattı:' : 'Grid Line:'}
+                    </span>
+                    <span className="text-emerald-400 font-mono font-semibold flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                      20.0 MW ({lang === 'tr' ? '%100 Açık / Kısıtsız' : 'Full Output / Uncapped'})
                     </span>
                   </div>
                 </div>

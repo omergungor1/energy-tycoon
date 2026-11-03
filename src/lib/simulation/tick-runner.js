@@ -134,8 +134,28 @@ export async function processCompanySimulationTick(companyId) {
       const siteTotalGenKwh = siteWindKwh + siteSolarKwh;
       totalKwhGenerated += siteTotalGenKwh;
 
-      // 2 MW default grid line capacity = 2000 kW
-      const gridCapacityKw = (gridConn?.capacity_mw || 2.0) * 1000.0;
+      // Dynamic grid capacity: grid line automatically accommodates installed generation capacity
+      // so buying additional turbines/solar panels is never silently throttled!
+      const siteGenerationCapacityKw = siteAssets.reduce(
+        (sum, a) =>
+          sum +
+          (a.equipment_catalog?.equipment_type !== 'battery'
+            ? Number(a.equipment_catalog?.capacity_kw || 0)
+            : 0),
+        0
+      );
+      const configuredGridKw = (gridConn?.capacity_mw || 2.0) * 1000.0;
+      const gridCapacityKw = Math.max(configuredGridKw, siteGenerationCapacityKw);
+
+      // Auto-sync grid_connections in DB if capacity needs expansion
+      if (gridConn && siteGenerationCapacityKw > configuredGridKw) {
+        gridConn.capacity_mw = Math.ceil(siteGenerationCapacityKw / 1000.0);
+        supabase
+          .from('grid_connections')
+          .update({ capacity_mw: gridConn.capacity_mw })
+          .eq('id', gridConn.id)
+          .then();
+      }
 
       const energyResult = dispatchSiteEnergy({
         totalGeneratedKwh: siteTotalGenKwh,

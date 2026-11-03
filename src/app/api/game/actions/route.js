@@ -138,6 +138,38 @@ export async function POST(req) {
         throw new Error('Failed to install asset: ' + installErr.message);
       }
 
+      // Auto-upgrade grid connection capacity if total site generation capacity exceeds it
+      if (item.equipment_type !== 'battery') {
+        const { data: gridConn } = await admin
+          .from('grid_connections')
+          .select('*')
+          .eq('company_site_id', cSite.id)
+          .single();
+
+        if (gridConn) {
+          const { data: allSiteAssets } = await admin
+            .from('installed_assets')
+            .select('*, equipment_catalog(*)')
+            .eq('company_site_id', cSite.id);
+
+          const totalKw = (allSiteAssets || []).reduce(
+            (sum, a) =>
+              sum +
+              (a.equipment_catalog?.equipment_type !== 'battery'
+                ? Number(a.equipment_catalog?.capacity_kw || 0)
+                : 0),
+            0
+          );
+          const neededMw = Math.ceil(totalKw / 1000.0);
+          if (neededMw > Number(gridConn.capacity_mw || 0)) {
+            await admin
+              .from('grid_connections')
+              .update({ capacity_mw: neededMw })
+              .eq('id', gridConn.id);
+          }
+        }
+      }
+
       // Ledger entry
       await admin.from('ledger_entries').insert({
         company_id: company.id,
