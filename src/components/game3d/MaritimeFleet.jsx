@@ -151,8 +151,8 @@ function VisitingContainerShip({ isNight = false }) {
 
         {/* Tapered Bulbous Bow Wedge */}
         <group position={[0, 2.4, -27]}>
-          <mesh rotation={[0, 0, 0]} castShadow>
-            <coneGeometry args={[5.8, 6.5, 4]} rotation={[-Math.PI / 2, Math.PI / 4, 0]} />
+          <mesh rotation={[-Math.PI / 2, Math.PI / 4, 0]} castShadow>
+            <coneGeometry args={[5.8, 6.5, 4]} />
             <meshStandardMaterial color="#0f172a" roughness={0.45} />
           </mesh>
         </group>
@@ -939,8 +939,8 @@ function AnchoredCoastalTanker({ position = [240, 0, -810], rotation = [0, 0.22,
         <meshStandardMaterial color="#334155" roughness={0.5} />
       </mesh>
       {/* Bow taper */}
-      <mesh position={[0, 1.8, -22]}>
-        <coneGeometry args={[4.6, 5.2, 4]} rotation={[-Math.PI / 2, Math.PI / 4, 0]} />
+      <mesh position={[0, 1.8, -22]} rotation={[-Math.PI / 2, Math.PI / 4, 0]}>
+        <coneGeometry args={[4.6, 5.2, 4]} />
         <meshStandardMaterial color="#334155" roughness={0.5} />
       </mesh>
 
@@ -1017,8 +1017,8 @@ function ActiveFishingTrawler({ position = [275, 0, -655], rotation = [0, 0.65, 
         <meshStandardMaterial color="#1e3a8a" roughness={0.5} />
       </mesh>
       {/* High Flared Bow Wedge */}
-      <mesh position={[0, 1.5, -9.5]} castShadow>
-        <coneGeometry args={[2.7, 3.8, 4]} rotation={[-Math.PI / 2, Math.PI / 4, 0]} />
+      <mesh position={[0, 1.5, -9.5]} rotation={[-Math.PI / 2, Math.PI / 4, 0]} castShadow>
+        <coneGeometry args={[2.7, 3.8, 4]} />
         <meshStandardMaterial color="#1e3a8a" roughness={0.5} />
       </mesh>
       {/* Orange Safety Gunwale Stripe */}
@@ -1138,8 +1138,8 @@ function SmallFishingBoatWithAngler({ position = [245, 0, -625], rotation = [0, 
         <meshStandardMaterial color="#78350f" roughness={0.85} />
       </mesh>
       {/* Pointed Bow Wedge */}
-      <mesh position={[0, 0.52, -2.9]} castShadow>
-        <coneGeometry args={[0.95, 1.5, 4]} rotation={[-Math.PI / 2, Math.PI / 4, 0]} />
+      <mesh position={[0, 0.52, -2.9]} rotation={[-Math.PI / 2, Math.PI / 4, 0]} castShadow>
+        <coneGeometry args={[0.95, 1.5, 4]} />
         <meshStandardMaterial color="#78350f" roughness={0.85} />
       </mesh>
       {/* Boat Interior Deck Floor */}
@@ -1308,8 +1308,8 @@ function CliffFishingBoatWithAngler({ position = [230, 0, -655], rotation = [0, 
         <boxGeometry args={[1.7, 0.8, 4.8]} />
         <meshStandardMaterial color="#166534" roughness={0.7} />
       </mesh>
-      <mesh position={[0, 0.5, -2.6]} castShadow>
-        <coneGeometry args={[0.85, 1.4, 4]} rotation={[-Math.PI / 2, Math.PI / 4, 0]} />
+      <mesh position={[0, 0.5, -2.6]} rotation={[-Math.PI / 2, Math.PI / 4, 0]} castShadow>
+        <coneGeometry args={[0.85, 1.4, 4]} />
         <meshStandardMaterial color="#166534" roughness={0.7} />
       </mesh>
       {/* White Inner Deck */}
@@ -1406,8 +1406,8 @@ function SailingYacht({ position = [330, 0, -640], rotation = [0, -0.28, 0], isN
         <meshStandardMaterial color="#ffffff" roughness={0.3} />
       </mesh>
       {/* Sharp Bow Entry */}
-      <mesh position={[0, 0.95, -7.2]} castShadow>
-        <coneGeometry args={[1.9, 2.8, 4]} rotation={[-Math.PI / 2, Math.PI / 4, 0]} />
+      <mesh position={[0, 0.95, -7.2]} rotation={[-Math.PI / 2, Math.PI / 4, 0]} castShadow>
+        <coneGeometry args={[1.9, 2.8, 4]} />
         <meshStandardMaterial color="#ffffff" roughness={0.3} />
       </mesh>
       {/* Navy Waterline Stripe */}

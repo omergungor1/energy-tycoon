@@ -41,10 +41,12 @@ export async function POST(req) {
     );
 
     // =========================================================================
-    // ACTION 1: BUY_EQUIPMENT
+    // ACTION 1: BUY_EQUIPMENT (Supports Single & Bulk Multi-Unit Purchase)
     // =========================================================================
     if (action === 'BUY_EQUIPMENT') {
-      const { catalogId, companySiteId, position } = payload || {};
+      const { catalogId, companySiteId, position, quantity: reqQty } = payload || {};
+      const quantity = Math.max(1, Math.min(100, parseInt(reqQty, 10) || 1));
+
       if (!catalogId || !companySiteId) {
         return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
       }
@@ -79,13 +81,16 @@ export async function POST(req) {
         }, { status: 400 });
       }
 
-      // Check funds
-      const cost = Number(item.cost_usd);
-      if (Number(company.cash) < cost) {
-        return NextResponse.json({ error: 'Yetersiz nakit bakiye!' }, { status: 400 });
+      // Check funds for total quantity
+      const unitCost = Number(item.cost_usd);
+      const totalCost = Number((unitCost * quantity).toFixed(2));
+      if (Number(company.cash) < totalCost) {
+        return NextResponse.json({
+          error: `Yetersiz nakit bakiye! ${quantity} adet için gereken: $${totalCost.toLocaleString()}, Mevcut: $${Number(company.cash).toLocaleString()}`
+        }, { status: 400 });
       }
 
-      const newBalance = Number((Number(company.cash) - cost).toFixed(2));
+      const newBalance = Number((Number(company.cash) - totalCost).toFixed(2));
 
       // Deduct cash
       await admin.from('companies').update({ cash: newBalance }).eq('id', company.id);
@@ -96,7 +101,7 @@ export async function POST(req) {
         .select('id, position_x, position_z')
         .eq('company_site_id', cSite.id);
 
-      const assetCount = (existingAssets || []).length;
+      const baseAssetCount = (existingAssets || []).length;
 
       // Realistic 40m - 60m wake spacing positions across the expansive site
       const TURBINE_SLOTS = [
@@ -107,32 +112,85 @@ export async function POST(req) {
         { x: 0, z: -48 },
         { x: 0, z: 48 },
         { x: -52, z: 0 },
-        { x: 52, z: 0 }
+        { x: 52, z: 0 },
+        { x: -24, z: -64 },
+        { x: 24, z: 64 },
+        { x: -64, z: -24 },
+        { x: 64, z: 24 },
+        { x: -44, z: -44 },
+        { x: 44, z: 44 },
+        { x: -44, z: 44 },
+        { x: 44, z: -44 }
       ];
-      const slot = TURBINE_SLOTS[assetCount % TURBINE_SLOTS.length];
-      const posX = Number(position?.x ?? slot.x);
-      const posZ = Number(position?.z ?? slot.z);
 
-      const { data: installedAsset, error: installErr } = await admin
-        .from('installed_assets')
-        .insert({
+      // Collect all occupied coordinates on this site to guarantee no overlapping placement
+      const occupiedCoords = (existingAssets || []).map((a) => {
+        const x = Number(a.position_x);
+        const z = Number(a.position_z);
+        if (x === 0 && z === 0) return { x: -32, z: -24 };
+        return { x: isNaN(x) ? 0 : x, z: isNaN(z) ? 0 : z };
+      });
+
+      // Find an unoccupied slot with at least 22m clearance from all existing and newly planned assets
+      function findAvailableSlot(startIdx) {
+        for (let attempt = 0; attempt < 200; attempt++) {
+          const idx = startIdx + attempt;
+          const slot = TURBINE_SLOTS[idx % TURBINE_SLOTS.length];
+          const ring = Math.floor(idx / TURBINE_SLOTS.length);
+          const ringOffset = ring * 16;
+          const posX = slot.x + (ring % 2 === 0 ? ringOffset : -ringOffset);
+          const posZ = slot.z + (ring % 2 === 0 ? -ringOffset : ringOffset);
+
+          const isOverlapping = occupiedCoords.some((occ) => {
+            const dx = occ.x - posX;
+            const dz = occ.z - posZ;
+            return Math.sqrt(dx * dx + dz * dz) < 22; // Minimum 22m wake clearance
+          });
+
+          if (!isOverlapping) {
+            occupiedCoords.push({ x: posX, z: posZ });
+            return { posX, posZ, idx };
+          }
+        }
+        return { posX: -32 + startIdx * 20, posZ: -24 + startIdx * 20, idx: startIdx };
+      }
+
+      const assetsToInsert = [];
+      for (let i = 0; i < quantity; i++) {
+        let posX, posZ, rotIdx;
+        if (position && quantity === 1) {
+          posX = Number(position.x);
+          posZ = Number(position.z);
+          rotIdx = baseAssetCount;
+        } else {
+          const avail = findAvailableSlot(baseAssetCount + i);
+          posX = avail.posX;
+          posZ = avail.posZ;
+          rotIdx = avail.idx;
+        }
+
+        assetsToInsert.push({
           company_id: company.id,
           company_site_id: cSite.id,
           catalog_id: item.id,
           position_x: posX,
           position_y: 0,
           position_z: posZ,
-          rotation_y: (assetCount * 45) % 360,
+          rotation_y: (rotIdx * 45) % 360,
           installed_game_hour: currentHour,
           condition: 100.0,
           degradation_factor: 1.0,
           last_maintenance_game_hour: currentHour,
           next_maintenance_game_hour: currentHour + 4380,
           status: 'generating',
-          salvage_value: Number((cost * 0.15).toFixed(2))
-        })
-        .select('*, equipment_catalog(*)')
-        .single();
+          salvage_value: Number((unitCost * 0.15).toFixed(2))
+        });
+      }
+
+      const { data: installedAssets, error: installErr } = await admin
+        .from('installed_assets')
+        .insert(assetsToInsert)
+        .select('*, equipment_catalog(*)');
 
       if (installErr) {
         throw new Error('Failed to install asset: ' + installErr.message);
@@ -175,18 +233,23 @@ export async function POST(req) {
         company_id: company.id,
         idempotency_key: `buy_equip_${company.id}_${Date.now()}_${Math.random()}`,
         entry_type: 'equipment_purchase',
-        amount: -cost,
+        amount: -totalCost,
         balance_after: newBalance,
         game_hour: currentHour,
-        description: `${item.model_name} Satın Alındı ve ${cSite.plant_name} Santraline Kuruldu`,
-        metadata: { catalog_id: item.id, cost, site_id: cSite.id }
+        description: quantity > 1
+          ? `${quantity}x ${item.model_name} (${cSite.plant_name.replace(/\s+Santrali$/i, '')})`
+          : `${item.model_name} (${cSite.plant_name.replace(/\s+Santrali$/i, '')})`,
+        metadata: { catalog_id: item.id, cost: totalCost, quantity, site_id: cSite.id }
       });
 
       return NextResponse.json({
         success: true,
-        message: `${item.model_name} satın alındı! 1 haftalık vinç ve montaj kurulum süreci sahada başladı.`,
+        message: quantity > 1
+          ? `${quantity} adet ${item.model_name} satın alındı! 1 haftalık vinç ve montaj kurulum süreci sahada başladı.`
+          : `${item.model_name} satın alındı! 1 haftalık vinç ve montaj kurulum süreci sahada başladı.`,
         newBalance,
-        asset: installedAsset
+        asset: installedAssets?.[0],
+        assets: installedAssets
       });
     }
 
@@ -262,7 +325,7 @@ export async function POST(req) {
         amount: -leaseCost,
         balance_after: newBalance,
         game_hour: currentHour,
-        description: `${site.name} sahası ${years} oyun yıllığına kiralandı`,
+        description: `${site.name} (${years} Yıl Kira)`,
         metadata: { site_id: site.id, years, leaseCost }
       });
 
@@ -342,7 +405,7 @@ export async function POST(req) {
         amount: -purchaseCost,
         balance_after: newBalance,
         game_hour: currentHour,
-        description: `${site.name} arazisinin tapusu satın alındı`,
+        description: `${site.name} Tapu Alımı`,
         metadata: { site_id: site.id, purchaseCost }
       });
 
@@ -415,7 +478,7 @@ export async function POST(req) {
         amount: -maintenanceFee,
         balance_after: newBalance,
         game_hour: currentHour,
-        description: `Periyodik Ekipman Bakım Hizmeti (#${asset.id.slice(0, 8)})`,
+        description: `Ekipman Bakımı (#${asset.id.slice(0, 6)})`,
         metadata: { asset_id: asset.id }
       });
 
@@ -473,7 +536,7 @@ export async function POST(req) {
         amount: -trackerCost,
         balance_after: newBalance,
         game_hour: currentHour,
-        description: `Akıllı Güneş Takip Sistemi (Solar Tracker) Kuruldu: ${cSite.plant_name}`,
+        description: `Solar Tracker (${cSite.plant_name.replace(/\s+Santrali$/i, '')})`,
         metadata: { site_id: cSite.id, upgrade: 'solar_tracker', cost: trackerCost }
       });
 
@@ -549,7 +612,7 @@ export async function POST(req) {
         amount: p,
         balance_after: newBalance,
         game_hour: currentHour,
-        description: `Ticari Yatırım Kredisi Kullandırıldı ($${p.toLocaleString()} - ${termConfig.termYears} Yıl Vade)`,
+        description: `Yatırım Kredisi (${termConfig.termYears} Yıl Vade)`,
         metadata: { loan_id: newLoan.id, principal: p }
       });
 
@@ -627,7 +690,7 @@ export async function POST(req) {
         amount: -actualPayment,
         balance_after: newCash,
         game_hour: currentHour,
-        description: `Kredi Borç Ödemesi (#${loanId.slice(0, 8)} - $${actualPayment.toLocaleString()})`,
+        description: `Kredi Taksit Ödemesi (#${loanId.slice(0, 6)})`,
         metadata: { loan_id: loanId, payment: actualPayment, remaining: newRemaining }
       });
 

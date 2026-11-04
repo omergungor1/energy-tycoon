@@ -856,8 +856,8 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
           <mesh position={[0, 11.5, 5.5]} castShadow material={mats.stoneFoundation}>
             <boxGeometry args={[4.2, 15, 4.2]} />
           </mesh>
-          <mesh position={[0, 20.5, 5.5]} castShadow material={mats.chaletRoof}>
-            <coneGeometry args={[3.2, 7.5, 4]} rotation={[0, Math.PI / 4, 0]} />
+          <mesh position={[0, 20.5, 5.5]} rotation={[0, Math.PI / 4, 0]} castShadow material={mats.chaletRoof}>
+            <coneGeometry args={[3.2, 7.5, 4]} />
           </mesh>
           {/* Glowing Stained Glass Church Windows */}
           <mesh position={[0, 4.2, 7.05]} material={mats.windowLit}>
@@ -886,8 +886,8 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
               <boxGeometry args={[6.5, 4.4, 7.8]} />
             </mesh>
             {/* Pitched Chalet Roof */}
-            <mesh position={[0, 5.4, 0]} rotation={[0, 0, 0]} castShadow material={mats.chaletRoof}>
-              <coneGeometry args={[5.8, 2.6, 4]} rotation={[0, Math.PI / 4, 0]} />
+            <mesh position={[0, 5.4, 0]} rotation={[0, Math.PI / 4, 0]} castShadow material={mats.chaletRoof}>
+              <coneGeometry args={[5.8, 2.6, 4]} />
             </mesh>
             {/* Stone Chimney */}
             <mesh position={[2.2, 6.2, 1.8]} castShadow material={mats.stoneFoundation}>
@@ -1543,9 +1543,9 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
             <mesh position={[0, 1.5, 0]} castShadow receiveShadow material={mats.cityWallMat}>
               <boxGeometry args={[4.4, 3.0, 4.8]} />
             </mesh>
-            {/* Pitch Slate Roof */}
-            <mesh position={[0, 3.8, 0]} castShadow material={mats.barnRoofMat}>
-              <coneGeometry args={[3.8, 2.0, 4]} rotation={[0, Math.PI / 4, 0]} />
+            {/* Pitch Slate Roof - Rotated 45 degrees on mesh to align perfectly with cottage walls */}
+            <mesh position={[0, 3.8, 0]} rotation={[0, Math.PI / 4, 0]} scale={[1.0, 1.0, 1.06]} castShadow material={mats.barnRoofMat}>
+              <coneGeometry args={[3.85, 2.0, 4]} />
             </mesh>
             {/* Stone Chimney */}
             <mesh position={[1.4, 4.2, 1.0]} castShadow material={mats.stoneFoundation}>

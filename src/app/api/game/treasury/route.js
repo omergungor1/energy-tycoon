@@ -209,13 +209,15 @@ export async function GET() {
     // All Time (from hour 0)
     const allStats = calculateRangeStats(0, currentGameHour);
 
-    // Recent 50 ledger entries formatted with game date
+    // Recent 50 ledger entries formatted with game date (Only day and hour as requested)
     const formattedLedger = ledgers.slice(0, 50).map((item) => {
       const gDate = getGameDate(Number(item.game_hour || 0));
       return {
         id: item.id,
         gameHour: item.game_hour,
-        formattedTime: `${gDate.formattedDate}, ${gDate.formattedHour}`,
+        day: gDate.day,
+        hour: gDate.formattedHour,
+        formattedTime: `Gün ${gDate.day}, ${gDate.formattedHour}`,
         entryType: item.entry_type,
         amount: Number(item.amount || 0),
         balanceAfter: Number(item.balance_after || 0),

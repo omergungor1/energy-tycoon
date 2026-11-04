@@ -102,8 +102,29 @@ class AmbientMusicEngine {
     this.windNode = null;
     this.windGain = null;
 
-    this.enabled = true;
-    this.userVolume = 0.65;
+    // Check localStorage immediately to prevent audio leak on muted startups
+    let initialEnabled = true;
+    let initialVolume = 0.65;
+
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('energy_tycoon_settings');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.bgMusicEnabled !== undefined) {
+            initialEnabled = !!parsed.bgMusicEnabled;
+          }
+          if (typeof parsed.bgMusicVolume === 'number') {
+            initialVolume = parsed.bgMusicVolume;
+          }
+        }
+      } catch (e) {
+        // Fallback to default
+      }
+    }
+
+    this.enabled = initialEnabled;
+    this.userVolume = initialVolume;
     this.isNight = false;
     this.isPlaying = false;
     this.chordTimer = null;

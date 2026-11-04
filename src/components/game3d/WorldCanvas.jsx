@@ -3777,7 +3777,7 @@ function BirdFlock() {
 // =============================================================================
 // CAMERA CONTROLLER: SMART CURSOR-CENTRIC ZOOM, ANTI-STALL & AUTO-FOCUS
 // =============================================================================
-function CameraController({ focusedSite, worldSites, controlsRef, enabled = true }) {
+function CameraController({ focusedSite, worldSites, companySites = [], installedAssets = [], controlsRef, enabled = true }) {
   const { camera, gl } = useThree();
   const targetLookAt = useRef(null);
   const targetCamPos = useRef(null);
@@ -3798,18 +3798,35 @@ function CameraController({ focusedSite, worldSites, controlsRef, enabled = true
 
     const siteY = getTerrainHeight(site.center_x, site.center_z);
     const ha = Number(site.area_hectares || 50);
-    // Balanced overview distance so the entire power plant and all equipment fit cleanly in view
-    const viewDist = Math.max(110, Math.min(160, 95 + Math.sqrt(ha) * 4.5));
 
-    targetLookAt.current = new THREE.Vector3(site.center_x, siteY + 4, site.center_z);
+    // Calculate maximum spread radius of assets currently installed on this plant
+    const cSite = companySites.find((cs) => cs.site_id === site.id);
+    let maxAssetRadius = 0;
+    if (cSite) {
+      const siteAssets = installedAssets.filter((a) => a.company_site_id === cSite.id);
+      for (const a of siteAssets) {
+        if (a.coord_x != null && a.coord_z != null) {
+          const d = Math.hypot(Number(a.coord_x) - site.center_x, Number(a.coord_z) - site.center_z);
+          if (d > maxAssetRadius) maxAssetRadius = d;
+        }
+      }
+    }
+
+    // Wide, comfortable overview framing so the entire power plant, all turbine tips,
+    // solar arrays, batteries, and surrounding terrain fit cleanly on screen without excessive zoom-in
+    const baseRadius = Math.max(70, Math.sqrt(ha) * 8.5);
+    const effectiveRadius = Math.max(baseRadius, maxAssetRadius + 42);
+    const viewDist = Math.max(220, Math.min(340, effectiveRadius * 2.85));
+
+    targetLookAt.current = new THREE.Vector3(site.center_x, siteY + 12, site.center_z);
     // Elevated bird's-eye isometric vantage point
     targetCamPos.current = new THREE.Vector3(
-      site.center_x - viewDist * 0.58,
-      siteY + viewDist * 0.48,
-      site.center_z + viewDist * 0.68
+      site.center_x - viewDist * 0.56,
+      siteY + viewDist * 0.52,
+      site.center_z + viewDist * 0.65
     );
     isAnimating.current = true;
-  }, [focusedSite, worldSites, enabled]);
+  }, [focusedSite, worldSites, companySites, installedAssets, enabled]);
 
   // Ray-terrain ground intersection helper under mouse pointer
   const getGroundIntersection = useCallback(
@@ -4133,6 +4150,8 @@ export default function WorldCanvas({
         <CameraController
           focusedSite={focusedSite}
           worldSites={worldSites}
+          companySites={companySites}
+          installedAssets={installedAssets}
           controlsRef={controlsRef}
           enabled={!isGroundMode && !isCinematicMode}
         />
@@ -4264,11 +4283,19 @@ export default function WorldCanvas({
           );
           const turbineIndexInSite = Math.max(0, siteWindTurbines.findIndex((a) => a.id === asset.id));
 
-          const rawX = Number(asset.position_x || 0);
-          const rawZ = Number(asset.position_z || 0);
+          const rawX = Number(asset.position_x);
+          const rawZ = Number(asset.position_z);
+          // Only fallback to slot layout if coordinates are not validly defined in database
+          const hasDbCoords =
+            asset.position_x !== null &&
+            asset.position_x !== undefined &&
+            !isNaN(rawX) &&
+            !isNaN(rawZ) &&
+            (rawX !== 0 || rawZ !== 0);
+
           const slot = TURBINE_SLOTS[turbineIndexInSite % TURBINE_SLOTS.length];
-          const offsetDistX = rawX !== 0 ? rawX : slot.x;
-          const offsetDistZ = rawZ !== 0 ? rawZ : slot.z;
+          const offsetDistX = hasDbCoords ? rawX : slot.x;
+          const offsetDistZ = hasDbCoords ? rawZ : slot.z;
 
           const posX = (worldSite?.center_x || 0) + offsetDistX;
           const posZ = (worldSite?.center_z || 0) + offsetDistZ;

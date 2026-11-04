@@ -214,7 +214,7 @@ export async function processCompanySimulationTick(companyId) {
           amount: Number(netRev.toFixed(2)),
           balance_after: Number(runningCash.toFixed(2)),
           game_hour: h,
-          description: `Elektrik Satış Geliri (Saat ${h % 24}:00, ${energyResult.totalSoldKwh} kWh @ $${market.pricePerKwh}/kWh)`,
+          description: `${(energyResult.totalSoldKwh / 1000).toFixed(1)} MWh Spot Satış ($${market.pricePerKwh}/kWh)`,
           metadata: {
             game_hour: h,
             kwh_sold: energyResult.totalSoldKwh,

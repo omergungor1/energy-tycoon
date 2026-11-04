@@ -97,47 +97,174 @@ export default function TreasuryModal({ isOpen, onClose, company, finance, lang 
     return gh >= currentStats.startHour && gh <= currentStats.endHour;
   });
 
+  const formatTxTime = (tx) => {
+    if (tx.day != null && tx.hour != null) {
+      return lang === 'tr' ? `Gün ${tx.day}, ${tx.hour}` : `Day ${tx.day}, ${tx.hour}`;
+    }
+    if (tx.formattedTime) {
+      return tx.formattedTime
+        .replace(/^Yıl\s+\d+,\s*Ay\s+\d+,\s*/i, '')
+        .replace(/^Year\s+\d+,\s*Month\s+\d+,\s*/i, '');
+    }
+    return '';
+  };
+
+  const getShortDescription = (tx) => {
+    if (!tx) return '';
+    const desc = tx.description || '';
+    const type = tx.entryType || tx.entry_type;
+    const meta = tx.metadata || {};
+
+    if (type === 'electricity_sales') {
+      if (meta.kwh_sold != null) {
+        const kwh = Number(meta.kwh_sold);
+        const mwh = (kwh / 1000).toFixed(kwh >= 10000 ? 1 : 2);
+        const price = meta.price_per_kwh != null ? Number(meta.price_per_kwh).toFixed(3) : null;
+        return lang === 'tr'
+          ? `${mwh} MWh Spot Satış${price ? ` ($${price})` : ''}`
+          : `${mwh} MWh Spot Sale${price ? ` ($${price})` : ''}`;
+      }
+      const match = desc.match(/(\d+(?:\.\d+)?)\s*kWh.*?\$([0-9.]+)/i);
+      if (match) {
+        const kwh = parseFloat(match[1]);
+        const mwh = (kwh / 1000).toFixed(kwh >= 10000 ? 1 : 2);
+        const price = parseFloat(match[2]).toFixed(3);
+        return lang === 'tr'
+          ? `${mwh} MWh Spot Satış ($${price})`
+          : `${mwh} MWh Spot Sale ($${price})`;
+      }
+      return lang === 'tr' ? 'Elektrik Spot Satışı' : 'Spot Energy Sale';
+    }
+
+    if (type === 'equipment_purchase') {
+      const matchMulti = desc.match(/^(\d+)\s+Adet\s+(.+?)\s+Satın Alındı ve\s+(.+?)(?:\s+Santrali)?\s+Santraline Kuruldu/i);
+      if (matchMulti) {
+        return `${matchMulti[1]}x ${matchMulti[2].trim()} (${matchMulti[3].replace(/\s+Santrali$/i, '').trim()})`;
+      }
+      const matchSingle = desc.match(/^(.+?)\s+Satın Alındı ve\s+(.+?)(?:\s+Santrali)?\s+Santraline Kuruldu/i);
+      if (matchSingle) {
+        return `${matchSingle[1].trim()} (${matchSingle[2].replace(/\s+Santrali$/i, '').trim()})`;
+      }
+    }
+
+    if (type === 'site_lease') {
+      const match = desc.match(/^(.+?)\s+sahası\s+(\d+)\s+oyun yıllığına kiralandı/i);
+      if (match) {
+        return lang === 'tr'
+          ? `${match[1].trim()} (${match[2]} Yıl Kira)`
+          : `${match[1].trim()} (${match[2]}y Lease)`;
+      }
+    }
+
+    if (type === 'site_purchase') {
+      const match = desc.match(/^(.+?)\s+arazisinin tapusu satın alındı/i);
+      if (match) {
+        return lang === 'tr'
+          ? `${match[1].trim()} Tapu Alımı`
+          : `${match[1].trim()} Deed Purchase`;
+      }
+    }
+
+    if (type === 'daily_bonus') {
+      const match = desc.match(/Günlük Giriş Bonusu\s*\(([^)]+)\)/i);
+      if (match) {
+        return lang === 'tr' ? `Giriş Bonusu (${match[1]})` : `Daily Bonus (${match[1]})`;
+      }
+    }
+
+    if (type === 'loan_disbursement') {
+      const match = desc.match(/(\d+)\s+Yıl Vade/i);
+      return lang === 'tr'
+        ? (match ? `Yatırım Kredisi (${match[1]} Yıl)` : 'Yatırım Kredisi')
+        : (match ? `Investment Loan (${match[1]}y)` : 'Investment Loan');
+    }
+
+    if (type === 'loan_repayment') {
+      return lang === 'tr' ? 'Kredi Taksit Ödemesi' : 'Loan Payment';
+    }
+
+    if (type === 'initial_grant') {
+      return lang === 'tr' ? 'Devlet Hibe Desteği' : 'Government Grant';
+    }
+
+    if (type === 'grid_settlement_correction') {
+      return lang === 'tr' ? 'Şebeke Kısıtı Telafisi' : 'Grid Constraint Refund';
+    }
+
+    if (type === 'infrastructure_upgrade' || type === 'upgrade_solar_tracker') {
+      const match = desc.match(/Kuruldu:\s*(.+)$/i);
+      const site = match ? ` (${match[1].replace(/\s+Santrali$/i, '').trim()})` : '';
+      return `Solar Tracker${site}`;
+    }
+
+    if (type === 'maintenance_service') {
+      return lang === 'tr' ? 'Ekipman Bakımı' : 'Maintenance';
+    }
+
+    if (desc.length > 40) {
+      return desc.slice(0, 38) + '…';
+    }
+
+    return desc;
+  };
+
   const getEntryBadge = (type) => {
     switch (type) {
       case 'electricity_sales':
         return {
-          label: 'Elektrik Satışı',
+          label: lang === 'tr' ? 'Elektrik Satışı' : 'Power Sale',
           bg: 'bg-emerald-950/70 text-emerald-400 border-emerald-800'
         };
       case 'equipment_purchase':
         return {
-          label: 'Ekipman Alımı',
+          label: lang === 'tr' ? 'Ekipman Alımı' : 'Equipment',
           bg: 'bg-rose-950/70 text-rose-400 border-rose-800'
         };
       case 'site_lease':
         return {
-          label: 'Arazi Kirası',
+          label: lang === 'tr' ? 'Arazi Kirası' : 'Land Lease',
           bg: 'bg-amber-950/70 text-amber-400 border-amber-800'
         };
       case 'site_purchase':
         return {
-          label: 'Arazi Tapusu',
+          label: lang === 'tr' ? 'Arazi Tapusu' : 'Land Deed',
           bg: 'bg-cyan-950/70 text-cyan-400 border-cyan-800'
         };
+      case 'infrastructure_upgrade':
       case 'upgrade_solar_tracker':
         return {
-          label: 'Güneş Takipçi',
+          label: lang === 'tr' ? 'Güneş Takipçi' : 'Solar Tracker',
           bg: 'bg-blue-950/70 text-blue-400 border-blue-800'
+        };
+      case 'maintenance_service':
+        return {
+          label: lang === 'tr' ? 'Bakım Servisi' : 'Maintenance',
+          bg: 'bg-orange-950/70 text-orange-400 border-orange-800'
         };
       case 'loan_disbursement':
         return {
-          label: 'Kredi Girişi',
+          label: lang === 'tr' ? 'Kredi Girişi' : 'Loan Inflow',
           bg: 'bg-indigo-950/70 text-indigo-400 border-indigo-800'
         };
       case 'loan_repayment':
         return {
-          label: 'Kredi Taksiti',
+          label: lang === 'tr' ? 'Kredi Taksiti' : 'Loan Payment',
           bg: 'bg-purple-950/70 text-purple-400 border-purple-800'
         };
       case 'initial_grant':
         return {
-          label: 'Devlet Hibesi',
+          label: lang === 'tr' ? 'Devlet Hibesi' : 'Initial Grant',
           bg: 'bg-teal-950/70 text-teal-400 border-teal-800'
+        };
+      case 'daily_bonus':
+        return {
+          label: lang === 'tr' ? 'Günlük Bonus' : 'Daily Bonus',
+          bg: 'bg-yellow-950/70 text-yellow-400 border-yellow-800'
+        };
+      case 'grid_settlement_correction':
+        return {
+          label: lang === 'tr' ? 'Şebeke Düzeltme' : 'Grid Correction',
+          bg: 'bg-emerald-950/70 text-emerald-300 border-emerald-700'
         };
       default:
         return {
@@ -542,46 +669,50 @@ export default function TreasuryModal({ isOpen, onClose, company, finance, lang 
                   </div>
                 ) : (
                   <div className="overflow-x-auto max-h-72 scrollbar-thin">
-                    <table className="w-full text-left text-xs border-collapse">
+                    <table className="w-full text-left text-xs border-collapse table-fixed">
                       <thead>
                         <tr className="border-b border-slate-800 text-[10px] text-slate-400 uppercase tracking-wider bg-slate-900/60 sticky top-0 z-10">
-                          <th className="py-2.5 px-3">{dict.dateHour}</th>
-                          <th className="py-2.5 px-3">{dict.type}</th>
+                          <th className="py-2.5 px-3 w-28 whitespace-nowrap">{dict.dateHour}</th>
+                          <th className="py-2.5 px-3 w-32 whitespace-nowrap">{dict.type}</th>
                           <th className="py-2.5 px-3">{dict.description}</th>
-                          <th className="py-2.5 px-3 text-right">{dict.amount}</th>
-                          <th className="py-2.5 px-3 text-right">{dict.balanceAfter}</th>
+                          <th className="py-2.5 px-3 w-28 text-right whitespace-nowrap">{dict.amount}</th>
+                          <th className="py-2.5 px-3 w-28 text-right whitespace-nowrap">{dict.balanceAfter}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800/60">
                         {filteredLedger.map((tx) => {
                           const badge = getEntryBadge(tx.entryType);
                           const isPositive = tx.amount >= 0;
+                          const shortDesc = getShortDescription(tx);
                           return (
                             <tr
                               key={tx.id}
-                              className="hover:bg-slate-850/60 transition-colors font-mono"
+                              className="hover:bg-slate-850/60 transition-colors"
                             >
-                              <td className="py-2.5 px-3 whitespace-nowrap text-slate-400 text-[11px]">
-                                {tx.formattedTime}
+                              <td className="py-2.5 px-3 whitespace-nowrap text-slate-400 text-[11px] font-mono">
+                                {formatTxTime(tx)}
                               </td>
                               <td className="py-2.5 px-3 whitespace-nowrap">
                                 <span
-                                  className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${badge.bg}`}
+                                  className={`text-[9px] font-bold px-2 py-0.5 rounded-full border inline-block whitespace-nowrap ${badge.bg}`}
                                 >
                                   {badge.label}
                                 </span>
                               </td>
-                              <td className="py-2.5 px-3 text-slate-300 font-sans text-xs max-w-xs truncate">
-                                {tx.description}
+                              <td
+                                className="py-2.5 px-3 text-slate-300 font-sans text-xs truncate max-w-[280px]"
+                                title={tx.description || shortDesc}
+                              >
+                                {shortDesc}
                               </td>
                               <td
-                                className={`py-2.5 px-3 text-right font-extrabold whitespace-nowrap ${
+                                className={`py-2.5 px-3 text-right font-extrabold whitespace-nowrap font-mono ${
                                   isPositive ? 'text-emerald-400' : 'text-rose-400'
                                 }`}
                               >
                                 {isPositive ? '+' : ''}{formatMoney(tx.amount)}
                               </td>
-                              <td className="py-2.5 px-3 text-right text-slate-400 whitespace-nowrap">
+                              <td className="py-2.5 px-3 text-right text-slate-400 whitespace-nowrap font-mono">
                                 {formatMoney(tx.balanceAfter)}
                               </td>
                             </tr>

@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { Wind, Sun, BatteryCharging, ShoppingCart, Check, AlertCircle } from 'lucide-react';
+import { Wind, Sun, BatteryCharging, ShoppingCart, Check, AlertCircle, Plus, Minus } from 'lucide-react';
 import { dictionaries } from '@/lib/i18n/dictionaries';
 import { useCurrency } from '@/context/CurrencyContext';
 
@@ -26,7 +26,8 @@ export default function ShopPanel({
   lang,
   onActionSuccess,
   initialSiteId = null,
-  initialType = null
+  initialType = null,
+  onSiteChange = null
 }) {
   const dict = dictionaries[lang] || dictionaries.tr;
   const { formatMoney } = useCurrency();
@@ -36,21 +37,46 @@ export default function ShopPanel({
     }
     return 'wind_turbine';
   });
+
   const [selectedSiteId, setSelectedSiteId] = useState(() => {
     if (initialSiteId && companySites.some((cs) => cs.id === initialSiteId)) {
       return initialSiteId;
     }
     return companySites[0]?.id || '';
   });
+
   const [loadingId, setLoadingId] = useState(null);
   const [feedback, setFeedback] = useState(null);
+  const [quantities, setQuantities] = useState({});
 
-  // Sync if initialSiteId changes (e.g. user opens shop from another plant card)
+  const prevInitialSiteIdRef = useRef(initialSiteId);
+
+  // Sync ONLY when initialSiteId prop explicitly changes from parent (e.g. user opens shop from another plant card)
   useEffect(() => {
-    if (initialSiteId && companySites.some((cs) => cs.id === initialSiteId)) {
-      setSelectedSiteId(initialSiteId);
+    if (initialSiteId && initialSiteId !== prevInitialSiteIdRef.current) {
+      prevInitialSiteIdRef.current = initialSiteId;
+      if (companySites.some((cs) => cs.id === initialSiteId)) {
+        setSelectedSiteId(initialSiteId);
+      }
     }
   }, [initialSiteId, companySites]);
+
+  // Keep selectedSiteId valid across data refreshes:
+  // If selectedSiteId is valid in the updated companySites, DO NOT reset it back to the first site!
+  useEffect(() => {
+    if (companySites.length > 0) {
+      const isValid = selectedSiteId && companySites.some((cs) => cs.id === selectedSiteId);
+      if (!isValid) {
+        const fallback =
+          initialSiteId && companySites.some((cs) => cs.id === initialSiteId)
+            ? initialSiteId
+            : companySites[0].id;
+        setSelectedSiteId(fallback);
+        prevInitialSiteIdRef.current = fallback;
+        if (onSiteChange) onSiteChange(fallback);
+      }
+    }
+  }, [companySites, selectedSiteId, initialSiteId, onSiteChange]);
 
   // Sync activeType if initialType changes (e.g. solar plant vs wind farm)
   useEffect(() => {
@@ -62,9 +88,39 @@ export default function ShopPanel({
   const filteredItems = catalog.filter((item) => item.equipment_type === activeType);
   const selectedSite = companySites.find((cs) => cs.id === selectedSiteId);
 
+  // Quantity Stepper Handlers
+  const handleStepQty = (itemId, delta) => {
+    setQuantities((prev) => {
+      const cur = parseInt(prev[itemId], 10) || 1;
+      const nextVal = Math.max(1, Math.min(99, cur + delta));
+      return { ...prev, [itemId]: nextVal };
+    });
+  };
+
+  const handleQtyChange = (itemId, val) => {
+    if (val === '') {
+      setQuantities((prev) => ({ ...prev, [itemId]: '' }));
+      return;
+    }
+    const parsed = parseInt(val, 10);
+    if (!isNaN(parsed)) {
+      setQuantities((prev) => ({ ...prev, [itemId]: Math.max(1, Math.min(99, parsed)) }));
+    }
+  };
+
+  const handleQtyBlur = (itemId) => {
+    setQuantities((prev) => {
+      const cur = parseInt(prev[itemId], 10) || 1;
+      return { ...prev, [itemId]: Math.max(1, cur) };
+    });
+  };
+
   const handleUpgradeTracker = async () => {
     if (!selectedSiteId) {
-      setFeedback({ type: 'error', text: 'Lütfen yükseltme yapılacak bir santral sahası seçin.' });
+      setFeedback({
+        type: 'error',
+        text: lang === 'tr' ? 'Lütfen yükseltme yapılacak bir santral sahası seçin.' : 'Please select a power plant site.'
+      });
       return;
     }
 
@@ -93,12 +149,16 @@ export default function ShopPanel({
     }
   };
 
-  const handleBuy = async (item) => {
+  const handleBuy = async (item, quantity = 1) => {
     if (!selectedSiteId) {
-      setFeedback({ type: 'error', text: 'Lütfen ekipmanın kurulacağı bir santral sahası seçin.' });
+      setFeedback({
+        type: 'error',
+        text: lang === 'tr' ? 'Lütfen ekipmanın kurulacağı bir santral sahası seçin.' : 'Please select a power plant site.'
+      });
       return;
     }
 
+    const buyQty = Math.max(1, parseInt(quantity, 10) || 1);
     setLoadingId(item.id);
     setFeedback(null);
 
@@ -110,17 +170,20 @@ export default function ShopPanel({
           action: 'BUY_EQUIPMENT',
           payload: {
             catalogId: item.id,
-            companySiteId: selectedSiteId
+            companySiteId: selectedSiteId,
+            quantity: buyQty
           }
         })
       });
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'Satın alma işlemi başarısız.');
+        throw new Error(data.error || (lang === 'tr' ? 'Satın alma işlemi başarısız.' : 'Purchase failed.'));
       }
 
       setFeedback({ type: 'success', text: data.message });
+      // Reset quantity back to 1 for this item
+      setQuantities((prev) => ({ ...prev, [item.id]: 1 }));
       if (onActionSuccess) onActionSuccess();
     } catch (err) {
       setFeedback({ type: 'error', text: err.message });
@@ -145,8 +208,13 @@ export default function ShopPanel({
           <span className="text-xs text-slate-400 font-semibold whitespace-nowrap">Kurulum Sahası:</span>
           <select
             value={selectedSiteId}
-            onChange={(e) => setSelectedSiteId(e.target.value)}
-            className="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-emerald-300 font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            onChange={(e) => {
+              const newId = e.target.value;
+              setSelectedSiteId(newId);
+              prevInitialSiteIdRef.current = newId;
+              if (onSiteChange) onSiteChange(newId);
+            }}
+            className="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-emerald-300 font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
           >
             {companySites.map((cs) => (
               <option key={cs.id} value={cs.id}>
@@ -156,7 +224,13 @@ export default function ShopPanel({
           </select>
           {selectedSite && (
             <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700 whitespace-nowrap hidden sm:inline-block">
-              {selectedSite.sites?.region_type === 'wind' ? 'Rüzgâr' : selectedSite.sites?.region_type === 'solar' ? 'Güneş' : selectedSite.sites?.region_type === 'hybrid' ? 'Hibrit' : ''}
+              {selectedSite.sites?.region_type === 'wind'
+                ? 'Rüzgâr'
+                : selectedSite.sites?.region_type === 'solar'
+                ? 'Güneş'
+                : selectedSite.sites?.region_type === 'hybrid'
+                ? 'Hibrit'
+                : ''}
             </span>
           )}
         </div>
@@ -183,7 +257,7 @@ export default function ShopPanel({
       <div className="flex gap-2 mb-6 border-b border-slate-800 pb-3">
         <button
           onClick={() => setActiveType('wind_turbine')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer ${
             activeType === 'wind_turbine'
               ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
               : 'bg-slate-900 text-slate-400 hover:text-slate-200'
@@ -195,7 +269,7 @@ export default function ShopPanel({
 
         <button
           onClick={() => setActiveType('solar_pack')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer ${
             activeType === 'solar_pack'
               ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
               : 'bg-slate-900 text-slate-400 hover:text-slate-200'
@@ -207,7 +281,7 @@ export default function ShopPanel({
 
         <button
           onClick={() => setActiveType('battery')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer ${
             activeType === 'battery'
               ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
               : 'bg-slate-900 text-slate-400 hover:text-slate-200'
@@ -250,7 +324,7 @@ export default function ShopPanel({
               <button
                 disabled={loadingId === 'tracker' || Number(company?.cash || 0) < 28000}
                 onClick={handleUpgradeTracker}
-                className="px-4 py-2.5 rounded-xl font-bold text-xs bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 shadow-md shadow-amber-500/20 transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2.5 rounded-xl font-bold text-xs bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 shadow-md shadow-amber-500/20 transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 {loadingId === 'tracker' ? (
                   <span className="animate-spin rounded-full h-4 w-4 border-2 border-slate-950 border-t-transparent" />
@@ -266,10 +340,17 @@ export default function ShopPanel({
       {/* Equipment Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {filteredItems.map((item) => {
-          const cost = Number(item.cost_usd);
-          const canAfford = Number(company?.cash || 0) >= cost;
+          const currentQty = Math.max(1, parseInt(quantities[item.id], 10) || 1);
+          const unitCost = Number(item.cost_usd);
+          const totalCost = unitCost * currentQty;
+          const userCash = Number(company?.cash || 0);
+          const canAfford = userCash >= totalCost;
           const meetsLevel = Number(company?.level || 1) >= item.min_level_required;
           const isAvailable = canAfford && meetsLevel;
+          const canStepMore = (currentQty + 1) * unitCost <= userCash;
+
+          const capacityMw = Number(item.capacity_kw || 0) / 1000.0;
+          const costPerMw = capacityMw > 0 ? unitCost / capacityMw : 0;
 
           const typeBadge =
             item.equipment_type === 'wind_turbine'
@@ -303,7 +384,9 @@ export default function ShopPanel({
                   </div>
 
                   <div className="absolute top-2.5 right-2.5">
-                    <span className={`text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-lg backdrop-blur-md border shadow-sm ${typeBadge.color}`}>
+                    <span
+                      className={`text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-lg backdrop-blur-md border shadow-sm ${typeBadge.color}`}
+                    >
                       {typeBadge.label}
                     </span>
                   </div>
@@ -326,12 +409,12 @@ export default function ShopPanel({
                     {item.model_name}
                   </h3>
 
-                  <p className="text-xs text-slate-400 mb-4 line-clamp-2">
+                  <p className="text-xs text-slate-400 mb-3 line-clamp-2">
                     {lang === 'tr' ? item.description_tr : item.description_en}
                   </p>
 
                   {/* Specs Pill Matrix */}
-                  <div className="grid grid-cols-2 gap-2 text-xs mb-3">
+                  <div className="grid grid-cols-2 gap-2 text-xs mb-2.5">
                     <div className="bg-slate-950/70 p-2 rounded-xl border border-slate-800">
                       <span className="text-[10px] text-slate-500 block uppercase font-semibold">
                         {dict.shop.capacity}
@@ -356,7 +439,11 @@ export default function ShopPanel({
                       <span className="text-[10px] text-slate-500 block uppercase font-semibold">
                         {dict.shop.minLevel}
                       </span>
-                      <strong className={`font-mono text-sm ${meetsLevel ? 'text-white' : 'text-amber-400'}`}>
+                      <strong
+                        className={`font-mono text-sm ${
+                          meetsLevel ? 'text-white' : 'text-amber-400'
+                        }`}
+                      >
                         Seviye {item.min_level_required}
                       </strong>
                     </div>
@@ -370,33 +457,123 @@ export default function ShopPanel({
                       </strong>
                     </div>
                   </div>
+
+                  {/* MW / MWh Başı Yatırım Maliyeti Barı */}
+                  {costPerMw > 0 && (
+                    <div className="bg-slate-950/80 p-2 px-2.5 rounded-xl border border-slate-800/90 flex items-center justify-between text-xs mb-3 shadow-inner">
+                      <span className="text-[11px] text-slate-400 font-semibold flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+                        {item.equipment_type === 'battery'
+                          ? (lang === 'tr' ? 'MWh Başı Fiyat:' : 'Price per MWh:')
+                          : (lang === 'tr' ? 'MW Başı Fiyat:' : 'Price per MW:')}
+                      </span>
+                      <strong className="text-amber-400 font-mono text-xs font-bold">
+                        {formatMoney(costPerMw, { decimals: 0 })}
+                        <span className="text-[10px] text-slate-400 font-normal ml-0.5">
+                          {item.equipment_type === 'battery' ? '/MWh' : '/MW'}
+                        </span>
+                      </strong>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* Price & Action Button */}
-              <div className="p-4 pt-3 border-t border-slate-800/80 flex items-center justify-between gap-3">
-                <div>
-                  <span className="text-[10px] text-slate-500 block font-semibold uppercase">Fiyat</span>
-                  <div className="text-lg font-black text-white font-mono">
-                    {formatMoney(cost, { decimals: 0 })}
+              {/* Price & Action Button + Quantity Stepper (Vertical 2-Tier Layout) */}
+              <div className="p-4 pt-3 border-t border-slate-800/80 flex flex-col gap-2.5">
+                {/* 1. Sıra: Fiyat ve Birim Tutar */}
+                <div className="flex items-baseline justify-between">
+                  <div>
+                    <span className="text-[10px] text-slate-500 block font-semibold uppercase tracking-wider">
+                      {currentQty > 1
+                        ? lang === 'tr'
+                          ? `Toplam Tutar (${currentQty} Adet)`
+                          : `Total (${currentQty} Units)`
+                        : lang === 'tr'
+                        ? 'Fiyat'
+                        : 'Price'}
+                    </span>
+                    <div className="text-lg font-black text-white font-mono leading-tight">
+                      {formatMoney(totalCost, { decimals: 0 })}
+                    </div>
                   </div>
+
+                  {currentQty > 1 && (
+                    <div className="text-right">
+                      <span className="text-[10px] text-slate-500 block font-semibold uppercase">
+                        {lang === 'tr' ? 'Birim' : 'Unit'}
+                      </span>
+                      <span className="text-xs text-slate-400 font-mono font-semibold">
+                        {formatMoney(unitCost, { decimals: 0 })}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
-                <button
-                  disabled={!isAvailable || loadingId === item.id}
-                  onClick={() => handleBuy(item)}
-                  className={`px-4 py-2.5 rounded-xl font-bold text-xs shadow-md transition-all flex items-center gap-1.5 ${
-                    isAvailable
-                      ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 shadow-emerald-500/20'
-                      : 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                  }`}
-                >
-                  {loadingId === item.id ? (
-                    <span className="animate-spin rounded-full h-4 w-4 border-2 border-slate-950 border-t-transparent" />
-                  ) : (
-                    <span>{dict.shop.buyButton}</span>
-                  )}
-                </button>
+                {/* 2. Sıra: Adet Seçici (- 1 +) ve Kurulum Yap Butonu */}
+                <div className="flex items-center gap-2 pt-1 border-t border-slate-800/60">
+                  {/* Stepper with - / + input */}
+                  <div className="flex items-center bg-slate-950 border border-slate-700/80 rounded-xl p-0.5 shadow-inner shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleStepQty(item.id, -1)}
+                      disabled={currentQty <= 1 || loadingId === item.id}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400 transition-colors cursor-pointer"
+                      title={lang === 'tr' ? 'Adeti azalt' : 'Decrease quantity'}
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
+                    <input
+                      type="number"
+                      min="1"
+                      max="99"
+                      value={quantities[item.id] ?? 1}
+                      onChange={(e) => handleQtyChange(item.id, e.target.value)}
+                      onBlur={() => handleQtyBlur(item.id)}
+                      disabled={loadingId === item.id}
+                      className="w-9 text-center bg-transparent font-mono font-bold text-xs text-emerald-300 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleStepQty(item.id, 1)}
+                      disabled={currentQty >= 99 || loadingId === item.id || !canStepMore}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400 transition-colors cursor-pointer"
+                      title={lang === 'tr' ? 'Adeti artır' : 'Increase quantity'}
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {/* Buy / Install Button */}
+                  <button
+                    disabled={!isAvailable || loadingId === item.id}
+                    onClick={() => handleBuy(item, currentQty)}
+                    className={`flex-1 py-2.5 px-3 rounded-xl font-bold text-xs shadow-md transition-all flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                      isAvailable
+                        ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 shadow-emerald-500/20 active:scale-[0.98]'
+                        : 'bg-slate-800 text-slate-400 cursor-not-allowed'
+                    }`}
+                  >
+                    {loadingId === item.id ? (
+                      <span className="animate-spin rounded-full h-4 w-4 border-2 border-slate-950 border-t-transparent" />
+                    ) : (
+                      <span>
+                        {!meetsLevel
+                          ? lang === 'tr'
+                            ? `Seviye ${item.min_level_required} Gerekli`
+                            : `Level ${item.min_level_required} Req.`
+                          : !canAfford
+                          ? lang === 'tr'
+                            ? 'Yetersiz Nakit'
+                            : 'No Cash'
+                          : currentQty > 1
+                          ? lang === 'tr'
+                            ? `${currentQty} Adet Kur`
+                            : `Install ${currentQty}`
+                          : dict.shop.buyButton}
+                      </span>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           );
@@ -405,4 +582,3 @@ export default function ShopPanel({
     </div>
   );
 }
-

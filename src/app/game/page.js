@@ -75,7 +75,28 @@ function GameContent() {
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const hasAutoPromptedBonus = useRef(false);
   const hasAutoSpawnedGuest = useRef(false);
-  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('energy_tycoon_settings');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          return {
+            ...DEFAULT_SETTINGS,
+            ...parsed,
+            showSiteBoundaries: false,
+            showSiteLabels: false,
+            bgMusicVolume: typeof parsed.bgMusicVolume === 'number' ? parsed.bgMusicVolume : 0.65,
+            bgMusicEnabled: parsed.bgMusicEnabled !== undefined ? parsed.bgMusicEnabled : true
+          };
+        }
+      } catch (e) {
+        console.error('Initial settings load error:', e);
+      }
+    }
+    return DEFAULT_SETTINGS;
+  });
+  const [isSettingsLoaded, setIsSettingsLoaded] = useState(false);
 
   // Vehicle Exploration Driving Mode State
   const [isDrivingMode, setIsDrivingMode] = useState(false);
@@ -200,7 +221,6 @@ function GameContent() {
       const saved = localStorage.getItem('energy_tycoon_settings');
       if (saved) {
         const parsed = JSON.parse(saved);
-        const hasCustomizedMarkers = parsed.markers_configured === true;
         setSettings((prev) => ({
           ...DEFAULT_SETTINGS,
           ...prev,
@@ -213,6 +233,8 @@ function GameContent() {
       }
     } catch (e) {
       console.error('Settings load error:', e);
+    } finally {
+      setIsSettingsLoaded(true);
     }
   }, []);
 
@@ -226,12 +248,12 @@ function GameContent() {
     }
   };
 
-  // Synchronize background music with user settings
+  // Synchronize background music with user settings (Only after settings are verified from localStorage)
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || !isSettingsLoaded) return;
     ambientMusic.setMusicEnabled(settings.bgMusicEnabled !== false);
     ambientMusic.setMusicVolume(typeof settings.bgMusicVolume === 'number' ? settings.bgMusicVolume : 0.65);
-  }, [settings.bgMusicEnabled, settings.bgMusicVolume]);
+  }, [isSettingsLoaded, settings.bgMusicEnabled, settings.bgMusicVolume]);
 
   // Synchronize night mode with ambient music engine
   useEffect(() => {
@@ -241,10 +263,10 @@ function GameContent() {
 
   // Unlock browser audio context on first user interaction (click/touch/key)
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || !isSettingsLoaded) return;
 
     const handleUnlockAudio = () => {
-      if (settings.bgMusicEnabled ?? true) {
+      if (settings.bgMusicEnabled !== false) {
         ambientMusic.resumeIfEnabled();
       }
     };
@@ -258,7 +280,7 @@ function GameContent() {
       window.removeEventListener('pointerdown', handleUnlockAudio);
       window.removeEventListener('keydown', handleUnlockAudio);
     };
-  }, [settings.bgMusicEnabled]);
+  }, [isSettingsLoaded, settings.bgMusicEnabled]);
 
   // Fetch or refresh game state (supports both Guest Mode public state and authenticated state)
   const fetchGameState = useCallback(async () => {
@@ -594,6 +616,7 @@ function GameContent() {
                       lang={lang}
                       initialSiteId={shopInitialSiteId}
                       initialType={shopInitialType}
+                      onSiteChange={(siteId) => setShopInitialSiteId(siteId)}
                       onActionSuccess={fetchGameState}
                     />
                   )}

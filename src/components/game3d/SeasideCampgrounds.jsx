@@ -470,8 +470,8 @@ function Overland4x4Camper({ position = [0, 0, 0], rotation = [0, 0, 0] }) {
           <meshStandardMaterial color="#0f172a" />
         </mesh>
         {/* A-Frame Safari Tan Canvas Tent */}
-        <mesh position={[0, 0.7, 0]} castShadow>
-          <coneGeometry args={[1.3, 1.2, 4]} rotation={[0, Math.PI / 4, 0]} />
+        <mesh position={[0, 0.7, 0]} rotation={[0, Math.PI / 4, 0]} castShadow>
+          <coneGeometry args={[1.3, 1.2, 4]} />
           <meshStandardMaterial color="#d97706" roughness={0.85} />
         </mesh>
         {/* Rain Fly Canopy */}
