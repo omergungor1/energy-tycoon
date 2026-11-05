@@ -28,6 +28,17 @@ export async function GET() {
 
     // If company does not exist (trigger race condition or existing user), initialize it now
     if (!company) {
+      const { data: initialSimState } = await admin
+        .from('simulation_state')
+        .select('*')
+        .eq('id', 1)
+        .single();
+      const initialGameHour = calculateCurrentGameHour(
+        Date.now(),
+        Number(initialSimState?.epoch_real_utc_ms || Date.now()),
+        Number(initialSimState?.epoch_game_hour || 0)
+      );
+
       const defaultName = (user.user_metadata?.company_name || user.email?.split('@')[0] || 'CleanEnergy') + ' Corp';
       const { data: newComp, error: createCompErr } = await admin
         .from('companies')
@@ -55,7 +66,7 @@ export async function GET() {
           company_id: company.id,
           site_id: 1,
           tenure_type: 'lease',
-          lease_expires_game_hour: 8760,
+          lease_expires_game_hour: initialGameHour + 8760,
           is_explored: true,
           plant_name: 'Alpha Wind Farm'
         })
@@ -87,11 +98,11 @@ export async function GET() {
           position_x: -32.0,
           position_y: 0,
           position_z: -24.0,
-          installed_game_hour: 0,
+          installed_game_hour: Math.max(0, initialGameHour - 168),
           condition: 100.0,
           degradation_factor: 1.0,
-          last_maintenance_game_hour: 0,
-          next_maintenance_game_hour: 4380,
+          last_maintenance_game_hour: initialGameHour,
+          next_maintenance_game_hour: initialGameHour + 4380,
           status: 'generating',
           salvage_value: 25000.0
         });
@@ -103,7 +114,7 @@ export async function GET() {
         entry_type: 'initial_grant',
         amount: 100000.00,
         balance_after: 100000.00,
-        game_hour: 0,
+        game_hour: initialGameHour,
         description: 'Initial Government Energy Entrepreneurship Grant',
         metadata: { amount: 100000 }
       });

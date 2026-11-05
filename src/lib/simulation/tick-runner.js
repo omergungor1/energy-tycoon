@@ -38,6 +38,16 @@ export async function processCompanySimulationTick(companyId) {
     throw new Error('Company not found: ' + (compErr?.message || ''));
   }
 
+  // Calculate company founding game hour from its created_at timestamp
+  const companyCreatedUtcMs = company.created_at
+    ? new Date(company.created_at).getTime()
+    : Date.now();
+  const companyCreatedHour = calculateCurrentGameHour(
+    companyCreatedUtcMs,
+    Number(simState.epoch_real_utc_ms),
+    Number(simState.epoch_game_hour)
+  );
+
   // Find last processed hour for this company
   const { data: lastSettlement } = await supabase
     .from('hourly_energy_settlements')
@@ -46,9 +56,13 @@ export async function processCompanySimulationTick(companyId) {
     .order('game_hour', { ascending: false })
     .limit(1);
 
+  // If company has never processed any settlement, start from company creation hour, NEVER hour 0!
   let lastProcessedHour = lastSettlement && lastSettlement.length > 0
     ? Number(lastSettlement[0].game_hour)
-    : 0;
+    : companyCreatedHour;
+
+  // Guarantee we never retroactively process hours before the company was founded
+  lastProcessedHour = Math.max(lastProcessedHour, companyCreatedHour);
 
   // Catch-up: process missing hours up to targetGameHour (cap at 72 hours per tick batch)
   const hoursToProcess = [];
