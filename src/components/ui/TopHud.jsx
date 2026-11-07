@@ -23,6 +23,7 @@ import {
   Settings,
   User,
   ChevronDown,
+  ArrowUpRight,
   Check,
   Calendar,
   Coins,
@@ -63,6 +64,7 @@ export default function TopHud({
   mySites = [],
   focusedSite = null,
   onFocusPlant = () => {},
+  onInspectPlant = null,
   settings = null,
   onUpdateSettings = null
 }) {
@@ -430,6 +432,20 @@ export default function TopHud({
                                 ? 'KİRALIK'
                                 : 'LEASED'}
                             </span>
+                            {onInspectPlant && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setPlantMenuOpen(false);
+                                  onInspectPlant(site.siteId);
+                                }}
+                                title={lang === 'tr' ? 'Santral Ekipman & Gelir Raporunu Aç' : 'Open Plant Equipment & Revenue'}
+                                className="p-1 rounded-md bg-slate-800 hover:bg-emerald-500/20 text-slate-400 hover:text-emerald-300 border border-slate-700 hover:border-emerald-500/40 transition-colors"
+                              >
+                                <ArrowUpRight className="w-3 h-3" />
+                              </button>
+                            )}
                           </div>
                         </button>
                       );
@@ -732,13 +748,13 @@ export default function TopHud({
 
             {/* Calendar Popover Dropdown */}
             {clockMenuOpen && (
-              <div className="max-sm:fixed max-sm:left-3 max-sm:right-3 max-sm:top-14 max-sm:w-auto sm:absolute sm:left-1/2 sm:-translate-x-1/2 sm:top-full sm:mt-2 sm:w-72 rounded-2xl bg-slate-900/98 border border-slate-800/90 shadow-2xl backdrop-blur-xl p-3 z-50 animate-in fade-in zoom-in-95 duration-150 text-slate-200 max-h-[85vh] overflow-y-auto">
+              <div className="max-sm:fixed max-sm:left-3 max-sm:right-3 max-sm:top-14 max-sm:w-auto sm:absolute sm:left-1/2 sm:-translate-x-1/2 sm:top-full sm:mt-2 sm:w-80 rounded-2xl bg-slate-900/98 border border-slate-800/90 shadow-2xl backdrop-blur-xl p-3.5 z-50 animate-in fade-in zoom-in-95 duration-150 text-slate-200 max-h-[85vh] overflow-y-auto">
                 {/* Header */}
-                <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800">
+                <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-slate-800">
                   <div className="flex items-center gap-1.5">
                     <Calendar className="w-4 h-4 text-blue-400" />
                     <span className="font-bold text-xs text-white">
-                      {lang === 'tr' ? 'Oyun Takvimi' : 'Game Calendar'}
+                      {lang === 'tr' ? 'Oyun Takvimi & Zaman Hesabı' : 'Game Calendar & Time Scale'}
                     </span>
                   </div>
                   <span
@@ -756,32 +772,25 @@ export default function TopHud({
                     ) : (
                       <>
                         <Sun className="w-3 h-3 text-amber-400" />
-                        <span>{lang === 'tr' ? 'Gündüz' : 'Day'}</span>
+                        <span>{lang === 'tr' ? 'Gündüz (Güneş Aktif)' : 'Daylight'}</span>
                       </>
                     )}
                   </span>
                 </div>
 
-                {/* Full Date Display */}
+                {/* Digital Clock Display */}
                 <div className="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3 text-center mb-2.5">
                   <div className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold mb-0.5">
-                    {lang === 'tr' ? 'Aktif Simülasyon Tarihi' : 'Active Simulation Date'}
+                    {lang === 'tr' ? 'Aktif Simülasyon Saati' : 'Active Simulation Time'}
                   </div>
-                  <div className="text-sm font-extrabold text-white">
-                    {clock?.formattedDate || `Yıl ${clock?.year || 1}, Ay ${clock?.month || 1}, Gün ${clock?.day || 1}`}
-                  </div>
-                  <div className="text-xs font-mono text-cyan-300 font-bold mt-1">
+                  <div className="text-2xl font-black font-mono text-cyan-300 tracking-wider">
                     {clock?.formattedHour || '12:00'}
                   </div>
-                </div>
-
-                {/* Season & Day stats */}
-                <div className="grid grid-cols-2 gap-2 text-xs mb-2.5 font-mono">
-                  <div className="bg-slate-950/60 border border-slate-800 p-2 rounded-lg">
-                    <span className="text-[9px] text-slate-400 block font-sans uppercase">
-                      {lang === 'tr' ? 'Mevsim' : 'Season'}
-                    </span>
-                    <strong className="text-emerald-400 text-[11px] capitalize">
+                  <div className="text-xs font-bold text-slate-200 mt-0.5">
+                    {clock?.formattedDate || `Yıl ${clock?.year || 1}, Ay ${clock?.month || 1}, Gün ${clock?.day || 1}`}
+                  </div>
+                  <div className="flex items-center justify-center gap-2 text-[10px] text-slate-400 mt-1 font-mono">
+                    <span className="text-emerald-400 capitalize font-bold">
                       {clock?.season === 'spring'
                         ? 'İlkbahar'
                         : clock?.season === 'summer'
@@ -789,22 +798,54 @@ export default function TopHud({
                         : clock?.season === 'autumn'
                         ? 'Sonbahar'
                         : 'Kış'}
-                    </strong>
-                  </div>
-                  <div className="bg-slate-950/60 border border-slate-800 p-2 rounded-lg">
-                    <span className="text-[9px] text-slate-400 block font-sans uppercase">
-                      {lang === 'tr' ? 'Toplam Saat' : 'Total Hour'}
                     </span>
-                    <strong className="text-slate-200 text-[11px]">
-                      #{clock?.gameHour || 0}
-                    </strong>
+                    <span>•</span>
+                    <span>Saat #{clock?.gameHour || 0}</span>
                   </div>
                 </div>
 
-                {/* Speed note */}
-                <div className="text-[10px] text-slate-400 bg-slate-950/40 p-2 rounded-lg border border-slate-800/50 flex items-center justify-between">
-                  <span>{lang === 'tr' ? 'Zaman Hızı:' : 'Simulation Speed:'}</span>
-                  <strong className="text-amber-400 font-mono font-bold">24x (1h = 1 gün)</strong>
+                {/* Time Scale Calculation (1 Dünya Saati = 24 Energy Tycoon Saati) */}
+                <div className="space-y-1.5 mb-2.5">
+                  <div className="text-[10px] uppercase font-bold tracking-wider text-slate-400 px-0.5 flex items-center justify-between">
+                    <span>{lang === 'tr' ? 'Zaman Dönüşüm Hesabı' : 'Time Conversion Ratio'}</span>
+                    <span className="text-amber-400 font-mono font-black">24x Hız</span>
+                  </div>
+
+                  {/* Primary highlight equality box */}
+                  <div className="bg-gradient-to-r from-cyan-950/40 via-emerald-950/40 to-slate-950/60 border border-emerald-500/30 rounded-xl p-2.5 text-center">
+                    <div className="text-[11px] font-extrabold text-white">
+                      1 Dünya Saati = <span className="text-emerald-400 font-mono text-xs">24 Energy Tycoon Saati</span>
+                    </div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">
+                      (Gerçek dünyadaki 1 saat, oyunda tam 1 güne eşittir)
+                    </div>
+                  </div>
+
+                  {/* Breakdown table */}
+                  <div className="bg-slate-950/70 border border-slate-800/80 rounded-xl divide-y divide-slate-800/60 text-[11px]">
+                    <div className="p-2 flex items-center justify-between">
+                      <span className="text-slate-400">1 Oyun Saati (Satış Döngüsü)</span>
+                      <strong className="font-mono text-cyan-300">2.5 Gerçek Dakika</strong>
+                    </div>
+                    <div className="p-2 flex items-center justify-between">
+                      <span className="text-slate-400">1 Dünya Günü (24 Saat)</span>
+                      <strong className="font-mono text-amber-300">24 Oyun Günü (~1 Ay)</strong>
+                    </div>
+                    <div className="p-2 flex items-center justify-between">
+                      <span className="text-slate-400">1 Tam Oyun Yılı (365 Gün)</span>
+                      <strong className="font-mono text-purple-300">~15.2 Gerçek Gün</strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Daylight / Night cycle note */}
+                <div className="text-[10px] text-slate-400 bg-slate-950/50 p-2.5 rounded-xl border border-slate-800/60 leading-relaxed">
+                  <strong className="text-slate-200 block mb-0.5 font-semibold">
+                    {lang === 'tr' ? '☀️ Gündüz & Gece Üretim Döngüsü:' : '☀️ Day & Night Generation Cycle:'}
+                  </strong>
+                  {lang === 'tr'
+                    ? '06:00 - 20:00 arası gündüzdür; güneş panelleri elektrik üretir (zirve 13:00). Gece saatlerinde güneş üretimi durur, rüzgâr türbinleri ve bataryalar devrede kalır.'
+                    : 'Daylight is 06:00 - 20:00 (peak solar at 13:00). Night is 20:00 - 06:00 (solar stops, wind and batteries power the grid).'}
                 </div>
               </div>
             )}

@@ -142,7 +142,10 @@ export async function GET() {
       loansRes,
       notificationsRes,
       recentSettlementsRes,
-      leaderboardRes
+      allCompaniesRes,
+      allCompanySitesRes,
+      allInstalledAssetsRes,
+      allActiveLoansRes
     ] = await Promise.all([
       admin.from('simulation_state').select('*').eq('id', 1).single(),
       admin.from('world_sites').select('*').order('id', { ascending: true }),
@@ -154,7 +157,10 @@ export async function GET() {
       admin.from('loans').select('*').eq('company_id', company.id).eq('status', 'active'),
       admin.from('company_notifications').select('*').eq('company_id', company.id).order('created_at', { ascending: false }).limit(20),
       admin.from('hourly_energy_settlements').select('*').eq('company_id', company.id).order('game_hour', { ascending: false }).limit(100),
-      admin.from('companies').select('id, name, level, cash, xp').order('cash', { ascending: false }).limit(20)
+      admin.from('companies').select('id, name, level, cash, xp, status').eq('status', 'active').limit(50),
+      admin.from('company_sites').select('company_id, tenure_type, world_sites(purchase_price)'),
+      admin.from('installed_assets').select('company_id, condition, degradation_factor, equipment_catalog(cost_usd)'),
+      admin.from('loans').select('company_id, remaining_balance, status').eq('status', 'active')
     ]);
 
     const simState = simStateRes.data || { epoch_real_utc_ms: Date.now(), epoch_game_hour: 0, world_seed: 42 };
@@ -230,6 +236,58 @@ export async function GET() {
       recordedHours: hourlyMap24.size
     };
 
+    const allSites = allCompanySitesRes.data || [];
+    const allAssets = allInstalledAssetsRes.data || [];
+    const allLoans = allActiveLoansRes.data || [];
+
+    // Calculate Net Worth for all companies and rank strictly by Net Worth descending
+    const calculatedLeaderboard = (allCompaniesRes.data || []).map((comp) => {
+      // If this is the active user's company, use the up-to-date freshCompany & finance
+      if (comp.id === company.id) {
+        return {
+          id: comp.id,
+          name: freshCompany?.name || comp.name,
+          level: freshCompany?.level || comp.level || 1,
+          xp: freshCompany?.xp || comp.xp || 0,
+          cash: Number(freshCompany?.cash ?? comp.cash ?? 0),
+          netWorth: finance.netWorth,
+          assetsBookValue: finance.assetsBookValue,
+          ownedLandValue: finance.ownedLandValue,
+          totalDebt: finance.totalDebt,
+          siteCount: (companySitesRes.data || []).length,
+          assetCount: (installedAssetsRes.data || []).length
+        };
+      }
+
+      const cSites = allSites.filter((s) => s.company_id === comp.id);
+      const cAssets = allAssets.filter((a) => a.company_id === comp.id);
+      const cLoans = allLoans.filter((l) => l.company_id === comp.id);
+
+      const compFinance = calculateCompanyNetWorth({
+        cash: comp.cash || 0,
+        installedAssets: cAssets,
+        companySites: cSites,
+        gridConnections: [],
+        activeLoans: cLoans
+      });
+
+      return {
+        id: comp.id,
+        name: comp.name,
+        level: comp.level || 1,
+        xp: comp.xp || 0,
+        cash: Number(comp.cash || 0),
+        netWorth: compFinance.netWorth,
+        assetsBookValue: compFinance.assetsBookValue,
+        ownedLandValue: compFinance.ownedLandValue,
+        totalDebt: compFinance.totalDebt,
+        siteCount: cSites.length,
+        assetCount: cAssets.length
+      };
+    });
+
+    calculatedLeaderboard.sort((a, b) => b.netWorth - a.netWorth);
+
     return NextResponse.json({
       success: true,
       clock,
@@ -251,7 +309,7 @@ export async function GET() {
       notifications: notificationsRes.data || [],
       recentSettlements: recentSettlementsRes.data || [],
       last24hStats,
-      leaderboard: leaderboardRes.data || [],
+      leaderboard: calculatedLeaderboard,
       finance,
       totalCapacityKw
     });

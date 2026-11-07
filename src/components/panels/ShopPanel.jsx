@@ -7,16 +7,47 @@ import { dictionaries } from '@/lib/i18n/dictionaries';
 import { useCurrency } from '@/context/CurrencyContext';
 
 function getEquipmentImage(item) {
-  if (item.equipment_type === 'wind_turbine') {
+  if (item?.equipment_type === 'wind_turbine') {
     return '/equipment/wind_turbine.jpg';
   }
-  if (item.equipment_type === 'solar_pack') {
+  if (item?.equipment_type === 'solar_pack') {
     return '/equipment/solar_pack.jpg';
   }
-  if (item.equipment_type === 'battery') {
+  if (item?.equipment_type === 'battery') {
     return '/equipment/battery_pack.jpg';
   }
   return '/equipment/wind_turbine.jpg';
+}
+
+function getEquipmentFallbackSvg(item) {
+  if (item?.equipment_type === 'wind_turbine') {
+    return '/equipment/wind_turbine.svg';
+  }
+  if (item?.equipment_type === 'solar_pack') {
+    return '/equipment/solar_pack.svg';
+  }
+  if (item?.equipment_type === 'battery') {
+    return '/equipment/battery_pack.svg';
+  }
+  return '/equipment/wind_turbine.svg';
+}
+
+function EquipmentCardImage({ item }) {
+  const [hasError, setHasError] = useState(false);
+  const primarySrc = getEquipmentImage(item);
+  const fallbackSrc = getEquipmentFallbackSvg(item);
+
+  return (
+    <Image
+      key={item?.id || item?.equipment_type}
+      src={hasError ? fallbackSrc : primarySrc}
+      alt={item?.model_name || 'Equipment'}
+      fill
+      unoptimized
+      className="object-cover group-hover:scale-105 transition-transform duration-500"
+      onError={() => setHasError(true)}
+    />
+  );
 }
 
 export default function ShopPanel({
@@ -367,14 +398,8 @@ export default function ShopPanel({
               <div>
                 {/* Visual Image Header */}
                 <div className="relative w-full h-44 bg-slate-950 overflow-hidden border-b border-slate-800">
-                  <Image
-                    src={getEquipmentImage(item)}
-                    alt={item.model_name}
-                    fill
-                    className="object-cover group-hover:scale-105 transition-transform duration-500"
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent" />
+                  <EquipmentCardImage item={item} />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent pointer-events-none" />
 
                   {/* Overlaid Badges */}
                   <div className="absolute top-2.5 left-2.5">

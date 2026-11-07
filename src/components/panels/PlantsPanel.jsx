@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Factory, Wrench, Check, AlertCircle, Zap, Shield, Edit2, Sun, ShoppingBag } from 'lucide-react';
 import { dictionaries } from '@/lib/i18n/dictionaries';
@@ -11,6 +11,31 @@ function getEquipmentImage(type) {
   if (type === 'solar_pack') return '/equipment/solar_pack.jpg';
   if (type === 'battery') return '/equipment/battery_pack.jpg';
   return '/equipment/wind_turbine.jpg';
+}
+
+function getEquipmentFallbackSvg(type) {
+  if (type === 'wind_turbine') return '/equipment/wind_turbine.svg';
+  if (type === 'solar_pack') return '/equipment/solar_pack.svg';
+  if (type === 'battery') return '/equipment/battery_pack.svg';
+  return '/equipment/wind_turbine.svg';
+}
+
+function PlantEquipmentImage({ type, alt }) {
+  const [hasError, setHasError] = useState(false);
+  const primarySrc = getEquipmentImage(type);
+  const fallbackSrc = getEquipmentFallbackSvg(type);
+
+  return (
+    <Image
+      key={type}
+      src={hasError ? fallbackSrc : primarySrc}
+      alt={alt || 'Equipment'}
+      fill
+      unoptimized
+      className="object-cover"
+      onError={() => setHasError(true)}
+    />
+  );
 }
 
 export default function PlantsPanel({
@@ -245,11 +270,9 @@ export default function PlantsPanel({
               >
                 <div className="flex items-start gap-4">
                   <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-950 border border-slate-700 shrink-0 relative mt-0.5 shadow-sm">
-                    <Image
-                      src={getEquipmentImage(catalog.equipment_type)}
+                    <PlantEquipmentImage
+                      type={catalog.equipment_type}
                       alt={catalog.model_name || 'Equipment'}
-                      fill
-                      className="object-cover"
                     />
                   </div>
 

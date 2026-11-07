@@ -3,43 +3,44 @@
 import React, { useRef, useMemo, useEffect, useState, useCallback } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Text, Billboard } from '@react-three/drei';
+import { Map, Box, Compass, Plus, Minus, Maximize2 } from 'lucide-react';
 import * as THREE from 'three';
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import DrivableBuggy from './DrivableBuggy';
 import WalkableCharacter from './WalkableCharacter';
-import WaterFeatures from './WaterFeatures';
 import LivingSettlements from './LivingSettlements';
 import RailwaySystem from './RailwaySystem';
 import WildlifeAndSky from './WildlifeAndSky';
 import CinematicCameraTour from './CinematicCameraTour';
-import { WindTurbineConstructionSite, SolarConstructionSite } from './ConstructionSites';
+import MountainMotocrossTour from './MountainMotocrossTour';
+import { WindTurbineConstructionSite, SolarConstructionSite, SafetyFloodlightTower } from './ConstructionSites';
 
 // 24 World Investment Sites coordinates
 const KNOWN_SITES = [
   { id: 1, x: -450.0, z: -320.0, area: 45.0 },
-  { id: 2, x: -580.0, z: -420.0, area: 75.0 },
+  { id: 2, x: -630.0, z: -460.0, area: 75.0 },
   { id: 3, x: -320.0, z: -510.0, area: 60.0 },
-  { id: 4, x: -690.0, z: -180.0, area: 85.0 },
-  { id: 5, x: -260.0, z: -390.0, area: 55.0 },
+  { id: 4, x: -710.0, z: -160.0, area: 85.0 },
+  { id: 5, x: -240.0, z: -440.0, area: 55.0 },
   { id: 6, x: -750.0, z: -350.0, area: 90.0 },
-  { id: 7, x: -400.0, z: -150.0, area: 65.0 },
+  { id: 7, x: -420.0, z: -190.0, area: 65.0 },
   { id: 8, x: -820.0, z: -520.0, area: 110.0 },
-  { id: 9, x: 380.0, z: 280.0, area: 50.0 },
-  { id: 10, x: 490.0, z: 350.0, area: 80.0 },
-  { id: 11, x: 620.0, z: 190.0, area: 100.0 },
-  { id: 12, x: 310.0, z: 420.0, area: 70.0 },
-  { id: 13, x: 540.0, z: 480.0, area: 95.0 },
-  { id: 14, x: 240.0, z: 220.0, area: 60.0 },
-  { id: 15, x: 730.0, z: 310.0, area: 120.0 },
-  { id: 16, x: 820.0, z: 420.0, area: 140.0 },
+  { id: 9, x: 380.0, z: 320.0, area: 50.0 },
+  { id: 10, x: 500.0, z: 370.0, area: 80.0 },
+  { id: 11, x: 620.0, z: 370.0, area: 100.0 },
+  { id: 12, x: 280.0, z: 450.0, area: 70.0 },
+  { id: 13, x: 540.0, z: 490.0, area: 95.0 },
+  { id: 14, x: 220.0, z: 320.0, area: 60.0 },
+  { id: 15, x: 730.0, z: 400.0, area: 120.0 },
+  { id: 16, x: 860.0, z: 450.0, area: 140.0 },
   { id: 17, x: 50.0, z: -180.0, area: 65.0 },
-  { id: 18, x: -120.0, z: 80.0, area: 80.0 },
-  { id: 19, x: 180.0, z: -90.0, area: 75.0 },
+  { id: 18, x: -150.0, z: 50.0, area: 80.0 },
+  { id: 19, x: 205.0, z: -70.0, area: 75.0 },
   { id: 20, x: -50.0, z: -320.0, area: 90.0 },
-  { id: 21, x: 120.0, z: 150.0, area: 85.0 },
-  { id: 22, x: -220.0, z: 240.0, area: 105.0 },
-  { id: 23, x: 290.0, z: -220.0, area: 115.0 },
-  { id: 24, x: 50.0, z: 380.0, area: 150.0 }
+  { id: 21, x: 140.0, z: 360.0, area: 85.0 },
+  { id: 22, x: -250.0, z: 200.0, area: 105.0 },
+  { id: 23, x: 260.0, z: -200.0, area: 115.0 },
+  { id: 24, x: 50.0, z: 430.0, area: 150.0 }
 ];
 
 function smoothstep(min, max, value) {
@@ -82,6 +83,11 @@ function getRawTerrainHeight(x, z) {
     const depth = Math.min(1.0, Math.max(0, (-490 - z) / 150));
     const bayCarve = Math.exp(-dx * dx) * depth;
     falloff = Math.max(0, falloff - bayCarve * 0.88);
+  }
+
+  // Dedicated dredged ship berthing basin strictly in front of container quay (x between 235 and 315, z between -780 and -640)
+  if (z < -640 && z > -780 && x >= 235.0 && x < 315.0) {
+    falloff = 0.0;
   }
 
   // Western mountain mass (dominates west of x = -50)
@@ -134,7 +140,7 @@ export const SETTLEMENT_ZONES = [
   { name: 'Agri Farm', x: -35, z: 248, radius: 82, innerRadius: 58 },
   { name: 'Marina Harbor', x: 195, z: -570, radius: 44, innerRadius: 22 },
   { name: 'Sunflower Farm', x: 430, z: -140, radius: 72, innerRadius: 50 },
-  { name: 'Valley Orchard Farm', x: -290, z: 80, radius: 72, innerRadius: 50 },
+  { name: 'Valley Orchard Farm', x: -285, z: 98, radius: 140, innerRadius: 105, customHeight: 56.94 },
   { name: 'North Sea Port Terminal', x: 345, z: -710, radius: 65, innerRadius: 42, customHeight: 1.4 },
   { name: 'Sunset Dunes Beach Camp', x: 372, z: -835, radius: 24, innerRadius: 14, customHeight: 2.1 },
   { name: 'South Sands Beach Camp', x: 75, z: 1030, radius: 26, innerRadius: 15, customHeight: 3.3 },
@@ -147,28 +153,7 @@ const SETTLEMENT_ANCHOR_HEIGHTS = SETTLEMENT_ZONES.map((s) => s.customHeight !==
 export function getTerrainHeight(x, z) {
   let h = getRawTerrainHeight(x, z);
 
-  // Central Substation & Interchange leveled terrace (radius 88m, innerRadius 62m centered at (0, -30))
-  const distSub = Math.hypot(x, z + 30);
-  if (distSub < 88) {
-    const t = smoothstep(88, 62, distSub);
-    h = h * (1 - t * 0.95) + SUBSTATION_ANCHOR_HEIGHT * (t * 0.95);
-  }
-
-  // Stable leveled terraces around Living Settlements (Eliminates ground clipping and flickering)
-  for (let i = 0; i < SETTLEMENT_ZONES.length; i++) {
-    const sz = SETTLEMENT_ZONES[i];
-    if (Math.abs(x - sz.x) < sz.radius && Math.abs(z - sz.z) < sz.radius) {
-      const d = Math.hypot(x - sz.x, z - sz.z);
-      if (d < sz.radius) {
-        const t = smoothstep(sz.radius, sz.innerRadius, d);
-        const targetH = sz.customHeight !== undefined ? sz.customHeight : SETTLEMENT_ANCHOR_HEIGHTS[i];
-        h = h * (1 - t * 0.96) + targetH * (t * 0.96);
-        break;
-      }
-    }
-  }
-
-  // Stable leveled terraces around all 24 sites (flat plateau radius 76m, smooth transition to 110m)
+  // 1. Generic leveled terraces around all 24 sites (flat plateau radius 76m, smooth transition to 110m)
   for (let i = 0; i < KNOWN_SITES.length; i++) {
     const s = KNOWN_SITES[i];
     if (Math.abs(x - s.x) < 112 && Math.abs(z - s.z) < 112) {
@@ -178,6 +163,46 @@ export function getTerrainHeight(x, z) {
         h = h * (1 - t) + SITE_ANCHOR_HEIGHTS[i] * t;
         break;
       }
+    }
+  }
+
+  // 2. Central Substation & Interchange leveled terrace (radius 88m, innerRadius 62m centered at (0, -30))
+  const distSub = Math.hypot(x, z + 30);
+  if (distSub < 88) {
+    const t = smoothstep(88, 62, distSub);
+    h = h * (1 - t * 0.95) + SUBSTATION_ANCHOR_HEIGHT * (t * 0.95);
+  }
+
+  // 3. Stable leveled terraces around Living Settlements (takes high priority over generic sites)
+  for (let i = 0; i < SETTLEMENT_ZONES.length; i++) {
+    const sz = SETTLEMENT_ZONES[i];
+    // For North Sea Port Terminal, only level the terminal apron on the landward side (x >= 315.0)
+    if (sz.name === 'North Sea Port Terminal' && x < 315.0) {
+      continue;
+    }
+    if (Math.abs(x - sz.x) < sz.radius && Math.abs(z - sz.z) < sz.radius) {
+      const d = Math.hypot(x - sz.x, z - sz.z);
+      if (d < sz.radius) {
+        const t = smoothstep(sz.radius, sz.innerRadius, d);
+        const targetH = sz.customHeight !== undefined ? sz.customHeight : SETTLEMENT_ANCHOR_HEIGHTS[i];
+        h = h * (1 - t) + targetH * t;
+        break;
+      }
+    }
+  }
+
+  // 4. Dedicated North Sea Port Deep-Water Harbor Basin & Berthing Channel
+  // Eliminates sandbanks directly in front of the quay (strictly bounded: x between 235 and 315, z between -780 and -640)
+  if (z > -780 && z < -640 && x >= 235.0 && x < 315.0) {
+    const distFromQuay = 315.0 - x;
+    const dredgedDepth = -4.5 - Math.min(7.5, distFromQuay * 0.45);
+    h = Math.min(h, dredgedDepth);
+  } else if (((z < -770 && z > -810) || (z > -650 && z < -610)) && x >= 315.0 && x < 334.0) {
+    // Flanking north & south sides of the pier: water cuts cleanly back so pier juts out into the ocean strictly in the harbor bay
+    const edgeDist = 334.0 - x;
+    if (edgeDist > 0) {
+      const t = Math.min(1.0, edgeDist / 14.0);
+      h = Math.min(h, -3.8 * t);
     }
   }
 
@@ -482,87 +507,230 @@ function WindTurbine({
   );
 }
 
-// 3D Solar Array with Optional Solar Sun-Tracker
-function SolarArray({ position, hasTracker = false, clock, onClick }) {
-  const panelRackRef = useRef();
+// =============================================================================
+// HIGH-FIDELITY 4x4 (16-PANEL) UTILITY-SCALE GES (SOLAR FARM) WITH SUN TRACKING
+// =============================================================================
+function SolarArray({ position, hasTracker = true, clock, onClick }) {
+  // 4 Tracker Row Refs (each driving 4 panels along its torque tube axis)
+  const rowRefs = [useRef(), useRef(), useRef(), useRef()];
 
   useFrame(() => {
-    if (panelRackRef.current && hasTracker) {
-      const hourOfDay = Number(clock?.gameHour || 12) % 24;
-      if (hourOfDay >= 6 && hourOfDay <= 18) {
-        const sunProgress = (hourOfDay - 6) / 12;
-        const targetTiltZ = (sunProgress - 0.5) * 0.88;
-        panelRackRef.current.rotation.z = THREE.MathUtils.lerp(
-          panelRackRef.current.rotation.z,
-          targetTiltZ,
-          0.05
-        );
-      } else {
-        panelRackRef.current.rotation.z = THREE.MathUtils.lerp(
-          panelRackRef.current.rotation.z,
-          0,
-          0.05
-        );
+    const hourOfDay = Number(clock?.gameHour || 12) % 24;
+    const isDay = hourOfDay >= 6 && hourOfDay <= 18;
+    const sunProgress = isDay ? (hourOfDay - 6) / 12 : 0.5;
+
+    // Single-axis East-West solar tracking:
+    // Morning (06:00): tilt -0.42 rad (~-24°) facing East
+    // Noon (12:00): tilt 0.00 rad (completely flat facing Zenith)
+    // Evening (18:00): tilt +0.42 rad (~+24°) facing West
+    // Night (18:01-05:59): return to flat stow position (0.0 rad)
+    const baseTilt = isDay ? (sunProgress - 0.5) * 0.85 : 0.0;
+
+    rowRefs.forEach((ref, idx) => {
+      if (ref.current) {
+        // Dynamic Sun-Tracking: All 16 panels track the sun East to West (micro-offset across rows)
+        const targetTilt = baseTilt + (idx - 1.5) * 0.008;
+        ref.current.rotation.z = THREE.MathUtils.lerp(ref.current.rotation.z, targetTilt, 0.04);
       }
-    }
+    });
   });
+
+  const columnsX = [-13.5, -8.5, -3.5, 1.5];
+  const rowsZ = [-7.5, -2.5, 2.5, 7.5];
+  const isNight = Boolean(clock?.isNight);
 
   return (
     <group position={position} onClick={onClick}>
-      <mesh position={[0, 0.35, 0]}>
-        <boxGeometry args={[16, 0.5, 11]} />
-        <meshStandardMaterial color="#475569" roughness={0.9} />
+      {/* 1. Heavy Industrial Gravel Pad (Matches Construction Pad Scale 38.5 x 28.5) */}
+      <mesh position={[0, 0.4, 0]} castShadow receiveShadow>
+        <boxGeometry args={[38.5, 0.8, 28.5]} />
+        <meshStandardMaterial color="#334155" roughness={0.92} />
+      </mesh>
+      {/* Top compacted fine gravel surface */}
+      <mesh position={[0, 0.81, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[38.2, 28.2]} />
+        <meshStandardMaterial color="#475569" roughness={0.88} />
       </mesh>
 
-      {[-6, 6].map((xOffset, idx) => (
-        <mesh key={idx} position={[xOffset, 1.2, 0]}>
-          <boxGeometry args={[0.5, 1.8, 0.5]} />
-          <meshStandardMaterial color="#94a3b8" metalness={0.8} />
+      {/* Safety Boundary Perimeter & Corner Security Floodlights */}
+      <SafetyFloodlightTower position={[-17.0, 0.81, -12.5]} isNight={isNight} />
+      <SafetyFloodlightTower position={[17.0, 0.81, 12.5]} isNight={isNight} />
+
+      {/* GES Entrance Nameplate / Safety Signboard */}
+      <group position={[-16.0, 0.81, 12.0]} rotation={[0, 0.15, 0]}>
+        <mesh position={[0, 0.8, 0]}>
+          <boxGeometry args={[2.8, 1.2, 0.08]} />
+          <meshStandardMaterial color="#1e3a8a" roughness={0.4} />
         </mesh>
+        {/* Support Legs */}
+        {[-1.1, 1.1].map((lx, li) => (
+          <mesh key={li} position={[lx, 0.35, 0]}>
+            <cylinderGeometry args={[0.04, 0.04, 0.9, 8]} />
+            <meshStandardMaterial color="#94a3b8" metalness={0.8} />
+          </mesh>
+        ))}
+        <Billboard position={[0, 0.8, 0.06]}>
+          <Text fontSize={0.22} color="#ffffff" font={undefined} anchorX="center" anchorY="middle">
+            {"GES SANTRALİ\n4x4 GÜNEŞ TAKİP SİSTEMİ"}
+          </Text>
+        </Billboard>
+      </group>
+
+      {/* 2. Four Tracker Axis Rows (Each rotating along its torque tube Z-axis) */}
+      {columnsX.map((cx, cIdx) => (
+        <group key={`tracker_axis_${cIdx}`} position={[cx, 0.81, 0]}>
+          {/* Concrete Foundation Pillar Piles with Steel Bearing Mounts */}
+          {[-8, 0, 8].map((pz, pi) => (
+            <group key={`pile_${pi}`} position={[0, 0, pz]}>
+              <mesh position={[0, 0.45, 0]} castShadow>
+                <cylinderGeometry args={[0.22, 0.26, 0.9, 8]} />
+                <meshStandardMaterial color="#94a3b8" roughness={0.85} />
+              </mesh>
+              {/* Bearing Pillow Block */}
+              <mesh position={[0, 1.05, 0]}>
+                <boxGeometry args={[0.32, 0.35, 0.32]} />
+                <meshStandardMaterial color="#475569" metalness={0.8} />
+              </mesh>
+            </group>
+          ))}
+
+          {/* Central Slew Drive Motor Housing & Actuator Gearbox */}
+          <group position={[0, 0.95, 0]}>
+            <mesh position={[0, 0.15, 0]} castShadow>
+              <boxGeometry args={[0.55, 0.65, 0.75]} />
+              <meshStandardMaterial color="#0284c7" metalness={0.6} roughness={0.3} />
+            </mesh>
+            {/* Actuator Slew Motor Cylinder */}
+            <mesh position={[0.25, 0.15, 0]} rotation={[0, 0, Math.PI / 2]}>
+              <cylinderGeometry args={[0.16, 0.16, 0.4, 10]} />
+              <meshStandardMaterial color="#334155" metalness={0.8} />
+            </mesh>
+            {/* Active Telemetry LED (Blinks green during day) */}
+            <mesh position={[0, 0.52, 0.2]}>
+              <sphereGeometry args={[0.07, 8, 8]} />
+              <meshStandardMaterial
+                color="#10b981"
+                emissive="#10b981"
+                emissiveIntensity={isNight ? 0.2 : 0.9}
+              />
+            </mesh>
+          </group>
+
+          {/* DYNAMIC SUN-TRACKING ASSEMBLY: Torque Tube + 4 Solar Panel Tables */}
+          <group position={[0, 1.45, 0]} ref={rowRefs[cIdx]}>
+            {/* Galvanized Steel Torque Tube running along Z */}
+            <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
+              <cylinderGeometry args={[0.11, 0.11, 21.0, 12]} />
+              <meshStandardMaterial color="#cbd5e1" metalness={0.85} roughness={0.25} />
+            </mesh>
+
+            {/* 4 Precision PV Solar Panel Tables along this row */}
+            {rowsZ.map((rz, rIdx) => (
+              <group key={`pv_${rIdx}`} position={[0, 0.15, rz]}>
+                {/* Underside Galvanized Mounting Struts clamped onto Torque Tube */}
+                {[-1.4, 1.4].map((mx, mi) => (
+                  <mesh key={mi} position={[mx, -0.08, 0]}>
+                    <boxGeometry args={[0.1, 0.16, 2.8]} />
+                    <meshStandardMaterial color="#94a3b8" metalness={0.8} />
+                  </mesh>
+                ))}
+
+                {/* Anodized Aluminum Panel Frame */}
+                <mesh castShadow>
+                  <boxGeometry args={[4.2, 0.1, 3.2]} />
+                  <meshStandardMaterial color="#0284c7" roughness={0.2} metalness={0.6} />
+                </mesh>
+
+                {/* Anti-reflective Dark Monocrystalline Silicon Glass Face (COMPLETELY FLAT ON TOP) */}
+                <mesh position={[0, 0.055, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                  <planeGeometry args={[4.0, 3.0]} />
+                  <meshStandardMaterial
+                    color="#0b192c"
+                    roughness={0.12}
+                    metalness={0.9}
+                    emissive={hasTracker ? '#1d4ed8' : '#1e3a8a'}
+                    emissiveIntensity={isNight ? 0.05 : 0.25}
+                  />
+                </mesh>
+
+                {/* Silver Grid Lines / Busbars (COMPLETELY FLAT ON TOP) */}
+                {[-1.2, 0, 1.2].map((lx, li) => (
+                  <mesh key={li} position={[lx, 0.058, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                    <planeGeometry args={[0.04, 2.9]} />
+                    <meshBasicMaterial color="#94a3b8" />
+                  </mesh>
+                ))}
+              </group>
+            ))}
+          </group>
+        </group>
       ))}
 
-      <mesh position={[0, 1.8, 0]} rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[0.3, 0.3, 15, 12]} />
-        <meshStandardMaterial color="#64748b" metalness={0.7} />
-      </mesh>
+      {/* 3. In-Ground High-Voltage Red Power Conduit Trench */}
+      <group position={[4.5, 0.82, 0]}>
+        <mesh position={[0, 0, 0]}>
+          <boxGeometry args={[0.6, 0.05, 20.0]} />
+          <meshStandardMaterial color="#1e293b" roughness={0.9} />
+        </mesh>
+        <mesh position={[0, 0.03, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.07, 0.07, 19.8, 8]} />
+          <meshStandardMaterial color="#dc2626" roughness={0.5} />
+        </mesh>
+        {/* Branch into Substation Kiosk */}
+        <mesh position={[4.0, 0.03, -6.5]} rotation={[0, 0, Math.PI / 2]}>
+          <cylinderGeometry args={[0.07, 0.07, 8.0, 8]} />
+          <meshStandardMaterial color="#dc2626" roughness={0.5} />
+        </mesh>
+      </group>
 
-      {hasTracker && (
-        <group position={[0, 1.4, 0]}>
-          <mesh castShadow>
-            <cylinderGeometry args={[0.65, 0.65, 0.9, 12]} />
-            <meshStandardMaterial color="#0284c7" metalness={0.6} roughness={0.3} />
+      {/* 4. Central Inverter & Step-Up Transformer Substation Kiosk */}
+      <group position={[13.0, 0.81, -6.5]}>
+        <mesh position={[0, 1.2, 0]} castShadow>
+          <boxGeometry args={[3.2, 2.4, 2.6]} />
+          <meshStandardMaterial color="#f8fafc" roughness={0.3} metalness={0.4} />
+        </mesh>
+        {/* Dark Louvered Ventilation Grilles */}
+        {[-0.8, 0.8].map((gx, gi) => (
+          <mesh key={gi} position={[gx, 1.4, 1.32]}>
+            <planeGeometry args={[0.9, 1.1]} />
+            <meshStandardMaterial color="#334155" roughness={0.8} />
           </mesh>
-          <mesh position={[0, -0.4, 1.2]} rotation={[0.4, 0, 0]}>
-            <cylinderGeometry args={[0.15, 0.15, 1.2, 8]} />
-            <meshStandardMaterial color="#e2e8f0" metalness={0.9} />
-          </mesh>
-          <mesh position={[0, 0.5, 0.6]}>
-            <sphereGeometry args={[0.15, 8, 8]} />
-            <meshBasicMaterial color="#38bdf8" />
-          </mesh>
-        </group>
-      )}
-
-      <group position={[0, 2.0, 0]} ref={panelRackRef}>
-        <mesh position={[0, 0.35, 0]} rotation={[-0.38, 0, 0]} castShadow>
-          <boxGeometry args={[15.2, 0.25, 10.2]} />
+        ))}
+        {/* High Voltage Danger Warning Symbol */}
+        <mesh position={[0, 1.3, 1.32]}>
+          <planeGeometry args={[0.4, 0.4]} />
+          <meshBasicMaterial color="#eab308" />
+        </mesh>
+        {/* Telemetry SCADA Whip Antenna */}
+        <mesh position={[1.2, 2.8, 0]}>
+          <cylinderGeometry args={[0.02, 0.02, 1.2, 6]} />
+          <meshStandardMaterial color="#64748b" metalness={0.9} />
+        </mesh>
+        {/* Operational Status Light (Green = Healthy, generating power) */}
+        <mesh position={[0, 2.5, 0]}>
+          <sphereGeometry args={[0.12, 8, 8]} />
           <meshStandardMaterial
-            color="#0b192c"
-            roughness={0.08}
-            metalness={0.92}
-            emissive={hasTracker ? '#1d4ed8' : '#1e3a8a'}
-            emissiveIntensity={hasTracker ? 0.35 : 0.22}
+            color="#10b981"
+            emissive="#10b981"
+            emissiveIntensity={isNight ? 0.3 : 1.0}
           />
         </mesh>
+      </group>
 
-        <mesh position={[0, 0.5, 0]} rotation={[-0.38, 0, 0]}>
-          <planeGeometry args={[15.0, 10.0]} />
-          <meshBasicMaterial
-            color={hasTracker ? '#38bdf8' : '#60a5fa'}
-            wireframe
-            transparent
-            opacity={0.22}
-          />
+      {/* 5. Meteorological Station (Pyranometer & Anemometer Mast) */}
+      <group position={[13.0, 0.81, 6.0]}>
+        <mesh position={[0, 1.8, 0]}>
+          <cylinderGeometry args={[0.04, 0.06, 3.6, 8]} />
+          <meshStandardMaterial color="#94a3b8" metalness={0.8} />
+        </mesh>
+        {/* Pyranometer Solar Radiation Sensor */}
+        <mesh position={[0, 3.65, 0]}>
+          <cylinderGeometry args={[0.15, 0.15, 0.12, 12]} />
+          <meshStandardMaterial color="#ffffff" roughness={0.2} metalness={0.6} />
+        </mesh>
+        <mesh position={[0, 3.73, 0]}>
+          <sphereGeometry args={[0.08, 10, 8]} />
+          <meshStandardMaterial color="#38bdf8" roughness={0.1} metalness={0.9} />
         </mesh>
       </group>
     </group>
@@ -1014,6 +1182,7 @@ function SiteMarker({
   showLabels = true,
   onSelect
 }) {
+  const [isHovered, setIsHovered] = useState(false);
   const siteX = Number.isFinite(site?.center_x) ? site.center_x : 0;
   const siteZ = Number.isFinite(site?.center_z) ? site.center_z : 0;
   const siteY = getTerrainHeight(siteX, siteZ);
@@ -1072,13 +1241,74 @@ function SiteMarker({
 
   return (
     <group>
+      {/* 1. Large Ground Concession Parcel Hitbox (Effortless, instant click target across whole site area) */}
+      <mesh
+        position={[siteX, siteY + 0.18, siteZ]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelect(site, e);
+        }}
+        onPointerOver={(e) => {
+          e.stopPropagation();
+          document.body.style.cursor = 'pointer';
+          setIsHovered(true);
+        }}
+        onPointerOut={() => {
+          document.body.style.cursor = 'auto';
+          setIsHovered(false);
+        }}
+      >
+        <circleGeometry args={[territoryRadius, 48]} />
+        <meshBasicMaterial
+          color={ringColor}
+          transparent
+          opacity={isHovered ? 0.24 : isOwned || isLeased ? 0.08 : 0.035}
+          depthWrite={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+
+      {/* Hover Perimeter White Accent Ring */}
+      {isHovered && (
+        <mesh
+          position={[siteX, siteY + 0.22, siteZ]}
+          rotation={[-Math.PI / 2, 0, 0]}
+        >
+          <ringGeometry args={[territoryRadius - 2.5, territoryRadius + 1.2, 48]} />
+          <meshBasicMaterial
+            color="#ffffff"
+            transparent
+            opacity={0.45}
+            depthWrite={false}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      )}
+
       {/* Concession Boundary Ring & Surveyor Pylons (Toggled via showBoundaries) */}
       {showBoundaries && (
         <>
-          <primitive object={boundaryLine} onClick={() => onSelect(site)} />
+          <primitive object={boundaryLine} />
 
           {pylons.map((p, idx) => (
-            <group key={idx} position={[p.x, p.y, p.z]}>
+            <group
+              key={idx}
+              position={[p.x, p.y, p.z]}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect(site, e);
+              }}
+              onPointerOver={(e) => {
+                e.stopPropagation();
+                document.body.style.cursor = 'pointer';
+                setIsHovered(true);
+              }}
+              onPointerOut={() => {
+                document.body.style.cursor = 'auto';
+                setIsHovered(false);
+              }}
+            >
               <mesh position={[0, 0.4, 0]}>
                 <cylinderGeometry args={[0.7, 0.9, 0.8, 8]} />
                 <meshStandardMaterial color="#334155" roughness={0.9} />
@@ -1096,15 +1326,6 @@ function SiteMarker({
         </>
       )}
 
-      {/* Invisible Click Boundary - Always clickable even when visual rings are hidden */}
-      <mesh
-        position={[site.center_x, siteY + 2.0, site.center_z]}
-        onClick={() => onSelect(site)}
-      >
-        <cylinderGeometry args={[territoryRadius, territoryRadius, 6.0, 16]} />
-        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-      </mesh>
-
       {/* Floating Native WebGL 3D Billboard Badge (Toggled via showLabels) */}
       {showLabels && (
         <Billboard
@@ -1117,7 +1338,7 @@ function SiteMarker({
           <group
             onClick={(e) => {
               e.stopPropagation();
-              onSelect(site);
+              onSelect(site, e);
             }}
             onPointerOver={() => {
               document.body.style.cursor = 'pointer';
@@ -2032,50 +2253,52 @@ const HIGHWAY_CURVES = [
   new THREE.CatmullRomCurve3([
     new THREE.Vector3(-34, 0, 8),
     new THREE.Vector3(-75, 0, -25),
-    new THREE.Vector3(-130, 0, -50),
-    new THREE.Vector3(-210, 0, -65),
-    new THREE.Vector3(-315, 0, -115),
-    new THREE.Vector3(-425, 0, -165),
-    new THREE.Vector3(-550, 0, -280),
-    new THREE.Vector3(-670, 0, -230),
-    new THREE.Vector3(-590, 0, -390),
-    new THREE.Vector3(-440, 0, -430),
-    new THREE.Vector3(-290, 0, -380),
-    new THREE.Vector3(-170, 0, -260),
-    new THREE.Vector3(-80, 0, -140),
+    new THREE.Vector3(-140, 0, -45),
+    new THREE.Vector3(-220, 0, -60),
+    new THREE.Vector3(-320, 0, -85),
+    new THREE.Vector3(-420, 0, -95),
+    new THREE.Vector3(-530, 0, -190),
+    new THREE.Vector3(-630, 0, -240),
+    new THREE.Vector3(-540, 0, -350),
+    new THREE.Vector3(-420, 0, -420),
+    new THREE.Vector3(-310, 0, -350),
+    new THREE.Vector3(-180, 0, -250),
+    new THREE.Vector3(-80, 0, -135),
     new THREE.Vector3(-34, 0, -12)
   ], true),
 
   // Highway 2: East Sunfire Solar Steppe Expressway Loop (Branching East from Roundabout)
   new THREE.CatmullRomCurve3([
     new THREE.Vector3(34, 0, 14),
-    new THREE.Vector3(115, 0, 75),
-    new THREE.Vector3(215, 0, 165),
-    new THREE.Vector3(325, 0, 245),
-    new THREE.Vector3(445, 0, 315),
-    new THREE.Vector3(575, 0, 425),
-    new THREE.Vector3(705, 0, 365),
-    new THREE.Vector3(785, 0, 405),
-    new THREE.Vector3(725, 0, 265),
-    new THREE.Vector3(585, 0, 185),
-    new THREE.Vector3(415, 0, 155),
-    new THREE.Vector3(265, 0, 95),
-    new THREE.Vector3(125, 0, 35),
+    new THREE.Vector3(120, 0, 50),
+    new THREE.Vector3(220, 0, 110),
+    new THREE.Vector3(330, 0, 160),
+    new THREE.Vector3(450, 0, 210),
+    new THREE.Vector3(570, 0, 240),
+    new THREE.Vector3(680, 0, 270),
+    new THREE.Vector3(780, 0, 320),
+    new THREE.Vector3(820, 0, 260),
+    new THREE.Vector3(780, 0, 180),
+    new THREE.Vector3(680, 0, 120),
+    new THREE.Vector3(560, 0, 70),
+    new THREE.Vector3(420, 0, 40),
+    new THREE.Vector3(260, 0, 30),
+    new THREE.Vector3(125, 0, 20),
     new THREE.Vector3(34, 0, -2)
   ], true),
 
   // Highway 3: South Alpine Lake Shoreline & Hybrid Plains Circuit (Branching South from Roundabout)
   new THREE.CatmullRomCurve3([
     new THREE.Vector3(-8, 0, 34),
-    new THREE.Vector3(-50, 0, 70),
-    new THREE.Vector3(-105, 0, 125),
-    new THREE.Vector3(-170, 0, 195),
-    new THREE.Vector3(-240, 0, 265),
-    new THREE.Vector3(-190, 0, 345),
-    new THREE.Vector3(-45, 0, 365),
-    new THREE.Vector3(65, 0, 325),
-    new THREE.Vector3(125, 0, 215),
-    new THREE.Vector3(70, 0, 115),
+    new THREE.Vector3(-45, 0, 80),
+    new THREE.Vector3(-85, 0, 135),
+    new THREE.Vector3(-145, 0, 210),
+    new THREE.Vector3(-195, 0, 280),
+    new THREE.Vector3(-160, 0, 350),
+    new THREE.Vector3(-30, 0, 340),
+    new THREE.Vector3(50, 0, 290),
+    new THREE.Vector3(95, 0, 210),
+    new THREE.Vector3(60, 0, 105),
     new THREE.Vector3(10, 0, 34)
   ], true)
 ];
@@ -2087,11 +2310,13 @@ const RAIL_CURVE_CHECK = new THREE.CatmullRomCurve3([
   new THREE.Vector3(120, 0, -110),
   new THREE.Vector3(85, 0, -25),   // Industrial Park Siding
   new THREE.Vector3(85, 0, 60),    // Level Crossing with Highway 2
-  new THREE.Vector3(65, 0, 150),   // Scenic Valley Green Corridor
-  new THREE.Vector3(35, 0, 220),   // Agri-Valley Farm Station
-  new THREE.Vector3(105, 0, 230),  // River Trestle Crossing
-  new THREE.Vector3(195, 0, 205),
-  new THREE.Vector3(270, 0, 165),
+  new THREE.Vector3(70, 0, 135),   // Scenic Valley Green Corridor
+  new THREE.Vector3(45, 0, 195),   // Gentle wide-radius south turn
+  new THREE.Vector3(65, 0, 235),   // Sweeping turn exit
+  new THREE.Vector3(115, 0, 230),  // Approaching Agri-Valley Station
+  new THREE.Vector3(185, 0, 215),  // Valley straight stretch
+  new THREE.Vector3(250, 0, 185),  // Scenic eastern transition
+  new THREE.Vector3(285, 0, 145),
   new THREE.Vector3(316, 0, 85),   // Sunfire City Bypass Station
   new THREE.Vector3(350, 0, -15),  // City North Bypass
   new THREE.Vector3(395, 0, -130), // Scenic Eastern Coastal Plain
@@ -2112,45 +2337,6 @@ const railPtsCheck = RAIL_CURVE_CHECK.getSpacedPoints(Math.floor(RAIL_CURVE_CHEC
 for (let p = 0; p < railPtsCheck.length; p++) {
   // 12.0m clearance from railway tracks
   INFRASTRUCTURE_CLEARANCE_POINTS.push({ x: railPtsCheck[p].x, z: railPtsCheck[p].z, minDistSq: 12.0 * 12.0 });
-}
-
-// Island River and Stream Clearance to ensure no trees grow inside watercourses
-const RIVER_CLEARANCE_CURVES = [
-  new THREE.CatmullRomCurve3([
-    new THREE.Vector3(-245, 0, -42),
-    new THREE.Vector3(-220, 0, -43),
-    new THREE.Vector3(-195, 0, -41),
-    new THREE.Vector3(-175, 0, -40),
-    new THREE.Vector3(-150, 0, -40)
-  ]),
-  new THREE.CatmullRomCurve3([
-    new THREE.Vector3(-110, 0, -32),
-    new THREE.Vector3(-75, 0, 15),
-    new THREE.Vector3(-45, 0, 85),
-    new THREE.Vector3(-20, 0, 160),
-    new THREE.Vector3(15, 0, 240),
-    new THREE.Vector3(70, 0, 310),
-    new THREE.Vector3(135, 0, 385),
-    new THREE.Vector3(210, 0, 470),
-    new THREE.Vector3(290, 0, 560),
-    new THREE.Vector3(380, 0, 660)
-  ]),
-  new THREE.CatmullRomCurve3([
-    new THREE.Vector3(180, 0, -90),
-    new THREE.Vector3(240, 0, -40),
-    new THREE.Vector3(320, 0, 25),
-    new THREE.Vector3(410, 0, 110),
-    new THREE.Vector3(490, 0, 190),
-    new THREE.Vector3(580, 0, 250)
-  ])
-];
-for (let rc = 0; rc < RIVER_CLEARANCE_CURVES.length; rc++) {
-  const rCurve = RIVER_CLEARANCE_CURVES[rc];
-  const rPts = rCurve.getSpacedPoints(Math.floor(rCurve.getLength() / 3.0));
-  for (let p = 0; p < rPts.length; p++) {
-    // 9.0m clearance from river centerline (prevents trees in riverbeds)
-    INFRASTRUCTURE_CLEARANCE_POINTS.push({ x: rPts[p].x, z: rPts[p].z, minDistSq: 9.0 * 9.0 });
-  }
 }
 
 // =============================================================================
@@ -2446,6 +2632,8 @@ function TrafficVehicles() {
   const flatbedRef = useRef();
   const suv1Ref = useRef();
   const truck2Ref = useRef();
+  const containerTruck1Ref = useRef();
+  const containerTruck2Ref = useRef();
 
   // Traffic vehicle simulation state: realistic cruising speeds with periodic stop-and-go behavior
   const vehiclesState = useRef([
@@ -2466,7 +2654,12 @@ function TrafficVehicles() {
     // 6: SUV 1 (Route 2): Executive Hybrid SUV
     { progress: 0.18, baseSpeed: 0.0070, stopPeriod: 35, stopDuration: 6.0, phase: 12, isReverse: false, lane: 1.9 },
     // 7: Truck 2 (Route 2): Regional Cargo Truck - reverse oncoming lane
-    { progress: 0.68, baseSpeed: 0.0056, stopPeriod: 42, stopDuration: 7.0, phase: 30, isReverse: true, lane: 1.9 }
+    { progress: 0.68, baseSpeed: 0.0056, stopPeriod: 42, stopDuration: 7.0, phase: 30, isReverse: true, lane: 1.9 },
+
+    // 8: Intermodal Container Hauler 1 (Route 1): 18-Wheeler Port Hauler with 40ft Maersk Container
+    { progress: 0.88, baseSpeed: 0.0052, stopPeriod: 52, stopDuration: 8.0, phase: 10, isReverse: false, lane: 2.1 },
+    // 9: Intermodal Container Hauler 2 (Route 0): 18-Wheeler Port Hauler with 40ft Evergreen Container (Reverse)
+    { progress: 0.42, baseSpeed: 0.0048, stopPeriod: 55, stopDuration: 8.5, phase: 24, isReverse: true, lane: 2.1 }
   ]);
 
   useFrame(({ clock }, delta) => {
@@ -2529,11 +2722,13 @@ function TrafficVehicles() {
     updateCar(van1Ref, HIGHWAY_CURVES[0], 0);
     updateCar(truck1Ref, HIGHWAY_CURVES[0], 1);
     updateCar(rover1Ref, HIGHWAY_CURVES[0], 2);
+    updateCar(containerTruck2Ref, HIGHWAY_CURVES[0], 9);
 
     // Route 2 (East Sunfire Solar Steppe Expressway)
     updateCar(haulerRef, HIGHWAY_CURVES[1], 3);
     updateCar(van2Ref, HIGHWAY_CURVES[1], 4);
     updateCar(flatbedRef, HIGHWAY_CURVES[1], 5);
+    updateCar(containerTruck1Ref, HIGHWAY_CURVES[1], 8);
 
     // Route 3 (South Coastal Plains Circuit)
     updateCar(suv1Ref, HIGHWAY_CURVES[2], 6);
@@ -2892,6 +3087,145 @@ function TrafficVehicles() {
           [-1.4, 1.4].map((z, idx) => (
             <mesh key={`truck2_w_${x}_${z}_${idx}`} position={[x, 0.4, z]} rotation={[0, 0, Math.PI / 2]}>
               <cylinderGeometry args={[0.4, 0.4, 0.3, 12]} />
+              <meshStandardMaterial color="#18181b" roughness={0.9} />
+            </mesh>
+          ))
+        )}
+      </group>
+
+      {/* 9. Intermodal Container Truck 1 (Highway 2 East Solar Steppe Expressway - Maersk 40ft) */}
+      <group ref={containerTruck1Ref}>
+        {/* Semi Tractor Cab */}
+        <mesh position={[0, 1.4, 4.8]} castShadow>
+          <boxGeometry args={[2.5, 2.3, 2.8]} />
+          <meshStandardMaterial color="#0284c7" roughness={0.3} metalness={0.3} />
+        </mesh>
+        {/* Aerodynamic Cab Roof Fairing */}
+        <mesh position={[0, 2.7, 4.4]}>
+          <boxGeometry args={[2.4, 0.5, 1.8]} />
+          <meshStandardMaterial color="#0369a1" roughness={0.3} />
+        </mesh>
+        {/* Windshield */}
+        <mesh position={[0, 1.6, 6.22]}>
+          <planeGeometry args={[2.2, 1.1]} />
+          <meshBasicMaterial color="#38bdf8" transparent opacity={0.65} />
+        </mesh>
+        {/* Chrome Exhaust Stack */}
+        <mesh position={[1.15, 2.2, 3.6]} rotation={[0, 0, 0]}>
+          <cylinderGeometry args={[0.1, 0.1, 2.2, 8]} />
+          <meshStandardMaterial color="#cbd5e1" metalness={0.9} roughness={0.2} />
+        </mesh>
+        {/* Semi-Trailer Chassis Frame */}
+        <mesh position={[0, 0.7, -0.6]} castShadow>
+          <boxGeometry args={[2.44, 0.45, 13.5]} />
+          <meshStandardMaterial color="#1e293b" roughness={0.8} />
+        </mesh>
+        {/* 40ft ISO Shipping Container (Maersk Ocean Blue) */}
+        <mesh position={[0, 2.15, -0.6]} castShadow receiveShadow>
+          <boxGeometry args={[2.44, 2.45, 12.0]} />
+          <meshStandardMaterial color="#0284c7" roughness={0.45} />
+        </mesh>
+        {/* White Shipping Line Branding Stripe */}
+        <mesh position={[1.23, 2.15, -0.6]}>
+          <planeGeometry args={[0.8, 9.0]} />
+          <meshBasicMaterial color="#f8fafc" />
+        </mesh>
+        <mesh position={[-1.23, 2.15, -0.6]} rotation={[0, Math.PI, 0]}>
+          <planeGeometry args={[0.8, 9.0]} />
+          <meshBasicMaterial color="#f8fafc" />
+        </mesh>
+        {/* Headlights & Amber Marker Lights */}
+        <mesh position={[-0.95, 0.8, 6.22]}>
+          <sphereGeometry args={[0.2, 8, 8]} />
+          <meshBasicMaterial color="#fef08a" />
+        </mesh>
+        <mesh position={[0.95, 0.8, 6.22]}>
+          <sphereGeometry args={[0.2, 8, 8]} />
+          <meshBasicMaterial color="#fef08a" />
+        </mesh>
+        {/* Taillights */}
+        <mesh position={[-0.95, 0.75, -7.36]}>
+          <boxGeometry args={[0.3, 0.18, 0.06]} />
+          <meshBasicMaterial color="#ef4444" />
+        </mesh>
+        <mesh position={[0.95, 0.75, -7.36]}>
+          <boxGeometry args={[0.3, 0.18, 0.06]} />
+          <meshBasicMaterial color="#ef4444" />
+        </mesh>
+        {/* 10 Heavy Truck Wheels (Tractor + Tandem Trailer Bogie) */}
+        {[-1.25, 1.25].map((wx, wxi) =>
+          [5.2, 3.8, -4.5, -5.8, -7.0].map((wz, wzi) => (
+            <mesh key={`ct1_w_${wxi}_${wzi}`} position={[wx, 0.45, wz]} rotation={[0, 0, Math.PI / 2]}>
+              <cylinderGeometry args={[0.45, 0.45, 0.35, 12]} />
+              <meshStandardMaterial color="#18181b" roughness={0.9} />
+            </mesh>
+          ))
+        )}
+      </group>
+
+      {/* 10. Intermodal Container Truck 2 (Highway 1 West Mountain Highway - Evergreen Green) */}
+      <group ref={containerTruck2Ref}>
+        {/* Semi Tractor Cab */}
+        <mesh position={[0, 1.4, 4.8]} castShadow>
+          <boxGeometry args={[2.5, 2.3, 2.8]} />
+          <meshStandardMaterial color="#059669" roughness={0.3} metalness={0.3} />
+        </mesh>
+        {/* Cab Roof Fairing */}
+        <mesh position={[0, 2.7, 4.4]}>
+          <boxGeometry args={[2.4, 0.5, 1.8]} />
+          <meshStandardMaterial color="#047857" roughness={0.3} />
+        </mesh>
+        {/* Windshield */}
+        <mesh position={[0, 1.6, 6.22]}>
+          <planeGeometry args={[2.2, 1.1]} />
+          <meshBasicMaterial color="#38bdf8" transparent opacity={0.65} />
+        </mesh>
+        {/* Chrome Exhaust Stack */}
+        <mesh position={[1.15, 2.2, 3.6]}>
+          <cylinderGeometry args={[0.1, 0.1, 2.2, 8]} />
+          <meshStandardMaterial color="#cbd5e1" metalness={0.9} roughness={0.2} />
+        </mesh>
+        {/* Semi-Trailer Chassis */}
+        <mesh position={[0, 0.7, -0.6]} castShadow>
+          <boxGeometry args={[2.44, 0.45, 13.5]} />
+          <meshStandardMaterial color="#1e293b" roughness={0.8} />
+        </mesh>
+        {/* 40ft ISO Shipping Container (Evergreen Green) */}
+        <mesh position={[0, 2.15, -0.6]} castShadow receiveShadow>
+          <boxGeometry args={[2.44, 2.45, 12.0]} />
+          <meshStandardMaterial color="#059669" roughness={0.45} />
+        </mesh>
+        {/* White Shipping Line Branding Stripe */}
+        <mesh position={[1.23, 2.15, -0.6]}>
+          <planeGeometry args={[0.8, 9.0]} />
+          <meshBasicMaterial color="#f8fafc" />
+        </mesh>
+        <mesh position={[-1.23, 2.15, -0.6]} rotation={[0, Math.PI, 0]}>
+          <planeGeometry args={[0.8, 9.0]} />
+          <meshBasicMaterial color="#f8fafc" />
+        </mesh>
+        {/* Headlights & Taillights */}
+        <mesh position={[-0.95, 0.8, 6.22]}>
+          <sphereGeometry args={[0.2, 8, 8]} />
+          <meshBasicMaterial color="#fef08a" />
+        </mesh>
+        <mesh position={[0.95, 0.8, 6.22]}>
+          <sphereGeometry args={[0.2, 8, 8]} />
+          <meshBasicMaterial color="#fef08a" />
+        </mesh>
+        <mesh position={[-0.95, 0.75, -7.36]}>
+          <boxGeometry args={[0.3, 0.18, 0.06]} />
+          <meshBasicMaterial color="#ef4444" />
+        </mesh>
+        <mesh position={[0.95, 0.75, -7.36]}>
+          <boxGeometry args={[0.3, 0.18, 0.06]} />
+          <meshBasicMaterial color="#ef4444" />
+        </mesh>
+        {/* 10 Heavy Truck Wheels */}
+        {[-1.25, 1.25].map((wx, wxi) =>
+          [5.2, 3.8, -4.5, -5.8, -7.0].map((wz, wzi) => (
+            <mesh key={`ct2_w_${wxi}_${wzi}`} position={[wx, 0.45, wz]} rotation={[0, 0, Math.PI / 2]}>
+              <cylinderGeometry args={[0.45, 0.45, 0.35, 12]} />
               <meshStandardMaterial color="#18181b" roughness={0.9} />
             </mesh>
           ))
@@ -3777,12 +4111,33 @@ function BirdFlock() {
 // =============================================================================
 // CAMERA CONTROLLER: SMART CURSOR-CENTRIC ZOOM, ANTI-STALL & AUTO-FOCUS
 // =============================================================================
-function CameraController({ focusedSite, worldSites, companySites = [], installedAssets = [], controlsRef, enabled = true }) {
+function CameraController({
+  focusedSite,
+  worldSites,
+  companySites = [],
+  installedAssets = [],
+  controlsRef,
+  enabled = true,
+  viewMode = 'free',
+  viewCommand = null
+}) {
   const { camera, gl } = useThree();
   const targetLookAt = useRef(null);
   const targetCamPos = useRef(null);
   const isAnimating = useRef(false);
   const lastProcessedTimestamp = useRef(null);
+  const lastCommandId = useRef(null);
+
+  // Manual Viewpoint Mode Transitions (Top-down, Isometric, Free-look, Zoom +/-)
+  useEffect(() => {
+    if (!enabled || !viewCommand?.id) return;
+    if (lastCommandId.current === viewCommand.id) return;
+    lastCommandId.current = viewCommand.id;
+
+    targetLookAt.current = viewCommand.target.clone();
+    targetCamPos.current = viewCommand.camPos.clone();
+    isAnimating.current = true;
+  }, [viewCommand, enabled]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -3902,19 +4257,20 @@ function CameraController({ focusedSite, worldSites, companySites = [], installe
 
       if (isZoomIn) {
         // Fast yet smooth step that NEVER stalls: guaranteed minimum step of 2.5m
-        const step = Math.max(2.5, currentDist * 0.18) * intensity;
-        const newDist = Math.max(3.5, currentDist - step);
+        const step = Math.max(2.5, currentDist * 0.15) * intensity;
+        const newDist = Math.max(4.5, currentDist - step);
 
-        // Smoothly shift target towards cursor ground point WITHOUT altering lookUnit orientation
-        const { point: anchorPoint, isGround } = getGroundIntersection(e);
-        if (isGround && anchorPoint) {
-          // Slide target horizontally towards anchor point under cursor
-          const shiftX = (anchorPoint.x - target.x) * 0.10 * intensity;
-          const shiftZ = (anchorPoint.z - target.z) * 0.10 * intensity;
-          target.x += shiftX;
-          target.z += shiftZ;
-          const desiredGroundY = getTerrainHeight(target.x, target.z) + 1.2;
-          target.y = THREE.MathUtils.lerp(target.y, desiredGroundY, 0.25);
+        // In top-down mode, keep target steady to avoid drift. In iso/free, gently shift if on ground.
+        if (viewMode !== 'top') {
+          const { point: anchorPoint, isGround } = getGroundIntersection(e);
+          if (isGround && anchorPoint) {
+            const shiftX = (anchorPoint.x - target.x) * 0.025 * intensity;
+            const shiftZ = (anchorPoint.z - target.z) * 0.025 * intensity;
+            target.x += shiftX;
+            target.z += shiftZ;
+            const desiredGroundY = getTerrainHeight(target.x, target.z) + 1.2;
+            target.y = THREE.MathUtils.lerp(target.y, desiredGroundY, 0.25);
+          }
         }
 
         // Apply new camera position STRICTLY along lookUnit:
@@ -3966,7 +4322,7 @@ function CameraController({ focusedSite, worldSites, companySites = [], installe
       domElement.removeEventListener('wheel', handleWheel, { capture: true });
       domElement.removeEventListener('pointerdown', cancelAnimation);
     };
-  }, [controlsRef, gl, camera, enabled, getGroundIntersection]);
+  }, [controlsRef, gl, camera, enabled, getGroundIntersection, viewMode]);
 
   useFrame((_, delta) => {
     if (!enabled || !isAnimating.current || !targetLookAt.current || !targetCamPos.current) return;
@@ -4032,9 +4388,176 @@ export default function WorldCanvas({
   const season = clock?.season || 'summer';
 
   const [spawnPoint, setSpawnPoint] = useState({ pos: [0, 0], yaw: 0 });
+  const [viewMode, setViewMode] = useState('free'); // 'free' | 'iso' | 'top'
+  const [viewCommand, setViewCommand] = useState(null);
   const isGroundMode = isDrivingMode || isWalkingMode;
   const prevGroundMode = useRef(false);
   const lastGroundStats = useRef(null);
+
+  // Interaction tracker to prevent accidental site selection during pan, orbit, or zoom
+  const pointerStateRef = useRef({
+    startX: 0,
+    startY: 0,
+    startTime: 0,
+    isDrag: false,
+    lastZoomTime: 0,
+  });
+
+  const handleCanvasPointerDown = useCallback((e) => {
+    pointerStateRef.current.startX = e.clientX;
+    pointerStateRef.current.startY = e.clientY;
+    pointerStateRef.current.startTime = Date.now();
+    pointerStateRef.current.isDrag = false;
+  }, []);
+
+  const handleCanvasPointerMove = useCallback((e) => {
+    const dx = e.clientX - pointerStateRef.current.startX;
+    const dy = e.clientY - pointerStateRef.current.startY;
+    if (dx * dx + dy * dy > 225) { // moved > 15px -> deliberate camera drag gesture
+      pointerStateRef.current.isDrag = true;
+    }
+  }, []);
+
+  const handleCanvasWheelCapture = useCallback(() => {
+    pointerStateRef.current.lastZoomTime = Date.now();
+  }, []);
+
+  // Safe & responsive site selector: opens cleanly on intentional clicks on ground parcel or equipment
+  const handleSafeSelectSite = useCallback((site, e) => {
+    if (e && typeof e.stopPropagation === 'function') {
+      e.stopPropagation();
+    }
+    const now = Date.now();
+    // 1. If actively spinning wheel in the last 180ms, ignore wheel jitter
+    if (now - pointerStateRef.current.lastZoomTime < 180) {
+      return;
+    }
+    // 2. If user dragged camera by > 15px, ignore drag
+    if (pointerStateRef.current.isDrag) {
+      return;
+    }
+    // 3. Generous click duration allowance up to 800ms
+    if (now - pointerStateRef.current.startTime > 800) {
+      return;
+    }
+    if (onSelectSite && site) {
+      onSelectSite(site);
+    }
+  }, [onSelectSite]);
+
+  // Viewpoint mode changer (Top-down, Isometric, Free Orbit)
+  const handleSetViewMode = useCallback((mode) => {
+    setViewMode(mode);
+    const ctrl = controlsRef.current;
+    if (!ctrl) return;
+
+    const target = ctrl.target ? ctrl.target.clone() : new THREE.Vector3(0, 18, 0);
+    const cam = ctrl.object;
+    if (!cam) return;
+
+    const currentDist = cam.position.distanceTo(target);
+
+    if (mode === 'top') {
+      const topHeight = Math.max(320, Math.min(1050, currentDist));
+      const newCamPos = new THREE.Vector3(target.x, target.y + topHeight, target.z + 0.05);
+      setViewCommand({
+        id: Date.now(),
+        camPos: newCamPos,
+        target: target
+      });
+    } else if (mode === 'iso') {
+      const isoDist = Math.max(200, Math.min(750, currentDist));
+      const newCamPos = new THREE.Vector3(
+        target.x - isoDist * 0.62,
+        target.y + isoDist * 0.65,
+        target.z + isoDist * 0.62
+      );
+      setViewCommand({
+        id: Date.now(),
+        camPos: newCamPos,
+        target: target
+      });
+    } else if (mode === 'free') {
+      // If switching out of top-down, restore comfortable angled pitch
+      if (Math.abs(cam.position.x - target.x) < 5 && Math.abs(cam.position.z - target.z) < 5) {
+        const freeDist = Math.max(240, Math.min(800, currentDist));
+        const newCamPos = new THREE.Vector3(
+          target.x - freeDist * 0.5,
+          target.y + freeDist * 0.55,
+          target.z + freeDist * 0.65
+        );
+        setViewCommand({
+          id: Date.now(),
+          camPos: newCamPos,
+          target: target
+        });
+      }
+    }
+  }, []);
+
+  // Smooth zoom in/out incremental step
+  const handleZoomStep = useCallback((factor) => {
+    const ctrl = controlsRef.current;
+    if (!ctrl) return;
+    const target = ctrl.target ? ctrl.target.clone() : new THREE.Vector3(0, 18, 0);
+    const cam = ctrl.object;
+    if (!cam) return;
+
+    const offset = cam.position.clone().sub(target);
+    const currentDist = offset.length();
+    const newDist = Math.max(8.0, Math.min(2200, currentDist * factor));
+    const newCamPos = target.clone().add(offset.normalize().multiplyScalar(newDist));
+
+    const terrainH = getTerrainHeight(newCamPos.x, newCamPos.z);
+    if (newCamPos.y < terrainH + 2.5) {
+      newCamPos.y = terrainH + 2.5;
+    }
+
+    setViewCommand({
+      id: Date.now(),
+      camPos: newCamPos,
+      target: target
+    });
+  }, []);
+
+  // 1-Click reset to island overview
+  const handleResetOverview = useCallback(() => {
+    setViewCommand({
+      id: Date.now(),
+      camPos: new THREE.Vector3(-180, 290, 430),
+      target: new THREE.Vector3(0, 18, 0)
+    });
+    setViewMode('free');
+  }, []);
+
+  // Update OrbitControls mode constraints and gesture controls dynamically
+  useEffect(() => {
+    const ctrl = controlsRef.current;
+    if (!ctrl) return;
+    if (viewMode === 'top') {
+      ctrl.maxPolarAngle = 0.06;
+      ctrl.minPolarAngle = 0.01;
+      ctrl.rotateSpeed = 0.0;
+      ctrl.panSpeed = 1.25;
+      ctrl.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_PAN };
+      ctrl.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
+    } else if (viewMode === 'iso') {
+      ctrl.maxPolarAngle = Math.PI / 3.0;
+      ctrl.minPolarAngle = Math.PI / 4.4;
+      ctrl.rotateSpeed = 0.45;
+      ctrl.panSpeed = 1.0;
+      ctrl.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
+      ctrl.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
+    } else {
+      ctrl.maxPolarAngle = Math.PI / 2.06;
+      ctrl.minPolarAngle = 0.05;
+      ctrl.rotateSpeed = 0.55;
+      ctrl.panSpeed = 1.0;
+      ctrl.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
+      ctrl.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
+    }
+    ctrl.update();
+  }, [viewMode]);
 
   // Transition handler between aerial orbit view and ground exploration view (Vehicle / Pedestrian)
   useEffect(() => {
@@ -4135,7 +4658,102 @@ export default function WorldCanvas({
   }, [companySites]);
 
   return (
-    <div className="w-full h-full relative">
+    <div
+      className="w-full h-full relative"
+      onPointerDown={handleCanvasPointerDown}
+      onPointerMove={handleCanvasPointerMove}
+      onWheel={handleCanvasWheelCapture}
+    >
+      {/* Viewpoint Controller Toolbar (Sol Üst: Üstten Bakış, İzometrik, Serbest Çekim, Zoom +, Zoom -, Ada Merkezi) */}
+      {!isGroundMode && !isCinematicMode && (
+        <div className="absolute top-2 sm:top-2.5 left-3 sm:left-4 z-30 pointer-events-auto select-none flex items-center gap-1 sm:gap-1.5 p-1 sm:p-1.5 rounded-2xl bg-slate-950/85 backdrop-blur-xl border border-slate-700/80 shadow-2xl animate-in fade-in duration-200">
+          {/* Mode Switcher Buttons */}
+          <div className="flex items-center gap-1">
+            {/* 1. Üstten Bakış (Kuşbakışı / 2D Harita Modu) */}
+            <button
+              type="button"
+              onClick={() => handleSetViewMode('top')}
+              title="Haritaya Üstten Bakış (Kuşbakışı / Rahat Harita Kaydırma Modu)"
+              className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                viewMode === 'top'
+                  ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-500/50 shadow-sm'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/80 border border-transparent'
+              }`}
+            >
+              <Map className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Üstten</span>
+            </button>
+
+            {/* 2. İzometrik (3D Taktik Bakış) */}
+            <button
+              type="button"
+              onClick={() => handleSetViewMode('iso')}
+              title="İzometrik 3D Taktik Bakış (45° Kuşbakışı)"
+              className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                viewMode === 'iso'
+                  ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/50 shadow-sm'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/80 border border-transparent'
+              }`}
+            >
+              <Box className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">İzometrik</span>
+            </button>
+
+            {/* 3. Serbest Çekim (360° Serbest Kamera) */}
+            <button
+              type="button"
+              onClick={() => handleSetViewMode('free')}
+              title="Serbest Çekim (360° Serbest Kamera)"
+              className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                viewMode === 'free'
+                  ? 'bg-amber-500/25 text-amber-300 border border-amber-500/50 shadow-sm'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/80 border border-transparent'
+              }`}
+            >
+              <Compass className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Serbest</span>
+            </button>
+          </div>
+
+          {/* Divider */}
+          <div className="w-px h-5 bg-slate-800 my-auto" />
+
+          {/* Zoom & Reset Quick Actions */}
+          <div className="flex items-center gap-1">
+            {/* Zoom In (+) */}
+            <button
+              type="button"
+              onClick={() => handleZoomStep(0.72)}
+              title="Yakınlaş (+)"
+              className="p-1.5 rounded-xl text-slate-300 hover:text-white bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 transition-all cursor-pointer shadow-xs active:scale-95"
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+
+            {/* Zoom Out (-) */}
+            <button
+              type="button"
+              onClick={() => handleZoomStep(1.35)}
+              title="Uzaklaş (-)"
+              className="p-1.5 rounded-xl text-slate-300 hover:text-white bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 transition-all cursor-pointer shadow-xs active:scale-95"
+            >
+              <Minus className="w-3.5 h-3.5" />
+            </button>
+
+            {/* Merkeze Odaklan (Reset Overview) */}
+            <button
+              type="button"
+              onClick={handleResetOverview}
+              title="Ada Merkezine Odaklan (Genel Bakış)"
+              className="px-2 py-1.5 rounded-xl text-xs text-slate-300 hover:text-white bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 transition-all cursor-pointer shadow-xs flex items-center gap-1 active:scale-95"
+            >
+              <Maximize2 className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="hidden md:inline text-[11px] font-semibold">Ada Merkezi</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       <Canvas
         camera={{ position: [-180, 280, 420], fov: 46, near: 1.0, far: 4500 }}
         shadows={!isLowGraphics}
@@ -4146,7 +4764,7 @@ export default function WorldCanvas({
         }}
         className="w-full h-full"
       >
-        {/* Dynamic Smooth Camera Controller for Plant Focus & Zoom */}
+        {/* Dynamic Smooth Camera Controller for Plant Focus, Viewpoint & Zoom */}
         <CameraController
           focusedSite={focusedSite}
           worldSites={worldSites}
@@ -4154,6 +4772,8 @@ export default function WorldCanvas({
           installedAssets={installedAssets}
           controlsRef={controlsRef}
           enabled={!isGroundMode && !isCinematicMode}
+          viewMode={viewMode}
+          viewCommand={viewCommand}
         />
 
         {/* Sky, Fog & Lighting */}
@@ -4209,9 +4829,6 @@ export default function WorldCanvas({
         {/* Crystal Shimmering Alpine Lake in the Western Mountain Valley */}
         <AlpineLake />
 
-        {/* 1. Natural Water Systems: Mountain Waterfalls, Rivers & Reservoir Dam */}
-        <WaterFeatures isNight={isNight} season={season} />
-
         {/* 2. Living Settlements: Pine Ridge Alpine Village, Sunfire Coastal City, Farm, Industrial Park & Harbor Pier */}
         <LivingSettlements isNight={isNight} season={season} />
 
@@ -4223,6 +4840,9 @@ export default function WorldCanvas({
 
         {/* Iconic Firewatch Lookout Tower on the Western Ridge */}
         <FirewatchTower position={[-230, 0, -15]} />
+
+        {/* Mountain Motocross Tour: 3 Cross/Enduro Bikes touring western mountains & alpine trails */}
+        <MountainMotocrossTour isNight={isNight} />
 
         {/* Living World Nature: Dense Firewatch Coniferous Pines, Valley Trees & Shrubs with Seasonal Foliage */}
         <IslandVegetation season={season} />
@@ -4268,7 +4888,7 @@ export default function WorldCanvas({
             isLeased={leasedSiteIds.has(site.id)}
             showBoundaries={showSiteBoundaries}
             showLabels={showSiteLabels}
-            onSelect={onSelectSite}
+            onSelect={handleSafeSelectSite}
           />
         ))}
 
@@ -4323,7 +4943,7 @@ export default function WorldCanvas({
                   remainingHours={remainingHours}
                   equipmentName={asset.equipment_catalog?.model_name || 'Rüzgar Türbini'}
                   isNight={Boolean(clock?.isNight)}
-                  onClick={() => worldSite && onSelectSite(worldSite)}
+                  onClick={(e) => worldSite && handleSafeSelectSite(worldSite, e)}
                 />
               );
             }
@@ -4337,7 +4957,7 @@ export default function WorldCanvas({
                 siteId={Number(worldSite?.id || cSite?.site_id || 1)}
                 windSpeed={Number(asset.equipment_catalog?.capacity_kw || 1000) > 2000 ? 9.2 : 8.6}
                 isNight={Boolean(clock?.isNight)}
-                onClick={() => worldSite && onSelectSite(worldSite)}
+                onClick={(e) => worldSite && handleSafeSelectSite(worldSite, e)}
               />
             );
           }
@@ -4354,7 +4974,7 @@ export default function WorldCanvas({
                   equipmentName={asset.equipment_catalog?.model_name || 'Güneş Paneli'}
                   isNight={Boolean(clock?.isNight)}
                   hasTracker={Boolean(cSite?.has_solar_tracker)}
-                  onClick={() => worldSite && onSelectSite(worldSite)}
+                  onClick={(e) => worldSite && handleSafeSelectSite(worldSite, e)}
                 />
               );
             }
@@ -4365,7 +4985,7 @@ export default function WorldCanvas({
                 position={[posX, posY, posZ]}
                 hasTracker={Boolean(cSite?.has_solar_tracker)}
                 clock={clock}
-                onClick={() => worldSite && onSelectSite(worldSite)}
+                onClick={(e) => worldSite && handleSafeSelectSite(worldSite, e)}
               />
             );
           }
@@ -4375,7 +4995,7 @@ export default function WorldCanvas({
               <BatteryContainer
                 key={asset.id}
                 position={[posX, posY, posZ]}
-                onClick={() => worldSite && onSelectSite(worldSite)}
+                onClick={(e) => worldSite && handleSafeSelectSite(worldSite, e)}
               />
             );
           }
@@ -4421,20 +5041,30 @@ export default function WorldCanvas({
           onExit={onExitCinematicMode}
         />
 
-        {/* Orbit Camera Controls: Fast Effortless Zoom-In & Responsive Screen-Space Pan */}
+        {/* Orbit Camera Controls: Mode-Aware, Effortless Zoom-In & Responsive Screen-Space Pan */}
         <OrbitControls
           ref={controlsRef}
           enabled={!isGroundMode && !isCinematicMode}
-          maxPolarAngle={Math.PI / 2.05}
-          minDistance={1.0}
-          maxDistance={2800}
+          maxPolarAngle={viewMode === 'top' ? 0.06 : viewMode === 'iso' ? Math.PI / 3.0 : Math.PI / 2.06}
+          minPolarAngle={viewMode === 'top' ? 0.01 : viewMode === 'iso' ? Math.PI / 4.4 : 0.05}
+          minDistance={3.5}
+          maxDistance={2400}
           enablePan={true}
-          panSpeed={2.2}
-          zoomSpeed={2.0}
-          rotateSpeed={0.9}
+          panSpeed={viewMode === 'top' ? 1.25 : 0.95}
+          zoomSpeed={0.9}
+          rotateSpeed={viewMode === 'top' ? 0.0 : 0.55}
           screenSpacePanning={true}
           enableDamping={true}
-          dampingFactor={0.12}
+          dampingFactor={0.08}
+          touches={{
+            ONE: viewMode === 'top' ? THREE.TOUCH.PAN : THREE.TOUCH.ROTATE,
+            TWO: THREE.TOUCH.DOLLY_PAN
+          }}
+          mouseButtons={{
+            LEFT: viewMode === 'top' ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE,
+            MIDDLE: THREE.MOUSE.DOLLY,
+            RIGHT: THREE.MOUSE.PAN
+          }}
         />
       </Canvas>
     </div>

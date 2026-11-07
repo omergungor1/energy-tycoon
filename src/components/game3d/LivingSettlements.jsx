@@ -3,7 +3,7 @@
 import React, { useRef, useMemo } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
-import { getTerrainHeight } from './WorldCanvas';
+import { getTerrainHeight, getMeshHeightAt } from './WorldCanvas';
 import MaritimeFleet from './MaritimeFleet';
 import SeasideCampgrounds from './SeasideCampgrounds';
 
@@ -119,7 +119,10 @@ function SettlementPedestrian({
   pantsColor = '#334155',
   hatType = 'none',
   hatColor = '#451a03',
-  initialWp = 0
+  initialWp = 0,
+  parentWorldPos = null,
+  groundOffset = 0,
+  customGetY = null
 }) {
   const pRef = useRef();
   const legLRef = useRef();
@@ -131,6 +134,7 @@ function SettlementPedestrian({
     wpIdx: initialWp,
     x: waypoints[initialWp]?.[0] || 0,
     z: waypoints[initialWp]?.[1] || 0,
+    y: 0,
     rot: 0,
     state: 'walking',
     idleTimer: 0,
@@ -184,6 +188,25 @@ function SettlementPedestrian({
       pRef.current.position.z = sim.z;
       pRef.current.rotation.y = sim.rot;
     }
+
+    // Dynamic ground elevation tracking: ensures feet remain locked to actual ground/terrain
+    let targetGroundY = sim.y;
+    if (customGetY) {
+      const worldX = (parentWorldPos ? parentWorldPos[0] : 0) + sim.x;
+      const worldZ = (parentWorldPos ? parentWorldPos[2] : 0) + sim.z;
+      targetGroundY = customGetY(worldX, worldZ, sim.x, sim.z);
+    } else if (parentWorldPos) {
+      const worldX = parentWorldPos[0] + sim.x;
+      const worldZ = parentWorldPos[2] + sim.z;
+      const terrainHeight = Math.max(
+        typeof getMeshHeightAt === 'function' ? getMeshHeightAt(worldX, worldZ) : getTerrainHeight(worldX, worldZ),
+        getTerrainHeight(worldX, worldZ)
+      );
+      targetGroundY = terrainHeight - parentWorldPos[1] + groundOffset;
+    }
+    sim.y = targetGroundY;
+    const walkBob = sim.state === 'walking' ? Math.abs(Math.sin(sim.walkPhase)) * 0.04 : 0;
+    pRef.current.position.y = targetGroundY + walkBob;
   });
 
   return (
@@ -1515,6 +1538,26 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
               <meshStandardMaterial color="#78350f" roughness={0.85} />
             </mesh>
           </group>
+
+          {/* Pier Deckhand patrolling safely along center of wooden pier deck */}
+          <group position={[0, 0.4, 0]}>
+            <SettlementPedestrian
+              waypoints={[
+                [0, 12],
+                [1.0, 5],
+                [-0.8, -3],
+                [0.8, -10],
+                [-0.8, -3],
+                [0, 5]
+              ]}
+              speed={0.9}
+              shirtColor="#0284c7"
+              pantsColor="#1e293b"
+              hatType="cap"
+              hatColor="#0f172a"
+              initialWp={0}
+            />
+          </group>
         </group>
 
         {/* Scenic Rocky Promontory Cape with Historic Coastal Lighthouse */}
@@ -1622,27 +1665,54 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
           <LowPolyParkedCar position={[5.5, 0, 2.5]} rotation={[0, -Math.PI / 4, 0]} type="suv" color="#ea580c" />
         </group>
 
-        {/* Animated Marina Pedestrians (Dockmaster & Harbor Visitors) */}
+        {/* Animated Marina & Lighthouse Pedestrians (Grounded to Map Terrain) */}
         <group position={[0, 0, 0]}>
-          {/* Dockmaster patrolling the timber pier */}
+          {/* Lighthouse Keeper & Coastal Inspector patrolling strictly on the elevated lighthouse promontory */}
           <SettlementPedestrian
-            waypoints={[[15, -15], [18, -35], [20, -38], [15, -15]]}
-            speed={0.95}
-            shirtColor="#1e3a8a"
-            pantsColor="#f8fafc"
-            hatType="cap"
+            waypoints={[
+              [-24.0, 2.0],  // Front porch of keeper's cottage
+              [-22.0, 3.5],  // Cobblestone path towards lighthouse
+              [-20.0, 0.5],  // Stone terrace southern approach
+              [-16.0, 3.0],  // Lookout terrace east overlooking the bay
+              [-15.0, 6.0],  // Scenic coastal lookout point atop cape
+              [-18.5, 8.5],  // Northern promontory view of passing ships
+              [-23.0, 7.0],  // Returning along garden path west
+              [-24.5, 4.5]   // Passing between tool shed and cottage
+            ]}
+            speed={0.9}
+            shirtColor="#1e3a8a" // Sailor navy blue coat
+            pantsColor="#f8fafc" // White trousers
+            hatType="cap"        // Captain cap
             hatColor="#1e3a8a"
             initialWp={0}
+            parentWorldPos={[MARINA_HARBOR_POS.x, MARINA_HARBOR_POS.y, MARINA_HARBOR_POS.z]}
+            customGetY={(worldX, worldZ) => {
+              const th = Math.max(
+                typeof getMeshHeightAt === 'function' ? getMeshHeightAt(worldX, worldZ) : getTerrainHeight(worldX, worldZ),
+                getTerrainHeight(worldX, worldZ)
+              );
+              const distToLighthouse = Math.hypot(worldX - (MARINA_HARBOR_POS.x - 20), worldZ - (MARINA_HARBOR_POS.z + 5));
+              const terraceBoost = distToLighthouse < 5.8 ? 0.62 : 0.05;
+              return th - MARINA_HARBOR_POS.y + terraceBoost;
+            }}
           />
-          {/* Visitor walking from car park to scenic lighthouse path */}
+          {/* Visitor walking safely along car park overlook path */}
           <SettlementPedestrian
-            waypoints={[[8, 4], [-4, 6], [-14, 5], [-4, 6]]}
-            speed={1.05}
+            waypoints={[
+              [14, 4],   // Car park overlook
+              [10, 5],   // Grassy lawn viewpoint
+              [6, 5],    // Harbor approach path
+              [10, 6],   // Trail loop
+              [13, 3]    // Near parked vehicles
+            ]}
+            speed={1.0}
             shirtColor="#eab308"
             pantsColor="#334155"
             hatType="beanie"
             hatColor="#dc2626"
             initialWp={1}
+            parentWorldPos={[MARINA_HARBOR_POS.x, MARINA_HARBOR_POS.y, MARINA_HARBOR_POS.z]}
+            groundOffset={0.04}
           />
         </group>
       </group>
@@ -1925,39 +1995,64 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
           initialWp={2}
         />
 
-        {/* Layered 3D Lavender Fields & Apple Fruit Tree Orchard */}
-        <group position={[0, 0.45, 36]}>
+        {/* Layered 3D Lavender Fields & Apple Fruit Tree Orchard (Firmly Grounded Alpine Terrace) */}
+        <group position={[0, 0.02, 36]}>
+          {/* Western Mountain Terrace Stone Retaining Wall (Anchors field into mountain bedrock) */}
+          <mesh position={[-33.2, -4.5, 0]} castShadow receiveShadow material={mats.stoneFoundation}>
+            <boxGeometry args={[1.4, 9.5, 29.0]} />
+          </mesh>
+          {/* Eastern Valley Terrace Stone Retaining Wall (Guarantees zero floating gap on the slope) */}
+          <mesh position={[33.2, -4.5, 0]} castShadow receiveShadow material={mats.stoneFoundation}>
+            <boxGeometry args={[1.4, 9.5, 29.0]} />
+          </mesh>
+          {/* Eastern Stepped Foundation Buttresses along the downhill cliff */}
+          {[-9.5, 0, 9.5].map((bz, bi) => (
+            <mesh key={`buttress_${bi}`} position={[34.0, -4.5, bz]} castShadow receiveShadow material={mats.stoneFoundation}>
+              <boxGeometry args={[1.6, 9.2, 2.6]} />
+            </mesh>
+          ))}
+          {/* Southern Perimeter Stone Foundation Skirt */}
+          <mesh position={[0, -4.5, 14.2]} castShadow receiveShadow material={mats.stoneFoundation}>
+            <boxGeometry args={[67.8, 9.5, 1.4]} />
+          </mesh>
+
           {/* ================= LEFT: PURPLE LAVENDER FIELD ================= */}
           <group position={[-18, 0, 0]}>
-            <mesh position={[0, 0.35, 0]} receiveShadow material={mats.richSoilMat}>
-              <boxGeometry args={[30, 0.8, 28]} />
+            {/* Deep Sub-Terrain Solid Masonry Foundation (9.5m deep into mountain slope) */}
+            <mesh position={[0, -4.6, 0]} receiveShadow material={mats.stoneFoundation}>
+              <boxGeometry args={[30.6, 9.5, 28.6]} />
+            </mesh>
+            {/* Rich Top Soil Layer */}
+            <mesh position={[0, 0.18, 0]} receiveShadow material={mats.richSoilMat}>
+              <boxGeometry args={[30, 0.36, 28]} />
             </mesh>
             {/* Plowed Soil Furrows */}
             {[-11, -7.5, -4, 0, 4, 7.5, 11].map((fx, fi) => (
-              <mesh key={`lav_furrow_${fi}`} position={[fx, 0.76, 0]} receiveShadow material={mats.furrowSoilMat}>
-                <boxGeometry args={[1.7, 0.12, 27.2]} />
+              <mesh key={`lav_furrow_${fi}`} position={[fx, 0.38, 0]} receiveShadow material={mats.furrowSoilMat}>
+                <boxGeometry args={[1.7, 0.1, 27.2]} />
               </mesh>
             ))}
-            <mesh position={[0, 0.82, 0]} material={mats.fenceWoodMat}>
-              <boxGeometry args={[30.4, 0.15, 28.4]} />
+            {/* Field Timber Border Edging */}
+            <mesh position={[0, 0.40, 0]} material={mats.fenceWoodMat}>
+              <boxGeometry args={[30.4, 0.14, 28.4]} />
             </mesh>
             {/* Parallel Rows of Fragrant Purple Lavender */}
             {[-11, -7.5, -4, 0, 4, 7.5, 11].map((rowX, ri) => (
               <mesh
                 key={`lav_row_${ri}`}
-                position={[rowX, 0.92, 0]}
+                position={[rowX, 0.52, 0]}
                 receiveShadow
                 castShadow
                 material={ri % 2 === 0 ? mats.lavenderMat : mats.lavenderDeepMat}
               >
-                <boxGeometry args={[2.0, 0.38, 26]} />
+                <boxGeometry args={[2.0, 0.36, 26]} />
               </mesh>
             ))}
             {/* Painted Honey Beehives */}
             {[
-              [-10, 0.9, -9],
-              [-7, 0.9, -9],
-              [-4, 0.9, -9]
+              [-10, 0.42, -9],
+              [-7, 0.42, -9],
+              [-4, 0.42, -9]
             ].map(([bx, by, bz], bi) => (
               <group key={`hive_${bi}`} position={[bx, by, bz]}>
                 <mesh position={[0, 0.3, 0]} material={mats.whiteBarnMat}>
@@ -1972,17 +2067,23 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
 
           {/* ================= RIGHT: FRESH APPLE ORCHARD ================= */}
           <group position={[18, 0, 0]}>
-            <mesh position={[0, 0.35, 0]} receiveShadow material={mats.richSoilMat}>
-              <boxGeometry args={[30, 0.8, 28]} />
+            {/* Deep Sub-Terrain Solid Masonry Foundation (9.5m deep into mountain slope) */}
+            <mesh position={[0, -4.6, 0]} receiveShadow material={mats.stoneFoundation}>
+              <boxGeometry args={[30.6, 9.5, 28.6]} />
+            </mesh>
+            {/* Rich Top Soil Layer */}
+            <mesh position={[0, 0.18, 0]} receiveShadow material={mats.richSoilMat}>
+              <boxGeometry args={[30, 0.36, 28]} />
             </mesh>
             {/* Tree Bed Furrow Mulch Ridges */}
             {[-9, 0, 9].map((mx, mi) => (
-              <mesh key={`orch_furrow_${mi}`} position={[mx, 0.76, 0]} receiveShadow material={mats.furrowSoilMat}>
+              <mesh key={`orch_furrow_${mi}`} position={[mx, 0.38, 0]} receiveShadow material={mats.furrowSoilMat}>
                 <boxGeometry args={[3.2, 0.1, 27.2]} />
               </mesh>
             ))}
-            <mesh position={[0, 0.82, 0]} material={mats.fenceWoodMat}>
-              <boxGeometry args={[30.4, 0.15, 28.4]} />
+            {/* Field Timber Border Edging */}
+            <mesh position={[0, 0.40, 0]} material={mats.fenceWoodMat}>
+              <boxGeometry args={[30.4, 0.14, 28.4]} />
             </mesh>
             {/* 8 Low-Poly Apple Trees with Red Apples */}
             {[
@@ -1990,7 +2091,7 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
               [0, -5], [0, 5],
               [9, -8], [9, 0], [9, 8]
             ].map(([tx, tz], ti) => (
-              <group key={`apple_tree_${ti}`} position={[tx, 0.85, tz]}>
+              <group key={`apple_tree_${ti}`} position={[tx, 0.42, tz]}>
                 {/* Tree Trunk */}
                 <mesh position={[0, 1.2, 0]} castShadow material={mats.woodChaletWall}>
                   <cylinderGeometry args={[0.22, 0.3, 2.4, 8]} />
@@ -2015,9 +2116,9 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
             ))}
             {/* Harvested Fruit Crates */}
             {[
-              [12, 0.95, -10],
-              [13.5, 0.95, -10],
-              [12.8, 1.45, -10]
+              [12, 0.55, -10],
+              [13.5, 0.55, -10],
+              [12.8, 1.05, -10]
             ].map(([cx, cy, cz], ci) => (
               <mesh key={`orch_crate_${ci}`} position={[cx, cy, cz]} castShadow material={mats.fenceWoodMat}>
                 <boxGeometry args={[1.0, 0.6, 0.8]} />
@@ -2026,8 +2127,8 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
           </group>
 
           {/* Central Dirt Farm Path */}
-          <mesh position={[0, 0.05, 0]} receiveShadow material={mats.dockWoodMat}>
-            <boxGeometry args={[3.8, 0.1, 28]} />
+          <mesh position={[0, 0.18, 0]} receiveShadow material={mats.dockWoodMat}>
+            <boxGeometry args={[3.8, 0.32, 28]} />
           </mesh>
         </group>
 

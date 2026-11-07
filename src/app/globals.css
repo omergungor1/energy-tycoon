@@ -23,6 +23,25 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  touch-action: pan-x pan-y;
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Ensure canvas takes full pointer gestures without browser page pinch-zoom */
+canvas {
+  touch-action: none !important;
+}
+
+/* Game Dialog & Modal scrolling containment */
+.modal-backdrop-safe {
+  touch-action: none;
+  overscroll-behavior: contain;
+}
+
+.modal-content-safe {
+  touch-action: pan-y;
+  overscroll-behavior: contain;
 }
 
 /* ==========================================================================

@@ -30,11 +30,13 @@ export default function RailwaySystem({ isNight = false }) {
       new THREE.Vector3(120, 0, -110),
       new THREE.Vector3(85, 0, -25),   // Industrial Park Siding
       new THREE.Vector3(85, 0, 60),    // Level Crossing with East Highway 2
-      new THREE.Vector3(65, 0, 150),   // Scenic Valley Green Corridor
-      new THREE.Vector3(35, 0, 220),   // Agri-Valley Farm Station (Station 3)
-      new THREE.Vector3(105, 0, 230),  // River Trestle Crossing
-      new THREE.Vector3(195, 0, 205),
-      new THREE.Vector3(270, 0, 165),
+      new THREE.Vector3(70, 0, 135),   // Scenic Valley Green Corridor
+      new THREE.Vector3(45, 0, 195),   // Gentle wide-radius south turn
+      new THREE.Vector3(65, 0, 235),   // Sweeping turn exit
+      new THREE.Vector3(115, 0, 230),  // Approaching Agri-Valley Station
+      new THREE.Vector3(185, 0, 215),  // Valley straight stretch
+      new THREE.Vector3(250, 0, 185),  // Scenic eastern transition
+      new THREE.Vector3(285, 0, 145),
       new THREE.Vector3(316, 0, 85),   // Sunfire City Bypass Station (Station 1)
       new THREE.Vector3(350, 0, -15),  // City North Bypass (Never intersects buildings)
       new THREE.Vector3(395, 0, -130), // Scenic Eastern Coastal Plain
@@ -47,8 +49,8 @@ export default function RailwaySystem({ isNight = false }) {
   // Pre-calculate exact curve parameters (u in [0, 1]) for all 3 railway stations
   const STATIONS = useMemo(() => {
     const stationTargets = [
-      { id: 'harbor', name: 'LİMAN YÜK TERMİNALİ', pos: new THREE.Vector3(220, 0, -340) },
-      { id: 'agri', name: 'AGRI-VALLEY İSTASYONU', pos: new THREE.Vector3(35, 0, 220) },
+      { id: 'harbor', name: 'LİMAN YÜK TERMİNALİ', pos: new THREE.Vector3(190.7, 0, -276.0) },
+      { id: 'agri', name: 'AGRI-VALLEY İSTASYONU', pos: new THREE.Vector3(135, 0, 227) },
       { id: 'sunfire', name: 'SUNFIRE ŞEHİR İSTASYONU', pos: new THREE.Vector3(316, 0, 85) }
     ];
 
@@ -78,9 +80,9 @@ export default function RailwaySystem({ isNight = false }) {
       .sort((a, b) => a.u - b.u);
   }, [railCurve]);
 
-  // Generate 3D Railroad Track: Raised Gravel Ballast Bed & Dual Polished Steel Rails
+  // Generate 3D Railroad Track: Raised Trapezoidal Gravel Ballast Embankment & Dual Steel Rails
   const trackGeometry = useMemo(() => {
-    const sampleCount = 420;
+    const sampleCount = 550;
     const points = railCurve.getPoints(sampleCount);
 
     const ballastVertices = [];
@@ -92,7 +94,8 @@ export default function RailwaySystem({ isNight = false }) {
 
     const GAUGE_HALF = 0.85; // Track half-gauge width
     const RAIL_WIDTH_HALF = 0.08;
-    const BALLAST_HALF = 2.4; // Wide distinct gravel ballast bed
+    const CROWN_HALF = 2.4; // Top flat ballast crown width
+    const TOE_HALF = 3.6;   // Sloped embankment shoulder toe width
 
     for (let i = 0; i < points.length; i++) {
       const p = points[i];
@@ -100,38 +103,61 @@ export default function RailwaySystem({ isNight = false }) {
       const tangent = railCurve.getTangentAt(u).normalize();
       const normal = new THREE.Vector3(-tangent.z, 0, tangent.x).normalize();
 
-      const groundY = getTerrainHeight(p.x, p.z);
-      const trackY = groundY + 0.46; // Prominently elevated above terrain
+      // Sample terrain along cross-section to guarantee track stays elevated above cross-slopes
+      const bL_crown = p.clone().addScaledVector(normal, CROWN_HALF);
+      const bR_crown = p.clone().addScaledVector(normal, -CROWN_HALF);
+      const bL_toe = p.clone().addScaledVector(normal, TOE_HALF);
+      const bR_toe = p.clone().addScaledVector(normal, -TOE_HALF);
 
-      // 1. Gravel Ballast Bed (Cross-section)
-      const bL = p.clone().addScaledVector(normal, BALLAST_HALF);
-      const bR = p.clone().addScaledVector(normal, -BALLAST_HALF);
-      ballastVertices.push(bL.x, trackY - 0.18, bL.z);
-      ballastVertices.push(bR.x, trackY - 0.18, bR.z);
+      const yCenter = getTerrainHeight(p.x, p.z);
+      const yL = getTerrainHeight(bL_crown.x, bL_crown.z);
+      const yR = getTerrainHeight(bR_crown.x, bR_crown.z);
+      const maxGround = Math.max(yCenter, yL, yR);
+      const minGround = Math.min(yCenter, yL, yR);
+
+      // Elevated track crown ensuring zero sinking into terrain (+0.58m above ground)
+      const trackY = maxGround + 0.58;
+      const ballastCrownY = trackY - 0.12;
+      const ballastToeY = minGround - 0.45; // Embedded firmly into ground
+
+      // 1. Trapezoidal 3D Gravel Ballast Bed (4 vertices per cross-section)
+      // Vertices: [Left Toe, Left Crown, Right Crown, Right Toe]
+      ballastVertices.push(bL_toe.x, ballastToeY, bL_toe.z);
+      ballastVertices.push(bL_crown.x, ballastCrownY, bL_crown.z);
+      ballastVertices.push(bR_crown.x, ballastCrownY, bR_crown.z);
+      ballastVertices.push(bR_toe.x, ballastToeY, bR_toe.z);
 
       // 2. Left Steel Rail (Cross-section width 16cm)
       const rL_outer = p.clone().addScaledVector(normal, GAUGE_HALF + RAIL_WIDTH_HALF);
       const rL_inner = p.clone().addScaledVector(normal, GAUGE_HALF - RAIL_WIDTH_HALF);
-      leftRailVertices.push(rL_outer.x, trackY + 0.22, rL_outer.z);
-      leftRailVertices.push(rL_inner.x, trackY + 0.22, rL_inner.z);
+      leftRailVertices.push(rL_outer.x, trackY + 0.26, rL_outer.z);
+      leftRailVertices.push(rL_inner.x, trackY + 0.26, rL_inner.z);
 
       // 3. Right Steel Rail (Cross-section width 16cm)
       const rR_inner = p.clone().addScaledVector(normal, -(GAUGE_HALF - RAIL_WIDTH_HALF));
       const rR_outer = p.clone().addScaledVector(normal, -(GAUGE_HALF + RAIL_WIDTH_HALF));
-      rightRailVertices.push(rR_inner.x, trackY + 0.22, rR_inner.z);
-      rightRailVertices.push(rR_outer.x, trackY + 0.22, rR_outer.z);
+      rightRailVertices.push(rR_inner.x, trackY + 0.26, rR_inner.z);
+      rightRailVertices.push(rR_outer.x, trackY + 0.26, rR_outer.z);
 
       if (i < points.length - 1) {
-        const bIdx = i * 2;
-        // Counter-clockwise indices (Normals face UP towards sky)
-        ballastIndices.push(bIdx, bIdx + 2, bIdx + 1);
-        ballastIndices.push(bIdx + 1, bIdx + 2, bIdx + 3);
+        const s = i * 4;
+        // 3 quads per segment: Left embankment slope, Flat crown deck, Right embankment slope
+        // Left slope
+        ballastIndices.push(s, s + 4, s + 1);
+        ballastIndices.push(s + 1, s + 4, s + 5);
+        // Crown deck
+        ballastIndices.push(s + 1, s + 5, s + 2);
+        ballastIndices.push(s + 2, s + 5, s + 6);
+        // Right slope
+        ballastIndices.push(s + 2, s + 6, s + 3);
+        ballastIndices.push(s + 3, s + 6, s + 7);
 
-        leftRailIndices.push(bIdx, bIdx + 2, bIdx + 1);
-        leftRailIndices.push(bIdx + 1, bIdx + 2, bIdx + 3);
+        const rIdx = i * 2;
+        leftRailIndices.push(rIdx, rIdx + 2, rIdx + 1);
+        leftRailIndices.push(rIdx + 1, rIdx + 2, rIdx + 3);
 
-        rightRailIndices.push(bIdx, bIdx + 2, bIdx + 1);
-        rightRailIndices.push(bIdx + 1, bIdx + 2, bIdx + 3);
+        rightRailIndices.push(rIdx, rIdx + 2, rIdx + 1);
+        rightRailIndices.push(rIdx + 1, rIdx + 2, rIdx + 3);
       }
     }
 
@@ -155,21 +181,26 @@ export default function RailwaySystem({ isNight = false }) {
 
   // Wooden Railroad Ties (Sleepers / Traversler) spaced every 2.0m along the entire line
   const tieCount = useMemo(() => Math.floor(totalLength / 2.0), [totalLength]);
-  const tieGeo = useMemo(() => new THREE.BoxGeometry(2.7, 0.16, 0.44), []);
+  const tieGeo = useMemo(() => new THREE.BoxGeometry(2.7, 0.22, 0.44), []);
 
   useEffect(() => {
     if (!tiesRef.current) return;
     const dummy = new THREE.Object3D();
-    const upVec = new THREE.Vector3(0, 1, 0);
 
     for (let k = 0; k < tieCount; k++) {
       const u = k / tieCount;
       const pt = railCurve.getPointAt(u);
       const tang = railCurve.getTangentAt(u).normalize();
       const norm = new THREE.Vector3(-tang.z, 0, tang.x).normalize();
-      const groundY = getTerrainHeight(pt.x, pt.z);
 
-      dummy.position.set(pt.x, groundY + 0.40, pt.z);
+      const pL = pt.clone().addScaledVector(norm, 1.4);
+      const pR = pt.clone().addScaledVector(norm, -1.4);
+      const yCenter = getTerrainHeight(pt.x, pt.z);
+      const yL = getTerrainHeight(pL.x, pL.z);
+      const yR = getTerrainHeight(pR.x, pR.z);
+      const trackY = Math.max(yCenter, yL, yR) + 0.58;
+
+      dummy.position.set(pt.x, trackY - 0.04, pt.z);
       // Align tie perpendicular to track tangent
       dummy.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), norm);
       dummy.updateMatrix();
@@ -205,18 +236,27 @@ export default function RailwaySystem({ isNight = false }) {
       trackBallast: new THREE.MeshStandardMaterial({
         color: '#2d3748',
         roughness: 0.95,
-        side: THREE.DoubleSide
+        side: THREE.DoubleSide,
+        polygonOffset: true,
+        polygonOffsetFactor: -2,
+        polygonOffsetUnits: -2
       }),
       woodenTie: new THREE.MeshStandardMaterial({
         color: '#261b14',
         roughness: 0.92,
-        side: THREE.DoubleSide
+        side: THREE.DoubleSide,
+        polygonOffset: true,
+        polygonOffsetFactor: -3,
+        polygonOffsetUnits: -3
       }),
       steelRail: new THREE.MeshStandardMaterial({
         color: '#e2e8f0',
         roughness: 0.22,
         metalness: 0.88,
-        side: THREE.DoubleSide
+        side: THREE.DoubleSide,
+        polygonOffset: true,
+        polygonOffsetFactor: -4,
+        polygonOffsetUnits: -4
       }),
       stationPlat: new THREE.MeshStandardMaterial({ color: '#475569', roughness: 0.9 }),
       stationRoof: new THREE.MeshStandardMaterial({ color: '#1e293b', roughness: 0.7, metalness: 0.3 }),
@@ -305,8 +345,8 @@ export default function RailwaySystem({ isNight = false }) {
       const pNext = railCurve.getPointAt(nextProgress);
       const nextGroundY = getTerrainHeight(pNext.x, pNext.z);
 
-      ref.current.position.set(p.x, groundY + 0.54, p.z);
-      ref.current.lookAt(pNext.x, nextGroundY + 0.54, pNext.z);
+      ref.current.position.set(p.x, groundY + 0.66, p.z);
+      ref.current.lookAt(pNext.x, nextGroundY + 0.66, pNext.z);
     };
 
     // 1. Locomotive (Front)
@@ -459,21 +499,25 @@ export default function RailwaySystem({ isNight = false }) {
         </group>
       </group>
 
-      {/* STATION 2: Harbor Freight & Logistics Terminal (at [222, 0, -335]) */}
-      <group position={[222, getTerrainHeight(222, -335), -335]} rotation={[0, -0.6, 0]}>
+      {/* STATION 2: Harbor Freight & Logistics Terminal (at [190.7, 0, -276.0] on straight coastal railway corridor) */}
+      <group position={[190.7, getTerrainHeight(190.7, -276.0), -276.0]} rotation={[0, -0.224, 0]}>
         {/* Heavy-Duty Cargo Loading Platform */}
-        <mesh position={[6.5, 0.45, 0]} receiveShadow material={mats.stationPlat}>
-          <boxGeometry args={[8.5, 0.9, 42]} />
+        <mesh position={[6.5, 0.0, 0]} receiveShadow material={mats.stationPlat}>
+          <boxGeometry args={[8.5, 1.8, 42]} />
+        </mesh>
+        {/* Yellow Safety Tactile Stripe along platform edge */}
+        <mesh position={[2.4, 0.91, 0]} material={mats.tactileYellow}>
+          <boxGeometry args={[0.3, 0.04, 42]} />
         </mesh>
         {/* Heavy Industrial Gantry Overhead Crane */}
         <group position={[0, 0, 0]}>
           <mesh position={[-3.5, 3.8, 0]} material={mats.locoNose} castShadow>
-            <boxGeometry args={[0.5, 7.6, 0.5]} />
+            <boxGeometry args={[0.5, 8.6, 0.5]} />
           </mesh>
           <mesh position={[10.5, 3.8, 0]} material={mats.locoNose} castShadow>
-            <boxGeometry args={[0.5, 7.6, 0.5]} />
+            <boxGeometry args={[0.5, 8.6, 0.5]} />
           </mesh>
-          <mesh position={[3.5, 7.6, 0]} material={mats.locoNose} castShadow>
+          <mesh position={[3.5, 8.1, 0]} material={mats.locoNose} castShadow>
             <boxGeometry args={[14.5, 0.8, 1.2]} />
           </mesh>
         </group>
@@ -521,8 +565,8 @@ export default function RailwaySystem({ isNight = false }) {
         </group>
       </group>
 
-      {/* STATION 3: Agri-Valley Farm & Rural Station (at [35, 0, 220] near Agri Farm) */}
-      <group position={[35, getTerrainHeight(35, 220), 220]} rotation={[0, 0.95, 0]}>
+      {/* STATION 3: Agri-Valley Farm & Rural Station (at [135, 0, 227] on straight valley plain) */}
+      <group position={[135, getTerrainHeight(135, 227), 227]} rotation={[0, 1.74, 0]}>
         {/* Rustic Stone & Timber Platform */}
         <mesh position={[6.0, 0.45, 0]} receiveShadow material={mats.stationPlat}>
           <boxGeometry args={[7.0, 0.9, 32]} />

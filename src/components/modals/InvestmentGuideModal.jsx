@@ -36,8 +36,27 @@ export default function InvestmentGuideModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200 modal-backdrop-safe"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      onWheel={(e) => {
+        e.stopPropagation();
+        if (e.ctrlKey) e.preventDefault();
+      }}
+      onTouchMove={(e) => {
+        if (e.target === e.currentTarget) e.preventDefault();
+      }}
+    >
+      <div
+        className="relative w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] modal-content-safe"
+        onClick={(e) => e.stopPropagation()}
+        onWheel={(e) => {
+          e.stopPropagation();
+          if (e.ctrlKey) e.preventDefault();
+        }}
+      >
         {/* Top Gradient Stripe */}
         <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-cyan-500 via-emerald-500 to-amber-500" />
 

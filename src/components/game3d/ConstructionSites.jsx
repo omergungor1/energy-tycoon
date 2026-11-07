@@ -267,7 +267,7 @@ function ActiveConstructionWorker({
 // =============================================================================
 // REUSABLE SAFETY FLOODLIGHT TOWER (FOR NIGHT ILLUMINATION)
 // =============================================================================
-function SafetyFloodlightTower({ position = [0, 0, 0], isNight = false }) {
+export function SafetyFloodlightTower({ position = [0, 0, 0], isNight = false }) {
   return (
     <group position={position}>
       {/* Tripod Base */}
@@ -1684,6 +1684,352 @@ export function WindTurbineConstructionSite({
 }
 
 // =============================================================================
+// ANIMATED MOBILE TELESCOPIC CRANE FOR SOLAR FARM PV MODULE INSTALLATION
+// =============================================================================
+function SolarInstallationCrane({
+  position = [8.0, 1.07, -1.0],
+  rotation = [0, 0, 0],
+  isNight = false,
+  phase = 3
+}) {
+  const turntableRef = useRef();
+  const boomRef = useRef();
+  const tipHangerRef = useRef();
+  const cableRef = useRef();
+  const hookGroupRef = useRef();
+  const suspendedPanelRef = useRef();
+  const beaconRef = useRef();
+
+  useFrame(({ clock }) => {
+    const t = clock.getElapsedTime();
+
+    // Dual amber safety strobe
+    if (beaconRef.current) {
+      if (!isNight) {
+        const strobe = (t * 2.2) % 1.0;
+        beaconRef.current.material.opacity = strobe < 0.25 || (strobe > 0.45 && strobe < 0.7) ? 1.0 : 0.2;
+      } else {
+        beaconRef.current.material.opacity = 0.08;
+      }
+    }
+
+    if (isNight) return;
+
+    // Smooth industrial crane cycle (~16 seconds)
+    const cycleTime = 16.0;
+    const p = (t % cycleTime) / cycleTime; // 0.0 to 1.0
+
+    // Coordinates:
+    // Flatbed truck cargo is at [+14.2, +3.5] -> Slew angle ~ +0.943 rad
+    // Target tracker rack is at [+1.5, -2.5] -> Slew angle ~ -1.80 rad
+    let targetSlew = 0.95;
+    let targetBoomPitch = 0.65;
+    let targetCableDrop = 4.4;
+    let hasLoad = false;
+
+    if (phase === 1) {
+      // Phase 1: Site preparation / Standby posture
+      targetSlew = 0.0;
+      targetBoomPitch = 0.38;
+      targetCableDrop = 2.8;
+      hasLoad = false;
+    } else if (p < 0.18) {
+      // Step 1: Hook descends cleanly onto the flatbed truck cargo
+      targetSlew = 0.95;
+      targetBoomPitch = 0.65;
+      const progress = p / 0.18;
+      const ease = Math.sin(progress * Math.PI * 0.5);
+      targetCableDrop = 4.4 + ease * 3.8; // descends to 8.2m (resting on truck bed)
+      hasLoad = p > 0.13;
+    } else if (p < 0.30) {
+      // Step 2: Hoist load smoothly up off the truck flatbed into safe transit height
+      targetSlew = 0.95;
+      const progress = (p - 0.18) / 0.12;
+      const ease = progress * progress * (3 - 2 * progress);
+      targetCableDrop = 8.2 - ease * 3.8; // hoists back to 4.4m
+      targetBoomPitch = 0.65 - ease * 0.06; // slight pitch up to 0.59
+      hasLoad = true;
+    } else if (p < 0.65) {
+      // Step 3: Slew across from truck to tracker array rack at safe high transit altitude
+      const progress = (p - 0.30) / 0.35;
+      const ease = progress * progress * (3 - 2 * progress);
+      targetSlew = 0.95 + ease * (-1.80 - 0.95);
+      targetBoomPitch = 0.59 + Math.sin(progress * Math.PI) * 0.02 - progress * 0.05; // 0.59 -> 0.54
+      targetCableDrop = 4.4;
+      hasLoad = true;
+    } else if (p < 0.80) {
+      // Step 4: Lower the solar module table onto the tracker rack torque tube
+      targetSlew = -1.80;
+      targetBoomPitch = 0.54;
+      const progress = (p - 0.65) / 0.15;
+      const ease = Math.sin(progress * Math.PI * 0.5);
+      targetCableDrop = 4.4 + ease * 2.85; // lowers to 7.25m (landing on torque tube)
+      hasLoad = p < 0.77;
+    } else {
+      // Step 5: Hook unhooks, hoists back up, turntable slews back towards truck
+      const progress = (p - 0.80) / 0.20;
+      const ease = progress * progress * (3 - 2 * progress);
+      targetSlew = -1.80 + ease * (0.95 - -1.80);
+      targetBoomPitch = 0.54 + ease * 0.11; // 0.54 -> 0.65
+      targetCableDrop = 7.25 - ease * 2.85; // retracts to 4.4m
+      hasLoad = false;
+    }
+
+    // Ultra smooth interpolation
+    if (turntableRef.current) {
+      turntableRef.current.rotation.y = THREE.MathUtils.lerp(turntableRef.current.rotation.y, targetSlew, 0.07);
+    }
+    if (boomRef.current) {
+      boomRef.current.rotation.x = THREE.MathUtils.lerp(boomRef.current.rotation.x, targetBoomPitch, 0.07);
+    }
+    // Counter-rotate the tip hanger so local Y is STRICTLY vertical under gravity at all times
+    if (tipHangerRef.current && boomRef.current) {
+      tipHangerRef.current.rotation.x = -boomRef.current.rotation.x;
+    }
+    if (hookGroupRef.current) {
+      hookGroupRef.current.position.y = THREE.MathUtils.lerp(hookGroupRef.current.position.y, -targetCableDrop, 0.07);
+      // Subtle natural pendulum sway relative to vertical gravity
+      hookGroupRef.current.rotation.z = Math.sin(t * 1.8) * 0.015;
+      hookGroupRef.current.rotation.x = Math.cos(t * 1.5) * 0.012;
+    }
+    // Cable scales and positions directly between sheave and hook block
+    if (cableRef.current && hookGroupRef.current) {
+      const curDrop = Math.max(0.2, -hookGroupRef.current.position.y);
+      cableRef.current.scale.y = curDrop;
+      cableRef.current.position.y = -curDrop / 2;
+    }
+    if (suspendedPanelRef.current && turntableRef.current) {
+      suspendedPanelRef.current.visible = hasLoad;
+      // Align panel squarely with solar farm grid coordinates
+      suspendedPanelRef.current.rotation.y = -turntableRef.current.rotation.y;
+    }
+  });
+
+  return (
+    <group position={position} rotation={rotation}>
+      {/* 1. Heavy Carrier Chassis (Yellow Heavy-Duty Frame) */}
+      <mesh position={[0, 0.85, 0]} castShadow>
+        <boxGeometry args={[3.0, 1.0, 11.5]} />
+        <meshStandardMaterial color="#eab308" roughness={0.4} metalness={0.2} />
+      </mesh>
+
+      {/* Driver Transport Cab (Faces +Z) */}
+      <mesh position={[0, 1.6, 4.3]} castShadow>
+        <boxGeometry args={[2.7, 1.3, 2.4]} />
+        <meshStandardMaterial color="#eab308" roughness={0.4} />
+      </mesh>
+      {/* Windshield */}
+      <mesh position={[0, 1.75, 5.46]}>
+        <boxGeometry args={[2.5, 0.85, 0.12]} />
+        <meshStandardMaterial color="#0f172a" roughness={0.1} metalness={0.9} />
+      </mesh>
+      {/* Amber Safety Strobes on Cab */}
+      {[-0.9, 0.9].map((xOff, i) => (
+        <mesh key={i} position={[xOff, 2.32, 4.6]} ref={i === 0 ? beaconRef : null}>
+          <cylinderGeometry args={[0.11, 0.11, 0.16, 8]} />
+          <meshStandardMaterial color="#f59e0b" emissive="#f59e0b" emissiveIntensity={isNight ? 0.1 : 0.9} transparent />
+        </mesh>
+      ))}
+
+      {/* 5 Pairs of Heavy Rubber Wheels */}
+      {[-3.8, -2.1, -0.4, 1.6, 3.4].map((zPos, i) => (
+        <React.Fragment key={i}>
+          <mesh position={[-1.55, 0.45, zPos]} rotation={[0, 0, Math.PI / 2]}>
+            <cylinderGeometry args={[0.46, 0.46, 0.42, 14]} />
+            <meshStandardMaterial color="#09090b" roughness={0.95} />
+          </mesh>
+          <mesh position={[1.55, 0.45, zPos]} rotation={[0, 0, Math.PI / 2]}>
+            <cylinderGeometry args={[0.46, 0.46, 0.42, 14]} />
+            <meshStandardMaterial color="#09090b" roughness={0.95} />
+          </mesh>
+        </React.Fragment>
+      ))}
+
+      {/* 4 Extended Hydraulic Outriggers (Denge Ayakları) */}
+      {[
+        [-2.4, -3.2],
+        [2.4, -3.2],
+        [-2.4, 2.5],
+        [2.4, 2.5]
+      ].map(([xOff, zOff], i) => (
+        <group key={i} position={[xOff, 0.35, zOff]}>
+          <mesh position={[xOff > 0 ? -0.7 : 0.7, 0.08, 0]}>
+            <boxGeometry args={[1.5, 0.25, 0.35]} />
+            <meshStandardMaterial color="#1e293b" metalness={0.8} />
+          </mesh>
+          <mesh position={[0, -0.12, 0]}>
+            <cylinderGeometry args={[0.1, 0.1, 0.45, 8]} />
+            <meshStandardMaterial color="#cbd5e1" metalness={0.9} />
+          </mesh>
+          {/* Steel Footpad on Timber Dunnage */}
+          <mesh position={[0, -0.32, 0]}>
+            <boxGeometry args={[0.8, 0.08, 0.8]} />
+            <meshStandardMaterial color="#334155" roughness={0.8} />
+          </mesh>
+        </group>
+      ))}
+
+      {/* 2. Slewing Turntable Base & Operator Cab */}
+      <group position={[0, 1.4, -1.6]} ref={turntableRef}>
+        {/* Turntable Ring */}
+        <mesh position={[0, 0.1, 0]}>
+          <cylinderGeometry args={[1.4, 1.5, 0.28, 16]} />
+          <meshStandardMaterial color="#334155" metalness={0.8} />
+        </mesh>
+        {/* Counterweight Slabs at Rear */}
+        <mesh position={[0, 0.8, -2.0]} castShadow>
+          <boxGeometry args={[2.9, 1.3, 1.8]} />
+          <meshStandardMaterial color="#1e293b" roughness={0.8} />
+        </mesh>
+        {/* Operator Cab */}
+        <mesh position={[-1.0, 1.0, 0.5]}>
+          <boxGeometry args={[1.1, 1.5, 2.0]} />
+          <meshStandardMaterial color="#eab308" />
+        </mesh>
+        <mesh position={[-1.0, 1.15, 1.48]}>
+          <boxGeometry args={[0.95, 1.1, 0.1]} />
+          <meshStandardMaterial color="#0f172a" roughness={0.1} metalness={0.9} />
+        </mesh>
+
+        {/* 3. Telescopic Boom Pinned to Turntable */}
+        <group position={[0.4, 0.8, 0]} ref={boomRef}>
+          {/* Base Section */}
+          <mesh position={[0, 2.4, 0]} castShadow>
+            <boxGeometry args={[1.2, 4.8, 1.4]} />
+            <meshStandardMaterial color="#ca8a04" roughness={0.5} />
+          </mesh>
+          {/* Middle Telescopic Section */}
+          <mesh position={[0, 6.2, 0]} castShadow>
+            <boxGeometry args={[1.0, 4.4, 1.2]} />
+            <meshStandardMaterial color="#eab308" roughness={0.4} />
+          </mesh>
+          {/* Tip Section */}
+          <mesh position={[0, 9.8, 0]} castShadow>
+            <boxGeometry args={[0.82, 4.0, 1.0]} />
+            <meshStandardMaterial color="#facc15" roughness={0.4} />
+          </mesh>
+          {/* Boom Head Sheave Pulley Assembly */}
+          <mesh position={[0, 11.6, 0.45]}>
+            <cylinderGeometry args={[0.44, 0.44, 0.65, 14]} rotation={[0, 0, Math.PI / 2]} />
+            <meshStandardMaterial color="#334155" metalness={0.8} />
+          </mesh>
+          <mesh position={[0, 11.6, 0.85]}>
+            <cylinderGeometry args={[0.26, 0.26, 0.5, 12]} rotation={[0, 0, Math.PI / 2]} />
+            <meshStandardMaterial color="#475569" metalness={0.8} />
+          </mesh>
+
+          {/* 4. Counter-Rotated Tip Hanger: Cancels boom pitch so local Y is STRICTLY vertical under gravity */}
+          <group position={[0, 11.6, 0.85]} ref={tipHangerRef}>
+            {/* Hoist Steel Cable hanging straight down */}
+            <mesh ref={cableRef} position={[0, -2.0, 0]}>
+              <cylinderGeometry args={[0.02, 0.02, 1.0, 6]} />
+              <meshStandardMaterial color="#09090b" metalness={0.9} />
+            </mesh>
+
+            {/* Hook Block Assembly */}
+            <group ref={hookGroupRef} position={[0, -4.0, 0]}>
+              {/* Hook Block Body */}
+              <mesh position={[0, 0, 0]} castShadow>
+                <boxGeometry args={[0.5, 0.75, 0.4]} />
+                <meshStandardMaterial color="#eab308" metalness={0.4} />
+              </mesh>
+              {/* Swivel Pulley Inside Block */}
+              <mesh position={[0, 0.15, 0]} rotation={[0, 0, Math.PI / 2]}>
+                <cylinderGeometry args={[0.2, 0.2, 0.44, 12]} />
+                <meshStandardMaterial color="#334155" metalness={0.8} />
+              </mesh>
+              {/* Heavy Swivel Hook */}
+              <mesh position={[0, -0.55, 0]} rotation={[0, 0, Math.PI / 4]}>
+                <torusGeometry args={[0.22, 0.055, 8, 16]} />
+                <meshStandardMaterial color="#cbd5e1" metalness={0.9} />
+              </mesh>
+
+              {/* 5. Suspended Solar Module Table with Spreader Lifting Frame */}
+              <group ref={suspendedPanelRef} position={[0, -0.65, 0]}>
+                {/* Yellow Spreader Lifting Beam */}
+                <mesh position={[0, 0, 0]} castShadow>
+                  <boxGeometry args={[3.8, 0.14, 0.14]} />
+                  <meshStandardMaterial color="#eab308" roughness={0.4} />
+                </mesh>
+                {/* Spreader Cross Arms */}
+                {[-1.6, 1.6].map((cx, ci) => (
+                  <mesh key={ci} position={[cx, 0, 0]}>
+                    <boxGeometry args={[0.12, 0.12, 2.6]} />
+                    <meshStandardMaterial color="#ca8a04" roughness={0.4} />
+                  </mesh>
+                ))}
+                {/* 4 Corner Drop Chains */}
+                {[
+                  [-1.6, -0.35, -1.2],
+                  [1.6, -0.35, -1.2],
+                  [-1.6, -0.35, 1.2],
+                  [1.6, -0.35, 1.2]
+                ].map(([sx, sy, sz], si) => (
+                  <mesh key={si} position={[sx, sy, sz]}>
+                    <cylinderGeometry args={[0.018, 0.018, 0.7, 6]} />
+                    <meshStandardMaterial color="#64748b" metalness={0.8} />
+                  </mesh>
+                ))}
+
+                {/* Suspended Full-Scale Solar PV Panel Table */}
+                <group position={[0, -0.7, 0]}>
+                  {/* Anodized Frame */}
+                  <mesh castShadow>
+                    <boxGeometry args={[4.2, 0.1, 3.2]} />
+                    <meshStandardMaterial color="#0284c7" roughness={0.2} metalness={0.6} />
+                  </mesh>
+                  {/* Anti-Reflective Silicon Face (100% FLAT ON TOP) */}
+                  <mesh position={[0, 0.055, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                    <planeGeometry args={[4.0, 3.0]} />
+                    <meshStandardMaterial color="#0b192c" roughness={0.12} metalness={0.9} />
+                  </mesh>
+                  {/* Silver Grid Lines */}
+                  {[-1.2, 0, 1.2].map((lx, li) => (
+                    <mesh key={li} position={[lx, 0.058, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                      <planeGeometry args={[0.04, 2.9]} />
+                      <meshBasicMaterial color="#94a3b8" />
+                    </mesh>
+                  ))}
+                  {/* Underside Mounting Clamps */}
+                  {[-1.4, 1.4].map((mx, mi) => (
+                    <mesh key={mi} position={[mx, -0.08, 0]}>
+                      <boxGeometry args={[0.1, 0.16, 2.8]} />
+                      <meshStandardMaterial color="#94a3b8" metalness={0.8} />
+                    </mesh>
+                  ))}
+                </group>
+              </group>
+            </group>
+          </group>
+        </group>
+      </group>
+
+      {/* Two Ground Riggers guiding panel near Tracker Row */}
+      {phase >= 2 && !isNight && (
+        <group position={[-5.5, 0, -1.5]}>
+          {/* Rigger 1 holding tagline rope */}
+          <group position={[-0.8, 0, -1.8]}>
+            <ConstructionWorker action="signaling" />
+            <mesh position={[1.2, 1.2, 0.6]} rotation={[0.4, 0.6, 0.3]}>
+              <cylinderGeometry args={[0.01, 0.01, 2.8, 4]} />
+              <meshStandardMaterial color="#e2e8f0" />
+            </mesh>
+          </group>
+          {/* Rigger 2 holding other tagline rope */}
+          <group position={[-0.8, 0, 1.8]}>
+            <ConstructionWorker action="signaling" />
+            <mesh position={[1.2, 1.2, -0.6]} rotation={[-0.4, 0.6, -0.3]}>
+              <cylinderGeometry args={[0.01, 0.01, 2.8, 4]} />
+              <meshStandardMaterial color="#e2e8f0" />
+            </mesh>
+          </group>
+        </group>
+      )}
+    </group>
+  );
+}
+
+// =============================================================================
 // 2. SOLAR FARM UNDER-CONSTRUCTION 3D COMPONENT (1-WEEK DURATION)
 // =============================================================================
 export function SolarConstructionSite({
@@ -1697,7 +2043,7 @@ export function SolarConstructionSite({
   // Phases:
   // Phase 1 (0.00 - 0.28): Ground clearing, boundary fence, concrete foundation pillar piles (Days 1-2)
   // Phase 2 (0.28 - 0.58): Galvanized steel mounting racks & tracker torque tubes installed (Days 3-4)
-  // Phase 3 (0.58 - 0.88): PV solar module tables mounted, cable trenches dug & wired (Days 5-6)
+  // Phase 3 (0.58 - 0.88): PV solar module tables mounted, active crane lifting panels (Days 5-6)
   // Phase 4 (0.88 - 1.00): Inverter connection, grid transformer commissioning (Day 7)
   const isPhase1 = progress < 0.28;
   const isPhase2 = progress >= 0.28 && progress < 0.58;
@@ -1714,12 +2060,16 @@ export function SolarConstructionSite({
     ? `${remainingDays}g ${remHoursInDay}s kaldı` 
     : `${actualRemainingHours}s kaldı`;
 
+  // 4x4 Grid layout coordinates (Matching completed SolarArray perfectly)
+  const columnsX = [-13.5, -8.5, -3.5, 1.5];
+  const rowsZ = [-7.5, -2.5, 2.5, 7.5];
+
   return (
     <group position={position} onClick={onClick}>
       {/* In-World Construction Site Project Signboard */}
       <InWorldProjectSignboard
-        position={[-13.0, 1.07, 10.0]}
-        rotation={[0, 0.4, 0]}
+        position={[-15.5, 1.07, 11.5]}
+        rotation={[0, 0.2, 0]}
         timeString={timeString}
         percent={Math.min(100, Math.max(0, Math.round(progress * 100)))}
         title={equipmentName}
@@ -1743,11 +2093,11 @@ export function SolarConstructionSite({
       ))}
 
       {/* Floodlights for Night Illumination */}
-      <SafetyFloodlightTower position={[-16, 1.07, -11]} isNight={isNight} />
-      <SafetyFloodlightTower position={[16, 1.07, 11]} isNight={isNight} />
+      <SafetyFloodlightTower position={[-17, 1.07, -12]} isNight={isNight} />
+      <SafetyFloodlightTower position={[17, 1.07, 12]} isNight={isNight} />
 
       {/* Concrete Foundation Pillar Piles (Phase 1+) */}
-      {[-12, -4, 4, 12].map((gx, xi) =>
+      {columnsX.map((gx, xi) =>
         [-8, 0, 8].map((gz, zi) => (
           <group key={`pile_${xi}_${zi}`} position={[gx, 1.07, gz]}>
             <mesh position={[0, 0.45, 0]} castShadow>
@@ -1765,9 +2115,9 @@ export function SolarConstructionSite({
       {/* Phase 2+: Galvanized Steel Racks & Tracker Torque Tubes */}
       {(isPhase2 || isPhase3 || isPhase4) && (
         <group>
-          {[-12, -4, 4, 12].map((rx, ri) => (
+          {columnsX.map((rx, ri) => (
             <group key={`rack_${ri}`} position={[rx, 2.5, 0]}>
-              {/* Long Horizontal Torque Tube */}
+              {/* Long Horizontal Torque Tube along Z */}
               <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
                 <cylinderGeometry args={[0.1, 0.1, 21.0, 8]} />
                 <meshStandardMaterial color="#cbd5e1" metalness={0.8} />
@@ -1784,38 +2134,51 @@ export function SolarConstructionSite({
         </group>
       )}
 
-      {/* Phase 3 & 4: Mounted Solar PV Panel Module Tables */}
+      {/* Phase 3 & 4: Mounted Solar PV Panel Module Tables (4x4 = 16 Panels, 100% Flat on Top) */}
       {(isPhase3 || isPhase4) && (
         <group>
-          {[-12, -4, 4, 12].map((px, pi) =>
-            [-7, -2.5, 2.5, 7].map((pz, pzi) => (
-              <group key={`pv_${pi}_${pzi}`} position={[px, 2.65, pz]} rotation={[-0.42, 0, 0]}>
-                {/* Silicon Solar Panel Frame */}
-                <mesh castShadow>
-                  <boxGeometry args={[4.2, 0.1, 3.2]} />
-                  <meshStandardMaterial color="#0284c7" roughness={0.2} metalness={0.6} />
-                </mesh>
-                {/* Anti-reflective Glass Face */}
-                <mesh position={[0, 0.06, 0]}>
-                  <planeGeometry args={[4.0, 3.0]} />
-                  <meshStandardMaterial color="#0f172a" roughness={0.1} metalness={0.9} />
-                </mesh>
-                {/* Silver Grid Lines */}
-                {[-1.2, 0, 1.2].map((lx, li) => (
-                  <mesh key={li} position={[lx, 0.07, 0]}>
-                    <planeGeometry args={[0.04, 2.9]} />
-                    <meshBasicMaterial color="#94a3b8" />
+          {columnsX.map((px, pi) =>
+            rowsZ.map((pz, pzi) => {
+              // During Phase 3, panel at [col 3, row 1] is being actively lifted and lowered by the crane!
+              const isActivelyLifted = isPhase3 && pi === 3 && pzi === 1;
+              if (isActivelyLifted) return null;
+
+              return (
+                <group key={`pv_${pi}_${pzi}`} position={[px, 2.65, pz]} rotation={[0, 0, -0.25]}>
+                  {/* Silicon Solar Panel Frame */}
+                  <mesh castShadow>
+                    <boxGeometry args={[4.2, 0.1, 3.2]} />
+                    <meshStandardMaterial color="#0284c7" roughness={0.2} metalness={0.6} />
                   </mesh>
-                ))}
-              </group>
-            ))
+                  {/* Anti-reflective Glass Face - 100% FLAT ON TOP (rotation [-PI/2, 0, 0]) */}
+                  <mesh position={[0, 0.055, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                    <planeGeometry args={[4.0, 3.0]} />
+                    <meshStandardMaterial color="#0b192c" roughness={0.12} metalness={0.9} />
+                  </mesh>
+                  {/* Silver Grid Lines */}
+                  {[-1.2, 0, 1.2].map((lx, li) => (
+                    <mesh key={li} position={[lx, 0.058, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                      <planeGeometry args={[0.04, 2.9]} />
+                      <meshBasicMaterial color="#94a3b8" />
+                    </mesh>
+                  ))}
+                  {/* Underside mounting clamps */}
+                  {[-1.4, 1.4].map((mx, mi) => (
+                    <mesh key={mi} position={[mx, -0.08, 0]}>
+                      <boxGeometry args={[0.1, 0.16, 2.8]} />
+                      <meshStandardMaterial color="#94a3b8" metalness={0.8} />
+                    </mesh>
+                  ))}
+                </group>
+              );
+            })
           )}
         </group>
       )}
 
       {/* Phase 3+: Inground Cable Trenches with High-Voltage Conduit */}
       {(isPhase3 || isPhase4) && (
-        <group position={[0, 1.08, 0]}>
+        <group position={[4.5, 1.08, 0]}>
           <mesh position={[0, 0, 0]}>
             <boxGeometry args={[0.6, 0.15, 20.0]} />
             <meshStandardMaterial color="#451a03" roughness={0.95} />
@@ -1824,12 +2187,17 @@ export function SolarConstructionSite({
             <cylinderGeometry args={[0.08, 0.08, 19.8, 8]} />
             <meshStandardMaterial color="#dc2626" roughness={0.5} />
           </mesh>
+          {/* Branch eastward to inverter kiosk */}
+          <mesh position={[4.0, 0.08, -7.5]} rotation={[0, 0, Math.PI / 2]}>
+            <cylinderGeometry args={[0.08, 0.08, 8.0, 8]} />
+            <meshStandardMaterial color="#dc2626" roughness={0.5} />
+          </mesh>
         </group>
       )}
 
       {/* Phase 4: Central Inverter Station & SCADA Monitoring Kiosk */}
       {isPhase4 && (
-        <group position={[14, 1.07, -6]}>
+        <group position={[13.0, 1.07, -7.5]}>
           <mesh position={[0, 1.1, 0]} castShadow>
             <boxGeometry args={[2.8, 2.2, 2.2]} />
             <meshStandardMaterial color="#e2e8f0" roughness={0.3} metalness={0.4} />
@@ -1841,17 +2209,25 @@ export function SolarConstructionSite({
         </group>
       )}
 
-      {/* Construction Vehicle / Utility Van */}
+      {/* Active Mobile Telescopic Assembly Crane (Lifting panels from truck and placing on racks) */}
+      <SolarInstallationCrane
+        position={[8.0, 1.07, -1.0]}
+        rotation={[0, 0, 0]}
+        isNight={isNight}
+        phase={isPhase1 ? 1 : isPhase2 ? 2 : isPhase3 ? 3 : 4}
+      />
+
+      {/* Construction Utility Van (Safely parked at front entrance, zero panel overlap) */}
       <ConstructionVan
-        position={[-6.0, 1.07, 4.5]}
-        rotation={[0, 1.2, 0]}
+        position={[-13.5, 1.07, 11.5]}
+        rotation={[0, 0.1, 0]}
         isNight={isNight}
       />
 
-      {/* Heavy Material Delivery Flatbed Truck with Phase-Dependent Solar Cargo */}
+      {/* Heavy Material Delivery Flatbed Truck (Parked in dedicated eastern delivery corridor) */}
       <HeavyConstructionTransportTruck
-        position={[12.0, 1.07, 6.0]}
-        rotation={[0, -0.4, 0]}
+        position={[14.2, 1.07, 3.5]}
+        rotation={[0, 0, 0]}
         phase={isPhase1 ? 1 : isPhase2 ? 2 : isPhase3 ? 3 : 4}
         cargoType="solar"
       />
@@ -1862,10 +2238,10 @@ export function SolarConstructionSite({
           {/* Worker 1: Solar Rack Assembler */}
           <ActiveConstructionWorker
             waypoints={[
-              [-8.0, -4.0],
-              [-8.0, 4.0],
-              [-2.0, 4.0],
-              [-2.0, -4.0]
+              [-11.0, -4.0],
+              [-11.0, 4.0],
+              [-6.0, 4.0],
+              [-6.0, -4.0]
             ]}
             speed={1.1}
             shirtColor="#ea580c"
@@ -1878,10 +2254,10 @@ export function SolarConstructionSite({
           {/* Worker 2: Electrical Technician checking cable conduits */}
           <ActiveConstructionWorker
             waypoints={[
-              [2.0, -3.0],
-              [8.0, -3.0],
-              [8.0, 5.0],
-              [2.0, 5.0]
+              [3.0, -3.0],
+              [5.0, -3.0],
+              [5.0, 5.0],
+              [3.0, 5.0]
             ]}
             speed={1.15}
             shirtColor="#1e3a8a"
@@ -1894,10 +2270,10 @@ export function SolarConstructionSite({
           {/* Worker 3: Site Inspector / Quality Foreman with clipboard */}
           <ActiveConstructionWorker
             waypoints={[
-              [-6.0, 6.0],
-              [0.0, 8.0],
-              [6.0, 6.0],
-              [0.0, -6.0]
+              [-10.0, 9.5],
+              [0.0, 9.5],
+              [6.0, 9.5],
+              [-2.0, 9.5]
             ]}
             speed={1.05}
             shirtColor="#eab308"

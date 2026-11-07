@@ -116,23 +116,46 @@ export default function TreasuryModal({ isOpen, onClose, company, finance, lang 
     const meta = tx.metadata || {};
 
     if (type === 'electricity_sales') {
+      const siteName = meta.plant_name || meta.site_name || (() => {
+        if (desc.includes('•')) {
+          const prefix = desc.split('•')[0].trim();
+          if (prefix && !prefix.includes('MWh') && !prefix.includes('Spot')) return prefix;
+        }
+        return '';
+      })();
+
+      let mwhStr = '';
       if (meta.kwh_sold != null) {
         const kwh = Number(meta.kwh_sold);
         const mwh = (kwh / 1000).toFixed(kwh >= 10000 ? 1 : 2);
-        const price = meta.price_per_kwh != null ? Number(meta.price_per_kwh).toFixed(3) : null;
-        return lang === 'tr'
-          ? `${mwh} MWh Spot Satış${price ? ` ($${price})` : ''}`
-          : `${mwh} MWh Spot Sale${price ? ` ($${price})` : ''}`;
+        mwhStr = `${mwh} MWh`;
+      } else {
+        const matchKwh = desc.match(/(\d+(?:\.\d+)?)\s*(?:k|M)Wh/i);
+        if (matchKwh) {
+          mwhStr = desc.includes('MWh') ? `${matchKwh[1]} MWh` : `${(parseFloat(matchKwh[1]) / 1000).toFixed(1)} MWh`;
+        }
       }
-      const match = desc.match(/(\d+(?:\.\d+)?)\s*kWh.*?\$([0-9.]+)/i);
-      if (match) {
-        const kwh = parseFloat(match[1]);
-        const mwh = (kwh / 1000).toFixed(kwh >= 10000 ? 1 : 2);
-        const price = parseFloat(match[2]).toFixed(3);
-        return lang === 'tr'
-          ? `${mwh} MWh Spot Satış ($${price})`
-          : `${mwh} MWh Spot Sale ($${price})`;
+
+      let priceStr = '';
+      if (meta.price_per_kwh != null) {
+        priceStr = `$${Number(meta.price_per_kwh).toFixed(3)}`;
+      } else {
+        const matchPrice = desc.match(/\$([0-9.]+)/);
+        if (matchPrice) priceStr = `$${parseFloat(matchPrice[1]).toFixed(3)}`;
       }
+
+      if (siteName) {
+        return lang === 'tr'
+          ? `${siteName} • ${mwhStr || 'Elektrik'} Satışı${priceStr ? ` (${priceStr})` : ''}`
+          : `${siteName} • ${mwhStr || 'Power'} Sale${priceStr ? ` (${priceStr})` : ''}`;
+      }
+
+      if (mwhStr) {
+        return lang === 'tr'
+          ? `${mwhStr} Spot Satış${priceStr ? ` (${priceStr})` : ''}`
+          : `${mwhStr} Spot Sale${priceStr ? ` (${priceStr})` : ''}`;
+      }
+
       return lang === 'tr' ? 'Elektrik Spot Satışı' : 'Spot Energy Sale';
     }
 
@@ -201,8 +224,8 @@ export default function TreasuryModal({ isOpen, onClose, company, finance, lang 
       return lang === 'tr' ? 'Ekipman Bakımı' : 'Maintenance';
     }
 
-    if (desc.length > 40) {
-      return desc.slice(0, 38) + '…';
+    if (desc.length > 65) {
+      return desc.slice(0, 62) + '…';
     }
 
     return desc;
@@ -282,8 +305,27 @@ export default function TreasuryModal({ isOpen, onClose, company, finance, lang 
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-5xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden text-slate-100">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200 modal-backdrop-safe"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      onWheel={(e) => {
+        e.stopPropagation();
+        if (e.ctrlKey) e.preventDefault();
+      }}
+      onTouchMove={(e) => {
+        if (e.target === e.currentTarget) e.preventDefault();
+      }}
+    >
+      <div
+        className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-5xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden text-slate-100 modal-content-safe"
+        onClick={(e) => e.stopPropagation()}
+        onWheel={(e) => {
+          e.stopPropagation();
+          if (e.ctrlKey) e.preventDefault();
+        }}
+      >
         {/* MODAL HEADER */}
         <div className="p-3 sm:p-5 border-b border-slate-800 flex items-center justify-between gap-2.5 sm:gap-4 bg-slate-950/40 shrink-0">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
@@ -700,7 +742,7 @@ export default function TreasuryModal({ isOpen, onClose, company, finance, lang 
                                 </span>
                               </td>
                               <td
-                                className="py-2.5 px-3 text-slate-300 font-sans text-xs truncate max-w-[280px]"
+                                className="py-2.5 px-3 text-slate-300 font-sans text-xs truncate max-w-[380px]"
                                 title={tx.description || shortDesc}
                               >
                                 {shortDesc}

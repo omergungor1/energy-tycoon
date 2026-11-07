@@ -221,6 +221,7 @@ export async function processCompanySimulationTick(companyId) {
 
       // Ledger entry (if there was electricity revenue)
       if (netRev > 0) {
+        const siteDisplayName = cSite.plant_name || cSite.world_sites?.name || `Arazi #${cSite.site_id}`;
         ledgerBatch.push({
           company_id: companyId,
           idempotency_key: `energy_${companyId}_${cSite.id}_${h}`,
@@ -228,9 +229,13 @@ export async function processCompanySimulationTick(companyId) {
           amount: Number(netRev.toFixed(2)),
           balance_after: Number(runningCash.toFixed(2)),
           game_hour: h,
-          description: `${(energyResult.totalSoldKwh / 1000).toFixed(1)} MWh Spot Satış ($${market.pricePerKwh}/kWh)`,
+          description: `${siteDisplayName} • ${(energyResult.totalSoldKwh / 1000).toFixed(1)} MWh Spot Satış ($${market.pricePerKwh}/kWh)`,
           metadata: {
             game_hour: h,
+            site_id: cSite.site_id,
+            company_site_id: cSite.id,
+            site_name: cSite.world_sites?.name || null,
+            plant_name: cSite.plant_name || null,
             kwh_sold: energyResult.totalSoldKwh,
             price_per_kwh: market.pricePerKwh,
             market_fee: fee

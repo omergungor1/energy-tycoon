@@ -89,6 +89,8 @@ export default function DrivableBuggy({
   const isFirstFrame = useRef(true);
   const lastStatsEmit = useRef(0);
   const prevStats = useRef({});
+  // Camera free-look orientation offsets (driven by touch/mouse drag)
+  const camLookOffset = useRef({ yaw: 0, pitch: 0 });
 
   // Initialize altitude & orientation at spawn
   useEffect(() => {
@@ -102,6 +104,7 @@ export default function DrivableBuggy({
     s.y = getTerrainHeight(s.x, s.z) + 0.50;
     vehicleQuat.current.setFromEuler(_eulerScratch.set(0, s.yaw, 0, 'YXZ'));
     isFirstFrame.current = true;
+    camLookOffset.current = { yaw: 0, pitch: 0 };
   }, [spawnPosition, initialYaw]);
 
   // Keyboard listeners
@@ -370,8 +373,25 @@ export default function DrivableBuggy({
       );
     }
 
-    // 7. Dynamic Camera Positioning based on Camera Mode
+    // 7. Dynamic Camera Positioning based on Camera Mode & Free-Look Viewpoint
     const boostFov = isBoost && isForward && Math.abs(s.velocity) > 10 ? 10 : 0;
+
+    // Update free-look view rotation from mouse / touch drag inputs
+    const targetLookYaw = typeof t.lookYaw === 'number' ? t.lookYaw : 0;
+    const targetLookPitch = typeof t.lookPitch === 'number' ? t.lookPitch : 0;
+    camLookOffset.current.yaw = THREE.MathUtils.lerp(
+      camLookOffset.current.yaw,
+      targetLookYaw,
+      Math.min(1, dt * 14)
+    );
+    camLookOffset.current.pitch = THREE.MathUtils.lerp(
+      camLookOffset.current.pitch,
+      targetLookPitch,
+      Math.min(1, dt * 14)
+    );
+
+    const lookYaw = camLookOffset.current.yaw;
+    const lookPitch = THREE.MathUtils.clamp(camLookOffset.current.pitch, -0.65, 0.65);
 
     if (cameraMode === 'cockpit') {
       // First-person cockpit view (driver's seat)
@@ -383,7 +403,12 @@ export default function DrivableBuggy({
       _fwd3D.set(-0.28, 1.08, 0.12).applyQuaternion(vehicleQuat.current);
       camera.position.set(s.x + _fwd3D.x, s.y + _fwd3D.y, s.z + _fwd3D.z);
 
-      _fwd3D.set(0, 0, 1).applyQuaternion(vehicleQuat.current);
+      // Turn driver's head freely based on drag lookYaw & lookPitch
+      _fwd3D.set(
+        Math.sin(lookYaw),
+        Math.sin(lookPitch),
+        Math.cos(lookYaw) * Math.cos(lookPitch)
+      ).applyQuaternion(vehicleQuat.current);
       _up3D.set(0, 1, 0).applyQuaternion(vehicleQuat.current);
       camera.up.copy(_up3D);
       _lookTarget.copy(camera.position).addScaledVector(_fwd3D, 30);
@@ -397,29 +422,37 @@ export default function DrivableBuggy({
       _fwd3D.set(0, 0.72, 1.45).applyQuaternion(vehicleQuat.current);
       camera.position.set(s.x + _fwd3D.x, s.y + _fwd3D.y, s.z + _fwd3D.z);
 
-      _fwd3D.set(0, 0, 1).applyQuaternion(vehicleQuat.current);
+      _fwd3D.set(
+        Math.sin(lookYaw),
+        Math.sin(lookPitch),
+        Math.cos(lookYaw) * Math.cos(lookPitch)
+      ).applyQuaternion(vehicleQuat.current);
       _up3D.set(0, 1, 0).applyQuaternion(vehicleQuat.current);
       camera.up.copy(_up3D);
       _lookTarget.copy(camera.position).addScaledVector(_fwd3D, 35);
       camera.lookAt(_lookTarget);
     } else {
-      // Third-person Chase View ('chase') - Ultra smooth, 0-allocation
+      // Third-person Chase View ('chase') - Full 360° Orbit Viewpoint
       camera.fov = 54 + boostFov;
       camera.near = 0.2;
       camera.updateProjectionMatrix();
 
-      _lookTarget.set(s.x, s.y + 0.9, s.z);
+      const camAngle = s.yaw + lookYaw;
+      const cosPitch = Math.cos(lookPitch);
+      const sinPitch = Math.sin(lookPitch);
 
       const idealDist = 6.4;
       const idealHeight = 2.8;
 
       _targetCamPos.set(
-        s.x - Math.sin(s.yaw) * idealDist,
-        s.y + idealHeight,
-        s.z - Math.cos(s.yaw) * idealDist
+        s.x - Math.sin(camAngle) * (idealDist * cosPitch),
+        s.y + idealHeight + sinPitch * (idealDist * 0.8),
+        s.z - Math.cos(camAngle) * (idealDist * cosPitch)
       );
 
-      // Lightweight safety clearance
+      _lookTarget.set(s.x, s.y + 0.9 + sinPitch * 1.2, s.z);
+
+      // Lightweight safety clearance to prevent terrain clipping
       const groundAtCam = getTerrainHeight(_targetCamPos.x, _targetCamPos.z) + 0.8;
       if (_targetCamPos.y < groundAtCam) _targetCamPos.y = groundAtCam;
 

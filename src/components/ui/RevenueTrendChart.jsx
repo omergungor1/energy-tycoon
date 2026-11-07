@@ -14,11 +14,11 @@ import {
 } from 'lucide-react';
 
 const RANGE_CONFIG = [
-  { key: '1w', labelTr: '1 Hafta', labelEn: '1 Week', days: 7 },
-  { key: '1m', labelTr: '1 Ay', labelEn: '1 Month', days: 30 },
-  { key: '3m', labelTr: '3 Ay', labelEn: '3 Months', days: 90 },
-  { key: '6m', labelTr: '6 Ay', labelEn: '6 Months', days: 180 },
-  { key: '12m', labelTr: '12 Ay', labelEn: '12 Months', days: 365 }
+  { key: '1w', label: '1W', labelTr: '1 Hafta', labelEn: '1 Week', days: 7 },
+  { key: '1m', label: '1M', labelTr: '1 Ay', labelEn: '1 Month', days: 30 },
+  { key: '3m', label: '3M', labelTr: '3 Ay', labelEn: '3 Months', days: 90 },
+  { key: '6m', label: '6M', labelTr: '6 Ay', labelEn: '6 Months', days: 180 },
+  { key: '12m', label: '1Y', labelTr: '1 Yıl', labelEn: '1 Year', days: 365 }
 ];
 
 function formatCurrency(val, compact = false) {
@@ -42,7 +42,14 @@ function formatKwh(val) {
   return `${Math.round(kwh).toLocaleString()} kWh`;
 }
 
-export default function RevenueTrendChart({ companyId, lang = 'tr', onOpenTreasury = null }) {
+export default function RevenueTrendChart({
+  companyId,
+  companySiteId = null,
+  title = null,
+  lang = 'tr',
+  onOpenTreasury = null,
+  onDataLoaded = null
+}) {
   const [activeRange, setActiveRange] = useState('1m');
   const [apiData, setApiData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -54,12 +61,17 @@ export default function RevenueTrendChart({ companyId, lang = 'tr', onOpenTreasu
     try {
       setLoading(true);
       setError(null);
-      const query = companyId ? `?companyId=${encodeURIComponent(companyId)}` : '';
+      const params = new URLSearchParams();
+      if (companyId) params.set('companyId', companyId);
+      if (companySiteId) params.set('companySiteId', companySiteId);
+      const query = params.toString() ? `?${params.toString()}` : '';
+
       const res = await fetch(`/api/game/revenue-history${query}`);
       if (!res.ok) throw new Error('Gelir verisi yüklenemedi');
       const json = await res.json();
       if (json.success) {
         setApiData(json);
+        if (onDataLoaded) onDataLoaded(json);
       } else {
         throw new Error(json.error || 'Bilinmeyen hata');
       }
@@ -69,7 +81,7 @@ export default function RevenueTrendChart({ companyId, lang = 'tr', onOpenTreasu
     } finally {
       setLoading(false);
     }
-  }, [companyId]);
+  }, [companyId, companySiteId, onDataLoaded]);
 
   useEffect(() => {
     fetchRevenueHistory();
@@ -185,7 +197,7 @@ export default function RevenueTrendChart({ companyId, lang = 'tr', onOpenTreasu
           </div>
           <div>
             <h4 className="text-xs font-bold text-white tracking-wide flex items-center gap-1.5">
-              <span>{lang === 'tr' ? 'Günlük Toplam Gelir' : 'Daily Total Revenue'}</span>
+              <span>{title || (lang === 'tr' ? 'Günlük Toplam Gelir' : 'Daily Total Revenue')}</span>
               {currentRangeData?.growthRatePct !== undefined && currentRangeData.growthRatePct !== 0 && (
                 <span
                   className={`text-[9px] font-mono px-1 py-0.2 rounded font-bold inline-flex items-center gap-0.5 ${
@@ -226,7 +238,7 @@ export default function RevenueTrendChart({ companyId, lang = 'tr', onOpenTreasu
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                 }`}
               >
-                {cfg.key.toUpperCase()}
+                {cfg.label}
               </button>
             );
           })}

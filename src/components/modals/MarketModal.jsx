@@ -27,12 +27,26 @@ export default function MarketModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200 modal-backdrop-safe"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
+      onWheel={(e) => {
+        e.stopPropagation();
+        if (e.ctrlKey) e.preventDefault();
+      }}
+      onTouchMove={(e) => {
+        if (e.target === e.currentTarget) e.preventDefault();
+      }}
     >
-      <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-5xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden text-slate-100">
+      <div
+        className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-5xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden text-slate-100 modal-content-safe"
+        onClick={(e) => e.stopPropagation()}
+        onWheel={(e) => {
+          e.stopPropagation();
+          if (e.ctrlKey) e.preventDefault();
+        }}
+      >
         {/* MODAL HEADER */}
         <div className="p-3.5 sm:p-5 border-b border-slate-800 flex items-center justify-between gap-3 bg-slate-950/50 shrink-0">
           <div className="flex items-center gap-3 min-w-0">

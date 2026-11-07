@@ -24,13 +24,12 @@ export async function GET() {
     );
     const clock = getGameDate(currentGameHour);
 
-    // 2. Fetch top 5 real active companies only
+    // 2. Fetch active companies
     const { data: companies, error: compErr } = await admin
       .from('companies')
       .select('id, name, level, cash, xp, status, created_at')
       .eq('status', 'active')
-      .order('cash', { ascending: false })
-      .limit(5);
+      .limit(50);
 
     if (compErr) {
       throw compErr;
@@ -38,12 +37,13 @@ export async function GET() {
 
     const compIds = (companies || []).map((c) => c.id);
 
-    // 3. Fetch company sites and installed assets
+    // 3. Fetch company sites, installed assets and active loans
     let companySites = [];
     let installedAssets = [];
+    let activeLoans = [];
 
     if (compIds.length > 0) {
-      const [sitesRes, assetsRes] = await Promise.all([
+      const [sitesRes, assetsRes, loansRes] = await Promise.all([
         admin
           .from('company_sites')
           .select('*, world_sites(id, name, region_type, center_x, center_z, purchase_price, base_wind_potential, base_solar_potential)')
@@ -51,24 +51,31 @@ export async function GET() {
         admin
           .from('installed_assets')
           .select('*, equipment_catalog(id, model_name, equipment_type, cost_usd, capacity_kw)')
+          .in('company_id', compIds),
+        admin
+          .from('loans')
+          .select('company_id, remaining_balance, status')
+          .eq('status', 'active')
           .in('company_id', compIds)
       ]);
 
       companySites = sitesRes.data || [];
       installedAssets = assetsRes.data || [];
+      activeLoans = loansRes.data || [];
     }
 
     // 4. Calculate Net Worth and format leaderboard items
     const formattedLeaders = (companies || []).map((comp) => {
       const cSites = companySites.filter((s) => s.company_id === comp.id);
       const cAssets = installedAssets.filter((a) => a.company_id === comp.id);
+      const cLoans = activeLoans.filter((l) => l.company_id === comp.id);
 
       const finance = calculateCompanyNetWorth({
         cash: comp.cash || 0,
         installedAssets: cAssets,
         companySites: cSites,
         gridConnections: [],
-        activeLoans: []
+        activeLoans: cLoans
       });
 
       // Calculate generation capacity

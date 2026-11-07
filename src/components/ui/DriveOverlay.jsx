@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Car,
   X,
@@ -8,7 +8,8 @@ import {
   HelpCircle,
   Zap,
   Camera,
-  Octagon
+  Octagon,
+  RotateCcw
 } from 'lucide-react';
 import VirtualJoystick from './VirtualJoystick';
 
@@ -21,6 +22,12 @@ export default function DriveOverlay({
   lang = 'tr'
 }) {
   const [showHelp, setShowHelp] = useState(false);
+  const [isViewPanned, setIsViewPanned] = useState(false);
+
+  // Touch & Mouse look rotation tracking refs
+  const lookPointerIdRef = useRef(null);
+  const lastPointerPosRef = useRef({ x: 0, y: 0 });
+  const lookStateRef = useRef({ yaw: 0, pitch: 0 });
 
   const speedKmh = stats.speedKmh || 0;
   const gear = stats.gear || 'P';
@@ -55,12 +62,71 @@ export default function DriveOverlay({
     onCameraModeChange(modes[nextIdx]);
   };
 
+  // Fullscreen touch & mouse drag handlers for smooth viewpoint rotation
+  const handleLookPointerDown = (e) => {
+    if (lookPointerIdRef.current !== null) return;
+    lookPointerIdRef.current = e.pointerId;
+    lastPointerPosRef.current = { x: e.clientX, y: e.clientY };
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
+  };
+
+  const handleLookPointerMove = (e) => {
+    if (lookPointerIdRef.current !== e.pointerId) return;
+    const dx = e.clientX - lastPointerPosRef.current.x;
+    const dy = e.clientY - lastPointerPosRef.current.y;
+    lastPointerPosRef.current = { x: e.clientX, y: e.clientY };
+
+    if (Math.abs(dx) > 0 || Math.abs(dy) > 0) {
+      // 0.0055 rad/px gives smooth, natural ~60-90° pan per swipe/drag
+      lookStateRef.current.yaw += dx * 0.0055;
+      lookStateRef.current.pitch = Math.max(-0.65, Math.min(0.65, lookStateRef.current.pitch - dy * 0.0035));
+      
+      const panned = Math.abs(lookStateRef.current.yaw) > 0.08 || Math.abs(lookStateRef.current.pitch) > 0.08;
+      setIsViewPanned(panned);
+
+      onTouchInputChange({
+        lookYaw: lookStateRef.current.yaw,
+        lookPitch: lookStateRef.current.pitch
+      });
+    }
+  };
+
+  const handleLookPointerEnd = (e) => {
+    if (lookPointerIdRef.current === e.pointerId) {
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {}
+      lookPointerIdRef.current = null;
+    }
+  };
+
+  const handleResetLook = () => {
+    lookStateRef.current = { yaw: 0, pitch: 0 };
+    setIsViewPanned(false);
+    onTouchInputChange({
+      lookYaw: 0,
+      lookPitch: 0
+    });
+  };
+
   return (
     <div className="fixed inset-0 pointer-events-none z-40 flex flex-col justify-between p-3 sm:p-6 select-none font-sans">
+      {/* Fullscreen Touch/Mouse Look Surface: Drag to rotate view angle freely */}
+      <div
+        className="absolute inset-0 pointer-events-auto touch-none select-none z-0 cursor-grab active:cursor-grabbing"
+        onPointerDown={handleLookPointerDown}
+        onPointerMove={handleLookPointerMove}
+        onPointerUp={handleLookPointerEnd}
+        onPointerCancel={handleLookPointerEnd}
+        onDoubleClick={handleResetLook}
+      />
+
       {/* 1. TOP BAR: Camera Switcher (Left) + Sleek Compass & Coordinates (Desktop) + Help & Exit (Right) */}
-      <div className="flex items-center justify-between w-full pointer-events-auto gap-2">
+      <div className="relative z-10 flex items-center justify-between w-full pointer-events-none gap-2">
         {/* Left: Camera Mode Toggle Button & Desktop Compass Rose */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 pointer-events-auto">
           {/* Camera Mode Toggle Button (Mobile & Desktop) */}
           <button
             type="button"
@@ -80,6 +146,21 @@ export default function DriveOverlay({
               </span>
             </div>
           </button>
+
+          {/* Reset Camera View Angle Button (Shown when view is rotated) */}
+          {isViewPanned && (
+            <button
+              type="button"
+              onClick={handleResetLook}
+              className="p-2 sm:px-3 sm:py-2 rounded-2xl bg-slate-900/90 hover:bg-slate-800 border border-amber-500/60 text-amber-300 hover:text-amber-200 text-xs font-bold backdrop-blur-md transition-all shadow-lg active:scale-95 flex items-center gap-1.5 cursor-pointer animate-in fade-in zoom-in-95"
+              title={lang === 'tr' ? 'Bakış Açısını Merkeze Sıfırla (Çift Tıklama)' : 'Reset Viewpoint (Double Click)'}
+            >
+              <RotateCcw className="w-4 h-4 text-amber-400" />
+              <span className="hidden sm:inline text-[11px] font-extrabold">
+                {lang === 'tr' ? 'Bakışı Sıfırla' : 'Reset View'}
+              </span>
+            </button>
+          )}
 
           {/* Sleek Compass Rose & Island Coordinates Telemetry (Desktop/Tablet) */}
           <div className="hidden sm:flex items-center gap-2.5 sm:gap-3.5 bg-slate-900/90 border border-slate-700/80 rounded-2xl px-3 sm:px-4 py-2 backdrop-blur-xl shadow-2xl transition-all">
@@ -109,7 +190,7 @@ export default function DriveOverlay({
         </div>
 
         {/* Center / Right: Help & Exit Button */}
-        <div className="flex items-center gap-2 ml-auto">
+        <div className="flex items-center gap-2 ml-auto pointer-events-auto">
           {/* Controls Help Toggle */}
           <button
             type="button"
@@ -136,7 +217,7 @@ export default function DriveOverlay({
 
       {/* 2. HELP MODAL POPUP (When help button is clicked) */}
       {showHelp && (
-        <div className="self-center bg-slate-900/95 border border-slate-700/90 rounded-2xl p-4 max-w-sm w-full shadow-2xl backdrop-blur-xl pointer-events-auto text-slate-200 animate-in fade-in zoom-in-95 duration-150">
+        <div className="relative z-20 self-center bg-slate-900/95 border border-slate-700/90 rounded-2xl p-4 max-w-sm w-full shadow-2xl backdrop-blur-xl pointer-events-auto text-slate-200 animate-in fade-in zoom-in-95 duration-150">
           <div className="flex items-center justify-between pb-2 mb-3 border-b border-slate-800">
             <div className="flex items-center gap-2 font-bold text-white text-sm">
               <Car className="w-4 h-4 text-emerald-400" />
@@ -184,6 +265,12 @@ export default function DriveOverlay({
                 BOŞLUK
               </kbd>
             </div>
+            <div className="flex items-center justify-between bg-slate-950/60 p-2 rounded-xl border border-cyan-500/30 bg-cyan-950/15">
+              <span className="text-cyan-300 font-medium">{lang === 'tr' ? 'Serbest Bakış / Görünüm' : 'Free Look / Pan'}</span>
+              <span className="text-[11px] text-cyan-200 font-bold">
+                {lang === 'tr' ? 'Sürükle (Çift tıkla sıfırla)' : 'Drag (Double-click reset)'}
+              </span>
+            </div>
             <div className="flex items-center justify-between bg-slate-950/60 p-2 rounded-xl border border-slate-800">
               <span className="text-slate-400">{lang === 'tr' ? 'Kamera Değiştir' : 'Switch Camera'}</span>
               <kbd className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 font-mono font-bold text-white">
@@ -201,7 +288,7 @@ export default function DriveOverlay({
       )}
 
       {/* 3. BOTTOM SECTION: Speedometer, Compass & Mobile Virtual Controls */}
-      <div className="w-full flex items-end justify-between gap-4 pointer-events-none">
+      <div className="relative z-10 w-full flex items-end justify-between gap-4 pointer-events-none">
         {/* MOBILE 360° VIRTUAL JOYSTICK (Left Side: Sola yuvarlak içinde nokta sürükleyerek 360° kontrol) */}
         <div className="flex sm:hidden pointer-events-auto pb-2">
           <VirtualJoystick onMove={onTouchInputChange} />

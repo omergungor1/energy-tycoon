@@ -9,6 +9,7 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const requestedCompanyId = searchParams.get('companyId');
+    const requestedCompanySiteId = searchParams.get('companySiteId') || searchParams.get('siteId');
 
     const admin = createAdminClient();
 
@@ -69,18 +70,175 @@ export async function GET(request) {
     );
     const currentDay = Math.floor(currentGameHour / 24);
 
-    // 3. Call Postgres RPC function to aggregate daily revenue
-    const { data: rpcRows, error: rpcErr } = await admin.rpc(
-      'get_company_daily_revenue',
-      { p_company_id: companyId }
-    );
+    let rows = [];
+    let siteInfo = null;
+    let siteFinancials = null;
 
-    if (rpcErr) {
-      console.error('RPC Error get_company_daily_revenue:', rpcErr);
-      return NextResponse.json({ error: rpcErr.message }, { status: 500 });
+    if (requestedCompanySiteId) {
+      // 3A. Fetch plant-specific settlements and details
+      const isNum = !isNaN(Number(requestedCompanySiteId)) && !requestedCompanySiteId.includes('-');
+      let siteQuery = admin
+        .from('company_sites')
+        .select('*, world_sites(*)')
+        .eq('company_id', companyId);
+
+      if (isNum) {
+        siteQuery = siteQuery.eq('site_id', Number(requestedCompanySiteId));
+      } else {
+        siteQuery = siteQuery.eq('id', requestedCompanySiteId);
+      }
+
+      const { data: cSite } = await siteQuery.maybeSingle();
+
+      if (cSite) {
+        siteInfo = {
+          companySiteId: cSite.id,
+          siteId: cSite.site_id,
+          plantName: cSite.plant_name || cSite.world_sites?.name || `Santral #${cSite.site_id}`,
+          siteName: cSite.world_sites?.name || `Arazi #${cSite.site_id}`,
+          regionType: cSite.world_sites?.region_type || 'wind',
+          tenureType: cSite.tenure_type,
+          leasePriceAnnual: Number(cSite.world_sites?.lease_price_annual || 0),
+          purchasePrice: Number(cSite.world_sites?.purchase_price || 0)
+        };
+
+        const [settlementsRes, installedAssetsRes, ledgersRes] = await Promise.all([
+          admin
+            .from('hourly_energy_settlements')
+            .select('game_hour, direct_sold_kwh, battery_sold_kwh, price_per_kwh, gross_revenue, net_revenue')
+            .eq('company_site_id', cSite.id)
+            .order('game_hour', { ascending: true }),
+          admin
+            .from('installed_assets')
+            .select('*, equipment_catalog(*)')
+            .eq('company_site_id', cSite.id),
+          admin
+            .from('ledger_entries')
+            .select('*')
+            .eq('company_id', companyId)
+        ]);
+
+        const settlements = settlementsRes.data || [];
+        const assets = installedAssetsRes.data || [];
+        const allLedgers = ledgersRes.data || [];
+
+        // Daily aggregation from settlements
+        const dayMap = new Map();
+        for (const s of settlements) {
+          const day = Math.floor(Number(s.game_hour) / 24);
+          const kwh = Number(s.direct_sold_kwh || 0) + Number(s.battery_sold_kwh || 0);
+          const rev = Number(s.net_revenue || 0);
+          const existing = dayMap.get(day) || {
+            game_day: day,
+            start_hour: day * 24,
+            end_hour: day * 24 + 23,
+            hours_count: 0,
+            total_revenue: 0,
+            total_kwh: 0,
+            avg_price: 0
+          };
+          existing.hours_count += 1;
+          existing.total_revenue += rev;
+          existing.total_kwh += kwh;
+          dayMap.set(day, existing);
+        }
+
+        for (const item of dayMap.values()) {
+          item.avg_price = item.total_kwh > 0 ? item.total_revenue / item.total_kwh : 0;
+        }
+
+        rows = Array.from(dayMap.values()).sort((a, b) => a.game_day - b.game_day);
+
+        // Calculate plant-specific lifetime financial totals
+        const totalRev = rows.reduce((acc, r) => acc + r.total_revenue, 0);
+        const totalKwh = rows.reduce((acc, r) => acc + r.total_kwh, 0);
+        const avgPrice = totalKwh > 0 ? totalRev / totalKwh : 0;
+
+        // Calculate expenses: maintenance service and land lease
+        let totalExpenses = 0;
+        allLedgers.forEach((l) => {
+          const amt = Math.abs(Number(l.amount || 0));
+          const meta = l.metadata || {};
+          const isThisSite =
+            meta.company_site_id === cSite.id ||
+            meta.site_id === cSite.site_id ||
+            (l.description && (l.description.includes(cSite.plant_name) || l.description.includes(cSite.world_sites?.name)));
+
+          if (isThisSite && ['maintenance_service', 'site_lease'].includes(l.entry_type)) {
+            totalExpenses += amt;
+          }
+        });
+
+        // Add conservative baseline OPEX if ledgers are fresh (e.g. ~4% of revenue for standard grid/site upkeep)
+        if (totalExpenses === 0 && totalRev > 0) {
+          totalExpenses = Number((totalRev * 0.045).toFixed(2));
+        }
+
+        const netProfit = Math.max(0, totalRev - totalExpenses);
+        const profitMargin = totalRev > 0 ? Number(((netProfit / totalRev) * 100).toFixed(1)) : 100;
+
+        // Current hourly run rate from last settlement or installed capacity
+        const lastSettlement = settlements[settlements.length - 1];
+        const latestHourlyRev = lastSettlement ? Number(lastSettlement.net_revenue || 0) : 0;
+        const latestHourlyKwh = lastSettlement
+          ? Number(lastSettlement.direct_sold_kwh || 0) + Number(lastSettlement.battery_sold_kwh || 0)
+          : 0;
+
+        siteFinancials = {
+          totalRevenue: Number(totalRev.toFixed(2)),
+          totalExpenses: Number(totalExpenses.toFixed(2)),
+          netProfit: Number(netProfit.toFixed(2)),
+          profitMarginPct: profitMargin,
+          totalKwh: Number(totalKwh.toFixed(1)),
+          avgPricePerKwh: Number(avgPrice.toFixed(4)),
+          latestHourlyRevenue: Number(latestHourlyRev.toFixed(2)),
+          latestHourlyKwh: Number(latestHourlyKwh.toFixed(1)),
+          installedAssetsCount: assets.length
+        };
+      }
+    } else {
+      // 3B. Call Postgres RPC function to aggregate daily revenue for the entire company
+      const { data: rpcRows, error: rpcErr } = await admin.rpc(
+        'get_company_daily_revenue',
+        { p_company_id: companyId }
+      );
+
+      if (rpcErr) {
+        console.error('RPC Error get_company_daily_revenue:', rpcErr);
+        // Fallback to direct query if RPC error
+        const { data: allSets } = await admin
+          .from('hourly_energy_settlements')
+          .select('game_hour, direct_sold_kwh, battery_sold_kwh, price_per_kwh, net_revenue')
+          .eq('company_id', companyId)
+          .order('game_hour', { ascending: true });
+
+        const dayMap = new Map();
+        for (const s of (allSets || [])) {
+          const day = Math.floor(Number(s.game_hour) / 24);
+          const kwh = Number(s.direct_sold_kwh || 0) + Number(s.battery_sold_kwh || 0);
+          const rev = Number(s.net_revenue || 0);
+          const existing = dayMap.get(day) || {
+            game_day: day,
+            start_hour: day * 24,
+            end_hour: day * 24 + 23,
+            hours_count: 0,
+            total_revenue: 0,
+            total_kwh: 0,
+            avg_price: 0
+          };
+          existing.hours_count += 1;
+          existing.total_revenue += rev;
+          existing.total_kwh += kwh;
+          dayMap.set(day, existing);
+        }
+        for (const item of dayMap.values()) {
+          item.avg_price = item.total_kwh > 0 ? item.total_revenue / item.total_kwh : 0;
+        }
+        rows = Array.from(dayMap.values()).sort((a, b) => a.game_day - b.game_day);
+      } else {
+        rows = rpcRows || [];
+      }
     }
-
-    const rows = rpcRows || [];
 
     // 4. Map daily records with calendar dates
     const dailyRecords = rows.map((r) => {
@@ -170,6 +328,8 @@ export async function GET(request) {
     return NextResponse.json({
       success: true,
       companyId,
+      siteInfo,
+      siteFinancials,
       currentGameHour,
       currentDay,
       totalDaysRecorded: dailyRecords.length,

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
+import Link from 'next/link';
 import {
   Trophy,
   Award,
@@ -12,7 +13,9 @@ import {
   Sparkles,
   TrendingUp,
   ShieldCheck,
-  ChevronRight
+  ChevronRight,
+  Eye,
+  MapPin
 } from 'lucide-react';
 import { dictionaries } from '@/lib/i18n/dictionaries';
 import { useCurrency } from '@/context/CurrencyContext';
@@ -48,12 +51,26 @@ export default function LeaderboardModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200 modal-backdrop-safe"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
+      onWheel={(e) => {
+        e.stopPropagation();
+        if (e.ctrlKey) e.preventDefault();
+      }}
+      onTouchMove={(e) => {
+        if (e.target === e.currentTarget) e.preventDefault();
+      }}
     >
-      <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden text-slate-100">
+      <div
+        className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden text-slate-100 modal-content-safe"
+        onClick={(e) => e.stopPropagation()}
+        onWheel={(e) => {
+          e.stopPropagation();
+          if (e.ctrlKey) e.preventDefault();
+        }}
+      >
         {/* MODAL HEADER */}
         <div className="p-3.5 sm:p-5 border-b border-slate-800 flex items-center justify-between gap-3 bg-slate-950/50 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
@@ -173,10 +190,10 @@ export default function LeaderboardModal({
                 </div>
                 <div className="min-w-0">
                   <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">
-                    {lang === 'tr' ? 'Kasa Bakiyesi' : 'Cash Balance'}
+                    {lang === 'tr' ? 'Şirket Değeri' : 'Net Worth'}
                   </div>
                   <div className="text-sm font-black text-emerald-400 font-mono truncate">
-                    {formatMoney(company?.cash || 0, { decimals: 0 })}
+                    {formatMoney(finance?.netWorth ?? company?.cash ?? 0, { decimals: 0 })}
                   </div>
                 </div>
               </div>
@@ -229,16 +246,17 @@ export default function LeaderboardModal({
               <table className="w-full text-xs text-left">
                 <thead>
                   <tr className="bg-slate-950/40 border-b border-slate-800 text-slate-400 uppercase font-bold tracking-wider text-[11px]">
-                    <th className="py-3 px-4 w-16 text-center">{dict.leaderboard.rank}</th>
+                    <th className="py-3 px-3.5 w-14 text-center">{dict.leaderboard.rank}</th>
                     <th className="py-3 px-4">{dict.leaderboard.company}</th>
-                    <th className="py-3 px-4 text-center">{dict.leaderboard.level}</th>
-                    <th className="py-3 px-4 text-right">Kasa & Varlık</th>
+                    <th className="py-3 px-3 text-center">{dict.leaderboard.level}</th>
+                    <th className="py-3 px-4 text-right">Şirket Değeri (Net Varlık)</th>
+                    <th className="py-3 px-4 text-center w-36">Harita & Keşif</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60 font-medium">
                   {leaderboard.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="py-8 text-center text-slate-500">
+                      <td colSpan={5} className="py-8 text-center text-slate-500">
                         {lang === 'tr' ? 'Henüz sıralama verisi bulunmuyor.' : 'No leaderboard data available.'}
                       </td>
                     </tr>
@@ -269,25 +287,57 @@ export default function LeaderboardModal({
                               : 'hover:bg-slate-800/40'
                           }`}
                         >
-                          <td className="py-3 px-4 text-center">
+                          <td className="py-3 px-3.5 text-center">
                             {rankIcon}
                           </td>
-                          <td className="py-3 px-4 font-bold text-white flex items-center gap-2">
-                            <span>{comp.name}</span>
-                            {isMe && (
-                              <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 tracking-wider">
-                                SİZ
-                              </span>
+                          <td className="py-3 px-4 font-bold text-white">
+                            <div className="flex items-center gap-2">
+                              <span>{comp.name}</span>
+                              {isMe && (
+                                <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 tracking-wider">
+                                  SİZ
+                                </span>
+                              )}
+                            </div>
+                            {comp.siteCount !== undefined && (
+                              <div className="text-[10px] text-slate-400 font-normal mt-0.5 flex items-center gap-1.5">
+                                <span className="text-slate-400">
+                                  {comp.siteCount || 0} Saha • {comp.assetCount || 0} Ünite
+                                </span>
+                              </div>
                             )}
                           </td>
-                          <td className="py-3 px-4 text-center">
+                          <td className="py-3 px-3 text-center">
                             <span className="inline-flex items-center gap-1 font-semibold text-emerald-400 bg-emerald-950/60 border border-emerald-500/20 px-2 py-0.5 rounded-full text-[11px]">
                               <Award className="w-3 h-3 text-amber-400" />
                               Lv.{comp.level}
                             </span>
                           </td>
-                          <td className="py-3 px-4 text-right font-mono font-bold text-emerald-300">
-                            {formatMoney(comp.cash, { decimals: 2 })}
+                          <td className="py-3 px-4 text-right">
+                            <div className="font-mono font-black text-emerald-400 text-xs sm:text-sm">
+                              {formatMoney(comp.netWorth ?? comp.cash, { decimals: 0 })}
+                            </div>
+                            <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                              Kasa: {formatMoney(comp.cash, { decimals: 0 })}
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            {isMe ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-950/50 border border-emerald-500/30 px-2 py-1 rounded-xl">
+                                <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                                <span>Kendi Haritanız</span>
+                              </span>
+                            ) : (
+                              <Link
+                                href={`/game?guest=true&companyId=${comp.id}`}
+                                onClick={() => onClose?.()}
+                                title={`${comp.name} arazisini ve santrallerini 3D haritada ziyaret et`}
+                                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 text-white font-bold text-xs shadow-md shadow-cyan-600/20 active:scale-95 transition-all cursor-pointer group"
+                              >
+                                <Eye className="w-3.5 h-3.5 text-cyan-200 group-hover:scale-110 transition-transform" />
+                                <span>Haritayı Gör</span>
+                              </Link>
+                            )}
                           </td>
                         </tr>
                       );
@@ -295,23 +345,6 @@ export default function LeaderboardModal({
                   )}
                 </tbody>
               </table>
-            </div>
-          </div>
-
-          {/* LEVEL BENEFITS / HINT CARD */}
-          <div className="bg-slate-950/50 border border-slate-800 rounded-xl p-3.5 text-xs text-slate-400 flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
-              <TrendingUp className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="font-bold text-slate-200 mb-0.5">
-                {lang === 'tr' ? 'Seviye (XP) Sistemi Nasıl Çalışır?' : 'How does the XP system work?'}
-              </div>
-              <p className="leading-relaxed text-[11px] text-slate-400">
-                {lang === 'tr'
-                  ? 'Şebekeye sattığınız her MWh elektrik ve kurduğunuz her enerji ekipmanı şirketinize tecrübe puanı (XP) kazandırır. Yüksek seviyeler bankalardan ticari yatırım kredisi çekme gücünüzü artırır ve küresel piyasada itibar sağlar.'
-                  : 'Every MWh sold and every equipment installed earns XP for your company. Higher levels unlock greater commercial borrowing limits and prestige in the global power market.'}
-              </p>
             </div>
           </div>
         </div>

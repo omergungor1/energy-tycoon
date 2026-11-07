@@ -37,6 +37,7 @@ export default function SitesPanel({
   companySites = [],
   company,
   lang,
+  onInspectSite = null,
   onActionSuccess
 }) {
   const dict = dictionaries[lang] || dictionaries.tr;
@@ -263,15 +264,25 @@ export default function SitesPanel({
               {/* Status and Action Buttons */}
               <div className="pt-3 border-t border-slate-800/80">
                 {isOwned ? (
-                  <div className="py-2.5 bg-emerald-500/20 border border-emerald-500/40 rounded-xl text-center text-xs font-bold text-emerald-300 flex items-center justify-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => onInspectSite && onInspectSite(site)}
+                    className="w-full py-2.5 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 rounded-xl text-center text-xs font-bold text-emerald-300 flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                    title="Santral Ekipmanlarını ve Gelir-Gider Grafiğini İncele"
+                  >
                     <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                    <span>{dict.sites.ownedBadge} ({userSite.plant_name})</span>
-                  </div>
+                    <span>{dict.sites.ownedBadge} ({userSite.plant_name}) • İncele</span>
+                  </button>
                 ) : isLeased ? (
                   <div className="space-y-2">
-                    <div className="py-1.5 bg-cyan-500/20 border border-cyan-500/40 rounded-xl text-center text-xs font-bold text-cyan-300">
-                      {dict.sites.leasedBadge} ({userSite.plant_name})
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onInspectSite && onInspectSite(site)}
+                      className="w-full py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 rounded-xl text-center text-xs font-bold text-cyan-300 transition-all cursor-pointer"
+                      title="Santral Ekipmanlarını ve Gelir-Gider Grafiğini İncele"
+                    >
+                      {dict.sites.leasedBadge} ({userSite.plant_name}) • İncele
+                    </button>
                     <button
                       disabled={!canBuy || loadingId === `buy_${site.id}`}
                       onClick={() => handleBuy(site)}

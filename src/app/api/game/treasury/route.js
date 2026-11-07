@@ -43,8 +43,8 @@ export async function GET() {
       Number(simState?.epoch_game_hour || 0)
     );
 
-    // 3. Fetch all production, settlements, and ledger entries for this company
-    const [prodRes, settlementsRes, ledgerRes] = await Promise.all([
+    // 3. Fetch all production, settlements, ledger entries, and company sites
+    const [prodRes, settlementsRes, ledgerRes, sitesRes] = await Promise.all([
       admin
         .from('hourly_production')
         .select('*')
@@ -59,12 +59,25 @@ export async function GET() {
         .from('ledger_entries')
         .select('*')
         .eq('company_id', company.id)
-        .order('game_hour', { ascending: false })
+        .order('game_hour', { ascending: false }),
+      admin
+        .from('company_sites')
+        .select('id, site_id, plant_name, world_sites(name)')
+        .eq('company_id', company.id)
     ]);
 
     const prods = prodRes.data || [];
     const settlements = settlementsRes.data || [];
     const ledgers = ledgerRes.data || [];
+    const cSites = sitesRes.data || [];
+
+    // Map company sites for name resolution
+    const siteMap = new Map();
+    cSites.forEach((cs) => {
+      const name = cs.plant_name || cs.world_sites?.name || `Santral #${cs.site_id}`;
+      siteMap.set(cs.id, name);
+      siteMap.set(String(cs.site_id), name);
+    });
 
     // Helper to calculate aggregations for a game hour range
     const calculateRangeStats = (startH, endH) => {
@@ -212,6 +225,34 @@ export async function GET() {
     // Recent 50 ledger entries formatted with game date (Only day and hour as requested)
     const formattedLedger = ledgers.slice(0, 50).map((item) => {
       const gDate = getGameDate(Number(item.game_hour || 0));
+      let desc = item.description || '';
+      const meta = item.metadata ? { ...item.metadata } : {};
+
+      // Enrich electricity sales with site name if missing
+      if (item.entry_type === 'electricity_sales') {
+        let siteName = meta.plant_name || meta.site_name || null;
+        if (!siteName && meta.company_site_id) {
+          siteName = siteMap.get(meta.company_site_id) || null;
+        }
+        if (!siteName && meta.site_id) {
+          siteName = siteMap.get(String(meta.site_id)) || null;
+        }
+        if (!siteName && item.idempotency_key) {
+          const parts = item.idempotency_key.split('_');
+          if (parts.length >= 3 && parts[0] === 'energy') {
+            const cSiteId = parts[2];
+            siteName = siteMap.get(cSiteId) || null;
+          }
+        }
+        if (siteName) {
+          meta.plant_name = siteName;
+          meta.site_name = siteName;
+          if (!desc.startsWith(siteName)) {
+            desc = `${siteName} • ${desc}`;
+          }
+        }
+      }
+
       return {
         id: item.id,
         gameHour: item.game_hour,
@@ -221,8 +262,8 @@ export async function GET() {
         entryType: item.entry_type,
         amount: Number(item.amount || 0),
         balanceAfter: Number(item.balance_after || 0),
-        description: item.description,
-        metadata: item.metadata
+        description: desc,
+        metadata: meta
       };
     });
 
