@@ -23,8 +23,6 @@ import DailyBonusModal from '@/components/modals/DailyBonusModal';
 import InvestmentGuideModal from '@/components/modals/InvestmentGuideModal';
 import SiteDetailModal from '@/components/modals/SiteDetailModal';
 import { getDailyStreakInfo } from '@/lib/simulation/dailyBonus';
-import DriveOverlay from '@/components/ui/DriveOverlay';
-import WalkOverlay from '@/components/ui/WalkOverlay';
 import CinematicOverlay from '@/components/ui/CinematicOverlay';
 import { CurrencyProvider } from '@/context/CurrencyContext';
 import ambientMusic from '@/lib/audio/ambientMusic';
@@ -35,8 +33,6 @@ import {
   Sun,
   Layers,
   ShieldCheck,
-  Car,
-  Footprints,
   Film,
   ShoppingBag,
   Factory,
@@ -99,36 +95,11 @@ function GameContent() {
   });
   const [isSettingsLoaded, setIsSettingsLoaded] = useState(false);
 
-  // Vehicle Exploration Driving Mode State
-  const [isDrivingMode, setIsDrivingMode] = useState(false);
-  const [drivingCameraMode, setDrivingCameraMode] = useState('chase');
-  const [vehicleStats, setVehicleStats] = useState({});
-
-  // Pedestrian Walk & Run Exploration Mode State
-  const [isWalkingMode, setIsWalkingMode] = useState(false);
-  const [walkingCameraMode, setWalkingCameraMode] = useState('chase');
-  const [walkerStats, setWalkerStats] = useState({});
-
   // Cinematic Auto-Camera Tour Mode State
   const [isCinematicMode, setIsCinematicMode] = useState(false);
   const [cinematicTourType, setCinematicTourType] = useState('grand');
   const [cinematicSpeed, setCinematicSpeed] = useState(1.0);
   const [isCinematicUiHidden, setIsCinematicUiHidden] = useState(false);
-
-  const [touchInput, setTouchInput] = useState({});
-
-  const handleTouchInputChange = useCallback((input) => {
-    setTouchInput((prev) => {
-      let changed = false;
-      for (const key in input) {
-        if (prev[key] !== input[key]) {
-          changed = true;
-          break;
-        }
-      }
-      return changed ? { ...prev, ...input } : prev;
-    });
-  }, []);
 
   // Auto-prompt Daily Login Bonus once per session if unclaimed today (only for logged-in players)
   useEffect(() => {
@@ -142,23 +113,12 @@ function GameContent() {
     }
   }, [isGuestMode, gameState?.company]);
 
-  // In Guest Mode, automatically spawn directly into the vehicle on the player's site
+  // Auto exit cinematic mode if a management modal is opened
   useEffect(() => {
-    if (isGuestMode && gameState && !hasAutoSpawnedGuest.current) {
-      hasAutoSpawnedGuest.current = true;
-      setIsDrivingMode(true);
-      setDrivingCameraMode('cockpit');
+    if (activeTab && isCinematicMode) {
+      setIsCinematicMode(false);
     }
-  }, [isGuestMode, gameState]);
-
-  // Auto exit exploration & cinematic modes if a management modal is opened
-  useEffect(() => {
-    if (activeTab) {
-      if (isDrivingMode) setIsDrivingMode(false);
-      if (isWalkingMode) setIsWalkingMode(false);
-      if (isCinematicMode) setIsCinematicMode(false);
-    }
-  }, [activeTab, isDrivingMode, isWalkingMode, isCinematicMode]);
+  }, [activeTab, isCinematicMode]);
 
   // Global Keyboard shortcuts (Escape & 'H' for UI toggle in cinematic mode)
   useEffect(() => {
@@ -167,10 +127,6 @@ function GameContent() {
       if (e.key === 'Escape') {
         if (isCinematicMode) {
           setIsCinematicMode(false);
-        } else if (isDrivingMode) {
-          setIsDrivingMode(false);
-        } else if (isWalkingMode) {
-          setIsWalkingMode(false);
         } else if (activeTab) {
           setActiveTab(null);
         } else if (inspectedSite) {
@@ -184,7 +140,7 @@ function GameContent() {
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeTab, inspectedSite, isDrivingMode, isWalkingMode, isCinematicMode]);
+  }, [activeTab, inspectedSite, isCinematicMode]);
 
   // Lock browser viewport zoom: prevent trackpad pinch & Ctrl+wheel from scaling the DOM / modals
   useEffect(() => {
@@ -417,8 +373,8 @@ function GameContent() {
   return (
     <CurrencyProvider>
       <div className="w-screen h-screen bg-slate-950 overflow-hidden relative font-sans select-none">
-        {/* Top HUD (Rendered when NOT in vehicle driving/walking mode, and NOT in cinematic tour mode) */}
-        {!isDrivingMode && !isWalkingMode && !isCinematicMode && (
+        {/* Top HUD (Rendered when NOT in cinematic tour mode) */}
+        {!isCinematicMode && (
           isGuestMode ? (
             <GuestHud
               company={gameState.company}
@@ -460,23 +416,8 @@ function GameContent() {
           )
         )}
 
-        {/* Floating Quick Exit Guest Button while driving or walking */}
-        {isGuestMode && (isDrivingMode || isWalkingMode) && (
-          <div className="fixed top-3 right-3 z-50 pointer-events-auto">
-            <button
-              type="button"
-              onClick={handleExitGuest}
-              className="px-3.5 py-2 rounded-xl bg-slate-900/90 hover:bg-red-950/90 border border-slate-700/80 hover:border-red-500/50 text-slate-200 hover:text-red-300 text-xs font-bold flex items-center gap-1.5 backdrop-blur-xl shadow-2xl active:scale-95 transition-all cursor-pointer"
-              title="Misafir Modundan Çık ve Giriş Sayfasına Dön"
-            >
-              <LogOut className="w-3.5 h-3.5 text-red-400" />
-              <span>Misafir Modundan Çık</span>
-            </button>
-          </div>
-        )}
-
         {/* Main Content Area */}
-        <main className={`w-full h-full pb-0 relative ${isDrivingMode || isWalkingMode || isCinematicMode ? 'pt-0' : isGuestMode ? 'pt-16 sm:pt-18' : 'pt-14 sm:pt-16'}`}>
+        <main className={`w-full h-full pb-0 relative ${isCinematicMode ? 'pt-0' : isGuestMode ? 'pt-16 sm:pt-18' : 'pt-14 sm:pt-16'}`}>
           {/* 3D Map View: Always mounted, active, and alive in the background */}
           <div className="w-full h-full block">
             <WorldCanvas
@@ -488,25 +429,14 @@ function GameContent() {
               focusedSite={focusedSite}
               initialSpawnCoords={initialSpawnCoordinates}
               onSelectSite={(site) => setInspectedSite(site)}
-              isDrivingMode={isDrivingMode}
-              drivingCameraMode={drivingCameraMode}
-              onDrivingCameraModeChange={setDrivingCameraMode}
-              touchInput={touchInput}
-              onVehicleStatsUpdate={setVehicleStats}
-              onExitDrivingMode={() => setIsDrivingMode(false)}
-              isWalkingMode={isWalkingMode}
-              walkingCameraMode={walkingCameraMode}
-              onWalkingCameraModeChange={setWalkingCameraMode}
-              onWalkerStatsUpdate={setWalkerStats}
-              onExitWalkingMode={() => setIsWalkingMode(false)}
               isCinematicMode={isCinematicMode}
               cinematicTourType={cinematicTourType}
               cinematicSpeed={cinematicSpeed}
               onExitCinematicMode={() => setIsCinematicMode(false)}
             />
 
-            {/* Floating Island Exploration Launcher Buttons (Bottom Right) */}
-            {!isDrivingMode && !isWalkingMode && !isCinematicMode && !activeTab && (
+            {/* Floating Island Exploration Launcher Button (Bottom Right) */}
+            {!isCinematicMode && !activeTab && (
               <div className="fixed bottom-6 right-6 z-30 flex items-center gap-2 sm:gap-2.5">
                 {/* 1. Cinematic Auto-Camera Tour Mode */}
                 <button
@@ -520,57 +450,7 @@ function GameContent() {
                 >
                   <Film className="w-5 h-5 sm:w-6 sm:h-6 text-amber-400 group-hover:scale-110 transition-transform" />
                 </button>
-
-                {/* 2. Pedestrian Walking & Sprint Exploration Mode */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsWalkingMode(true);
-                    setWalkingCameraMode('chase');
-                  }}
-                  title={lang === 'tr' ? 'Yaya Keşif / Yürüme Modu (Adayı Keşfet)' : 'Walking Exploration Mode (Explore Island)'}
-                  className="w-12 h-12 sm:w-13 sm:h-13 bg-slate-900/90 hover:bg-cyan-950/90 text-cyan-400 hover:text-cyan-300 border border-cyan-500/50 hover:border-cyan-400 rounded-2xl shadow-2xl backdrop-blur-xl flex items-center justify-center transition-all hover:scale-110 active:scale-95 group cursor-pointer"
-                >
-                  <Footprints className="w-5 h-5 sm:w-6 sm:h-6 text-cyan-400 group-hover:-translate-y-0.5 transition-transform" />
-                </button>
-
-                {/* 3. Drivable Buggy Exploration Mode */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsDrivingMode(true);
-                    setDrivingCameraMode('chase');
-                  }}
-                  title={lang === 'tr' ? 'Araç Sürüş Modu (Adayı Keşfet)' : 'Drive Buggy Mode (Explore Island)'}
-                  className="w-12 h-12 sm:w-13 sm:h-13 bg-slate-900/90 hover:bg-emerald-950/90 text-emerald-400 hover:text-emerald-300 border border-emerald-500/50 hover:border-emerald-400 rounded-2xl shadow-2xl backdrop-blur-xl flex items-center justify-center transition-all hover:scale-110 active:scale-95 group cursor-pointer"
-                >
-                  <Car className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-400 group-hover:rotate-6 transition-transform" />
-                </button>
               </div>
-            )}
-
-            {/* Active Driving Telemetry, Camera Switcher & Mobile Controls HUD */}
-            {isDrivingMode && (
-              <DriveOverlay
-                stats={vehicleStats}
-                cameraMode={drivingCameraMode}
-                onCameraModeChange={setDrivingCameraMode}
-                onTouchInputChange={handleTouchInputChange}
-                onExit={() => setIsDrivingMode(false)}
-                lang={lang}
-              />
-            )}
-
-            {/* Active Pedestrian Walking Telemetry & Controls HUD */}
-            {isWalkingMode && (
-              <WalkOverlay
-                stats={walkerStats}
-                cameraMode={walkingCameraMode}
-                onCameraModeChange={setWalkingCameraMode}
-                onTouchInputChange={handleTouchInputChange}
-                onExit={() => setIsWalkingMode(false)}
-                lang={lang}
-              />
             )}
 
             {/* Active Cinematic Camera Tour Director HUD */}
@@ -657,6 +537,7 @@ function GameContent() {
                       catalog={gameState.equipmentCatalog}
                       company={gameState.company}
                       companySites={gameState.companySites}
+                      installedAssets={gameState.installedAssets}
                       lang={lang}
                       initialSiteId={shopInitialSiteId}
                       initialType={shopInitialType}

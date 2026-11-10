@@ -6,41 +6,39 @@ import { OrbitControls, Text, Billboard } from '@react-three/drei';
 import { Map, Box, Compass, Plus, Minus, Maximize2 } from 'lucide-react';
 import * as THREE from 'three';
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import DrivableBuggy from './DrivableBuggy';
-import WalkableCharacter from './WalkableCharacter';
 import LivingSettlements from './LivingSettlements';
 import RailwaySystem from './RailwaySystem';
 import WildlifeAndSky from './WildlifeAndSky';
 import CinematicCameraTour from './CinematicCameraTour';
-import MountainMotocrossTour from './MountainMotocrossTour';
 import { WindTurbineConstructionSite, SolarConstructionSite, SafetyFloodlightTower } from './ConstructionSites';
+import { getAssetSlotCoordinates } from '@/lib/simulation/asset-layout';
 
-// 24 World Investment Sites coordinates
+// 24 World Investment Sites coordinates with custom engineered plateau radii
 const KNOWN_SITES = [
-  { id: 1, x: -450.0, z: -320.0, area: 45.0 },
-  { id: 2, x: -630.0, z: -460.0, area: 75.0 },
-  { id: 3, x: -320.0, z: -510.0, area: 60.0 },
-  { id: 4, x: -710.0, z: -160.0, area: 85.0 },
-  { id: 5, x: -240.0, z: -440.0, area: 55.0 },
-  { id: 6, x: -750.0, z: -350.0, area: 90.0 },
-  { id: 7, x: -420.0, z: -190.0, area: 65.0 },
-  { id: 8, x: -820.0, z: -520.0, area: 110.0 },
-  { id: 9, x: 380.0, z: 320.0, area: 50.0 },
-  { id: 10, x: 500.0, z: 370.0, area: 80.0 },
-  { id: 11, x: 620.0, z: 370.0, area: 100.0 },
-  { id: 12, x: 280.0, z: 450.0, area: 70.0 },
-  { id: 13, x: 540.0, z: 490.0, area: 95.0 },
-  { id: 14, x: 220.0, z: 320.0, area: 60.0 },
-  { id: 15, x: 730.0, z: 400.0, area: 120.0 },
-  { id: 16, x: 860.0, z: 450.0, area: 140.0 },
-  { id: 17, x: 50.0, z: -180.0, area: 65.0 },
-  { id: 18, x: -150.0, z: 50.0, area: 80.0 },
-  { id: 19, x: 205.0, z: -70.0, area: 75.0 },
-  { id: 20, x: -50.0, z: -320.0, area: 90.0 },
-  { id: 21, x: 140.0, z: 360.0, area: 85.0 },
-  { id: 22, x: -250.0, z: 200.0, area: 105.0 },
-  { id: 23, x: 260.0, z: -200.0, area: 115.0 },
-  { id: 24, x: 50.0, z: 430.0, area: 150.0 }
+  { id: 1, x: -450.0, z: -320.0, area: 45.0, plateauRadius: 52 },
+  { id: 2, x: -630.0, z: -460.0, area: 75.0, plateauRadius: 54 },
+  { id: 3, x: -320.0, z: -510.0, area: 60.0, plateauRadius: 48 }, // 106m to Site 5
+  { id: 4, x: -710.0, z: -160.0, area: 85.0, plateauRadius: 54 },
+  { id: 5, x: -240.0, z: -440.0, area: 55.0, plateauRadius: 48 }, // 106m to Site 3
+  { id: 6, x: -750.0, z: -350.0, area: 90.0, plateauRadius: 54 },
+  { id: 7, x: -420.0, z: -190.0, area: 65.0, plateauRadius: 52 },
+  { id: 8, x: -820.0, z: -520.0, area: 110.0, plateauRadius: 54 },
+  { id: 9, x: 380.0, z: 320.0, area: 50.0, plateauRadius: 52 },
+  { id: 10, x: 500.0, z: 370.0, area: 80.0, plateauRadius: 52 },
+  { id: 11, x: 620.0, z: 370.0, area: 100.0, plateauRadius: 52 }, // 114m to Site 15
+  { id: 12, x: 280.0, z: 450.0, area: 70.0, plateauRadius: 52 },
+  { id: 13, x: 540.0, z: 490.0, area: 95.0, plateauRadius: 52 },
+  { id: 14, x: 220.0, z: 320.0, area: 60.0, plateauRadius: 40 }, // 89.4m to Site 21
+  { id: 15, x: 730.0, z: 400.0, area: 120.0, plateauRadius: 52 }, // 114m to Site 11
+  { id: 16, x: 860.0, z: 450.0, area: 140.0, plateauRadius: 55 },
+  { id: 17, x: 50.0, z: -180.0, area: 65.0, plateauRadius: 52 },
+  { id: 18, x: -150.0, z: 50.0, area: 80.0, plateauRadius: 52 },
+  { id: 19, x: 205.0, z: -70.0, area: 75.0, plateauRadius: 52 },
+  { id: 20, x: -50.0, z: -320.0, area: 90.0, plateauRadius: 52 },
+  { id: 21, x: 140.0, z: 360.0, area: 85.0, plateauRadius: 40 }, // 89.4m to Site 14
+  { id: 22, x: -250.0, z: 200.0, area: 105.0, plateauRadius: 54 },
+  { id: 23, x: 260.0, z: -200.0, area: 115.0, plateauRadius: 54 },
+  { id: 24, x: 50.0, z: 430.0, area: 150.0, plateauRadius: 54 }
 ];
 
 function smoothstep(min, max, value) {
@@ -153,13 +151,20 @@ const SETTLEMENT_ANCHOR_HEIGHTS = SETTLEMENT_ZONES.map((s) => s.customHeight !==
 export function getTerrainHeight(x, z) {
   let h = getRawTerrainHeight(x, z);
 
-  // 1. Generic leveled terraces around all 24 sites (flat plateau radius 76m, smooth transition to 110m)
+  // 1. Fully leveled civil engineering terraces around all 24 sites
+  // Perfectly horizontal flat plateau ensures zero clipping, no slopes, and level pads
   for (let i = 0; i < KNOWN_SITES.length; i++) {
     const s = KNOWN_SITES[i];
-    if (Math.abs(x - s.x) < 112 && Math.abs(z - s.z) < 112) {
+    const platR = s.plateauRadius || 52;
+    const transR = platR + 16;
+    if (Math.abs(x - s.x) < transR && Math.abs(z - s.z) < transR) {
       const d = Math.hypot(x - s.x, z - s.z);
-      if (d < 110) {
-        const t = smoothstep(110, 76, d);
+      if (d < transR) {
+        if (d <= platR) {
+          // 100% Perfectly flat horizontal ground inside the site territory
+          return SITE_ANCHOR_HEIGHTS[i];
+        }
+        const t = smoothstep(transR, platR, d);
         h = h * (1 - t) + SITE_ANCHOR_HEIGHTS[i] * t;
         break;
       }
@@ -209,9 +214,9 @@ export function getTerrainHeight(x, z) {
   return h;
 }
 
-// Terrain mesh geometry constants (matches IslandTerrain PlaneGeometry: 2800x2800 with 180x180 quads)
+// Terrain mesh geometry constants (matches IslandTerrain PlaneGeometry: 2800x2800 with 96x96 quads)
 const TERRAIN_GRID_SIZE = 2800;
-const TERRAIN_SEGMENTS = 180;
+const TERRAIN_SEGMENTS = 96;
 const TERRAIN_STEP = TERRAIN_GRID_SIZE / TERRAIN_SEGMENTS;
 const TERRAIN_HALF = TERRAIN_GRID_SIZE * 0.5;
 
@@ -511,204 +516,116 @@ function WindTurbine({
 // HIGH-FIDELITY 4x4 (16-PANEL) UTILITY-SCALE GES (SOLAR FARM) WITH SUN TRACKING
 // =============================================================================
 function SolarArray({ position, hasTracker = true, clock, onClick }) {
-  // 4 Tracker Row Refs (each driving 4 panels along its torque tube axis)
-  const rowRefs = [useRef(), useRef(), useRef(), useRef()];
-
-  useFrame(() => {
+  // Static / Clock-driven Tilt (Zero useFrame overhead, eliminates 60fps lerp loop across arrays)
+  const baseTilt = useMemo(() => {
+    if (!hasTracker) return -0.15;
     const hourOfDay = Number(clock?.gameHour || 12) % 24;
     const isDay = hourOfDay >= 6 && hourOfDay <= 18;
     const sunProgress = isDay ? (hourOfDay - 6) / 12 : 0.5;
+    return isDay ? (sunProgress - 0.5) * 0.82 : 0.0;
+  }, [clock?.gameHour, hasTracker]);
 
-    // Single-axis East-West solar tracking:
-    // Morning (06:00): tilt -0.42 rad (~-24°) facing East
-    // Noon (12:00): tilt 0.00 rad (completely flat facing Zenith)
-    // Evening (18:00): tilt +0.42 rad (~+24°) facing West
-    // Night (18:01-05:59): return to flat stow position (0.0 rad)
-    const baseTilt = isDay ? (sunProgress - 0.5) * 0.85 : 0.0;
-
-    rowRefs.forEach((ref, idx) => {
-      if (ref.current) {
-        // Dynamic Sun-Tracking: All 16 panels track the sun East to West (micro-offset across rows)
-        const targetTilt = baseTilt + (idx - 1.5) * 0.008;
-        ref.current.rotation.z = THREE.MathUtils.lerp(ref.current.rotation.z, targetTilt, 0.04);
-      }
-    });
-  });
-
-  const columnsX = [-13.5, -8.5, -3.5, 1.5];
-  const rowsZ = [-7.5, -2.5, 2.5, 7.5];
+  // 3-Row x 3-Table Compact Utility Footprint (Total pad: 20m wide x 14m deep)
+  const columnsX = [-5.5, 0.0, 5.5];
+  const rowsZ = [-3.8, 0.0, 3.8];
   const isNight = Boolean(clock?.isNight);
 
   return (
     <group position={position} onClick={onClick}>
-      {/* 1. Heavy Industrial Gravel Pad (Matches Construction Pad Scale 38.5 x 28.5) */}
-      <mesh position={[0, 0.4, 0]} castShadow receiveShadow>
-        <boxGeometry args={[38.5, 0.8, 28.5]} />
+      {/* 1. Heavy Compact Crushed-Gravel Ground Pad (Elevated +0.7m, zero terrain dirt clipping) */}
+      <mesh position={[0, 0.35, 0]} receiveShadow>
+        <boxGeometry args={[20.0, 0.7, 14.0]} />
         <meshStandardMaterial color="#334155" roughness={0.92} />
       </mesh>
       {/* Top compacted fine gravel surface */}
-      <mesh position={[0, 0.81, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[38.2, 28.2]} />
+      <mesh position={[0, 0.71, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[19.8, 13.8]} />
         <meshStandardMaterial color="#475569" roughness={0.88} />
       </mesh>
 
-      {/* Safety Boundary Perimeter & Corner Security Floodlights */}
-      <SafetyFloodlightTower position={[-17.0, 0.81, -12.5]} isNight={isNight} />
-      <SafetyFloodlightTower position={[17.0, 0.81, 12.5]} isNight={isNight} />
-
-      {/* GES Entrance Nameplate / Safety Signboard */}
-      <group position={[-16.0, 0.81, 12.0]} rotation={[0, 0.15, 0]}>
-        <mesh position={[0, 0.8, 0]}>
-          <boxGeometry args={[2.8, 1.2, 0.08]} />
-          <meshStandardMaterial color="#1e3a8a" roughness={0.4} />
-        </mesh>
-        {/* Support Legs */}
-        {[-1.1, 1.1].map((lx, li) => (
-          <mesh key={li} position={[lx, 0.35, 0]}>
-            <cylinderGeometry args={[0.04, 0.04, 0.9, 8]} />
-            <meshStandardMaterial color="#94a3b8" metalness={0.8} />
-          </mesh>
-        ))}
-        <Billboard position={[0, 0.8, 0.06]}>
-          <Text fontSize={0.22} color="#ffffff" font={undefined} anchorX="center" anchorY="middle">
-            {"GES SANTRALİ\n4x4 GÜNEŞ TAKİP SİSTEMİ"}
-          </Text>
-        </Billboard>
-      </group>
-
-      {/* 2. Four Tracker Axis Rows (Each rotating along its torque tube Z-axis) */}
+      {/* 2. Three Single-Axis Tracker Rows */}
       {columnsX.map((cx, cIdx) => (
-        <group key={`tracker_axis_${cIdx}`} position={[cx, 0.81, 0]}>
-          {/* Concrete Foundation Pillar Piles with Steel Bearing Mounts */}
-          {[-8, 0, 8].map((pz, pi) => (
-            <group key={`pile_${pi}`} position={[0, 0, pz]}>
-              <mesh position={[0, 0.45, 0]} castShadow>
-                <cylinderGeometry args={[0.22, 0.26, 0.9, 8]} />
-                <meshStandardMaterial color="#94a3b8" roughness={0.85} />
-              </mesh>
-              {/* Bearing Pillow Block */}
-              <mesh position={[0, 1.05, 0]}>
-                <boxGeometry args={[0.32, 0.35, 0.32]} />
-                <meshStandardMaterial color="#475569" metalness={0.8} />
-              </mesh>
-            </group>
+        <group key={`tracker_axis_${cIdx}`} position={[cx, 0.71, 0]}>
+          {/* Foundation Pillar Piles */}
+          {[-4.0, 0, 4.0].map((pz, pi) => (
+            <mesh key={`pile_${pi}`} position={[0, 0.45, pz]}>
+              <cylinderGeometry args={[0.18, 0.22, 0.9, 6]} />
+              <meshStandardMaterial color="#94a3b8" roughness={0.85} />
+            </mesh>
           ))}
 
-          {/* Central Slew Drive Motor Housing & Actuator Gearbox */}
-          <group position={[0, 0.95, 0]}>
-            <mesh position={[0, 0.15, 0]} castShadow>
-              <boxGeometry args={[0.55, 0.65, 0.75]} />
-              <meshStandardMaterial color="#0284c7" metalness={0.6} roughness={0.3} />
-            </mesh>
-            {/* Actuator Slew Motor Cylinder */}
-            <mesh position={[0.25, 0.15, 0]} rotation={[0, 0, Math.PI / 2]}>
-              <cylinderGeometry args={[0.16, 0.16, 0.4, 10]} />
-              <meshStandardMaterial color="#334155" metalness={0.8} />
-            </mesh>
-            {/* Active Telemetry LED (Blinks green during day) */}
-            <mesh position={[0, 0.52, 0.2]}>
-              <sphereGeometry args={[0.07, 8, 8]} />
-              <meshStandardMaterial
-                color="#10b981"
-                emissive="#10b981"
-                emissiveIntensity={isNight ? 0.2 : 0.9}
-              />
-            </mesh>
-          </group>
+          {/* Central Tracker Drive Actuator */}
+          <mesh position={[0, 1.05, 0]}>
+            <boxGeometry args={[0.45, 0.5, 0.6]} />
+            <meshStandardMaterial color="#0284c7" roughness={0.4} />
+          </mesh>
 
-          {/* DYNAMIC SUN-TRACKING ASSEMBLY: Torque Tube + 4 Solar Panel Tables */}
-          <group position={[0, 1.45, 0]} ref={rowRefs[cIdx]}>
+          {/* DYNAMIC SUN-TRACKING ASSEMBLY: Torque Tube + 3 Solar Panel Tables */}
+          <group position={[0, 1.35, 0]} rotation={[0, 0, baseTilt]}>
             {/* Galvanized Steel Torque Tube running along Z */}
-            <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
-              <cylinderGeometry args={[0.11, 0.11, 21.0, 12]} />
-              <meshStandardMaterial color="#cbd5e1" metalness={0.85} roughness={0.25} />
+            <mesh rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[0.08, 0.08, 11.5, 8]} />
+              <meshStandardMaterial color="#cbd5e1" metalness={0.7} roughness={0.3} />
             </mesh>
 
-            {/* 4 Precision PV Solar Panel Tables along this row */}
+            {/* 3 Precision PV Solar Panel Tables along this row */}
             {rowsZ.map((rz, rIdx) => (
-              <group key={`pv_${rIdx}`} position={[0, 0.15, rz]}>
-                {/* Underside Galvanized Mounting Struts clamped onto Torque Tube */}
-                {[-1.4, 1.4].map((mx, mi) => (
-                  <mesh key={mi} position={[mx, -0.08, 0]}>
-                    <boxGeometry args={[0.1, 0.16, 2.8]} />
-                    <meshStandardMaterial color="#94a3b8" metalness={0.8} />
-                  </mesh>
-                ))}
-
+              <group key={`pv_${rIdx}`} position={[0, 0.12, rz]}>
                 {/* Anodized Aluminum Panel Frame */}
-                <mesh castShadow>
-                  <boxGeometry args={[4.2, 0.1, 3.2]} />
-                  <meshStandardMaterial color="#0284c7" roughness={0.2} metalness={0.6} />
+                <mesh>
+                  <boxGeometry args={[3.4, 0.08, 2.8]} />
+                  <meshStandardMaterial color="#0284c7" roughness={0.3} metalness={0.5} />
                 </mesh>
 
-                {/* Anti-reflective Dark Monocrystalline Silicon Glass Face (COMPLETELY FLAT ON TOP) */}
-                <mesh position={[0, 0.055, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-                  <planeGeometry args={[4.0, 3.0]} />
+                {/* Dark Monocrystalline Silicon Glass Face */}
+                <mesh position={[0, 0.045, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                  <planeGeometry args={[3.2, 2.6]} />
                   <meshStandardMaterial
                     color="#0b192c"
-                    roughness={0.12}
-                    metalness={0.9}
+                    roughness={0.15}
+                    metalness={0.85}
                     emissive={hasTracker ? '#1d4ed8' : '#1e3a8a'}
-                    emissiveIntensity={isNight ? 0.05 : 0.25}
+                    emissiveIntensity={isNight ? 0.02 : 0.2}
                   />
                 </mesh>
-
-                {/* Silver Grid Lines / Busbars (COMPLETELY FLAT ON TOP) */}
-                {[-1.2, 0, 1.2].map((lx, li) => (
-                  <mesh key={li} position={[lx, 0.058, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-                    <planeGeometry args={[0.04, 2.9]} />
-                    <meshBasicMaterial color="#94a3b8" />
-                  </mesh>
-                ))}
               </group>
             ))}
           </group>
         </group>
       ))}
 
-      {/* 3. In-Ground High-Voltage Red Power Conduit Trench */}
-      <group position={[4.5, 0.82, 0]}>
-        <mesh position={[0, 0, 0]}>
-          <boxGeometry args={[0.6, 0.05, 20.0]} />
-          <meshStandardMaterial color="#1e293b" roughness={0.9} />
-        </mesh>
-        <mesh position={[0, 0.03, 0]} rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.07, 0.07, 19.8, 8]} />
-          <meshStandardMaterial color="#dc2626" roughness={0.5} />
-        </mesh>
-        {/* Branch into Substation Kiosk */}
-        <mesh position={[4.0, 0.03, -6.5]} rotation={[0, 0, Math.PI / 2]}>
-          <cylinderGeometry args={[0.07, 0.07, 8.0, 8]} />
+      {/* 3. In-Ground High-Voltage Red Power Conduit */}
+      <group position={[6.5, 0.72, -3.2]}>
+        <mesh position={[0, 0.02, 0]} rotation={[0, 0, Math.PI / 2]}>
+          <cylinderGeometry args={[0.06, 0.06, 2.2, 8]} />
           <meshStandardMaterial color="#dc2626" roughness={0.5} />
         </mesh>
       </group>
 
-      {/* 4. Central Inverter & Step-Up Transformer Substation Kiosk */}
-      <group position={[13.0, 0.81, -6.5]}>
-        <mesh position={[0, 1.2, 0]} castShadow>
-          <boxGeometry args={[3.2, 2.4, 2.6]} />
+      {/* 4. Compact Central Inverter & Step-Up Transformer Kiosk */}
+      <group position={[7.8, 0.71, -3.2]}>
+        <mesh position={[0, 0.9, 0]} castShadow>
+          <boxGeometry args={[1.8, 1.8, 1.6]} />
           <meshStandardMaterial color="#f8fafc" roughness={0.3} metalness={0.4} />
         </mesh>
-        {/* Dark Louvered Ventilation Grilles */}
-        {[-0.8, 0.8].map((gx, gi) => (
-          <mesh key={gi} position={[gx, 1.4, 1.32]}>
-            <planeGeometry args={[0.9, 1.1]} />
-            <meshStandardMaterial color="#334155" roughness={0.8} />
-          </mesh>
-        ))}
-        {/* High Voltage Danger Warning Symbol */}
-        <mesh position={[0, 1.3, 1.32]}>
-          <planeGeometry args={[0.4, 0.4]} />
+        {/* Louvered Ventilation Grille */}
+        <mesh position={[0, 1.0, 0.81]}>
+          <planeGeometry args={[0.9, 0.8]} />
+          <meshStandardMaterial color="#334155" roughness={0.8} />
+        </mesh>
+        {/* Danger Warning Symbol */}
+        <mesh position={[0, 1.35, 0.82]}>
+          <planeGeometry args={[0.3, 0.3]} />
           <meshBasicMaterial color="#eab308" />
         </mesh>
-        {/* Telemetry SCADA Whip Antenna */}
-        <mesh position={[1.2, 2.8, 0]}>
-          <cylinderGeometry args={[0.02, 0.02, 1.2, 6]} />
+        {/* Telemetry Antenna */}
+        <mesh position={[0.6, 2.1, 0]}>
+          <cylinderGeometry args={[0.02, 0.02, 0.8, 6]} />
           <meshStandardMaterial color="#64748b" metalness={0.9} />
         </mesh>
-        {/* Operational Status Light (Green = Healthy, generating power) */}
-        <mesh position={[0, 2.5, 0]}>
-          <sphereGeometry args={[0.12, 8, 8]} />
+        {/* Operational Status Light */}
+        <mesh position={[0, 1.9, 0]}>
+          <sphereGeometry args={[0.1, 8, 8]} />
           <meshStandardMaterial
             color="#10b981"
             emissive="#10b981"
@@ -717,19 +634,19 @@ function SolarArray({ position, hasTracker = true, clock, onClick }) {
         </mesh>
       </group>
 
-      {/* 5. Meteorological Station (Pyranometer & Anemometer Mast) */}
-      <group position={[13.0, 0.81, 6.0]}>
-        <mesh position={[0, 1.8, 0]}>
-          <cylinderGeometry args={[0.04, 0.06, 3.6, 8]} />
+      {/* 5. Compact Meteorological Mast (Pyranometer & Anemometer) */}
+      <group position={[7.8, 0.71, 3.2]}>
+        <mesh position={[0, 1.3, 0]}>
+          <cylinderGeometry args={[0.03, 0.05, 2.6, 8]} />
           <meshStandardMaterial color="#94a3b8" metalness={0.8} />
         </mesh>
-        {/* Pyranometer Solar Radiation Sensor */}
-        <mesh position={[0, 3.65, 0]}>
-          <cylinderGeometry args={[0.15, 0.15, 0.12, 12]} />
+        {/* Pyranometer */}
+        <mesh position={[0, 2.65, 0]}>
+          <cylinderGeometry args={[0.12, 0.12, 0.1, 10]} />
           <meshStandardMaterial color="#ffffff" roughness={0.2} metalness={0.6} />
         </mesh>
-        <mesh position={[0, 3.73, 0]}>
-          <sphereGeometry args={[0.08, 10, 8]} />
+        <mesh position={[0, 2.72, 0]}>
+          <sphereGeometry args={[0.06, 8, 8]} />
           <meshStandardMaterial color="#38bdf8" roughness={0.1} metalness={0.9} />
         </mesh>
       </group>
@@ -1437,8 +1354,8 @@ function SiteMarker({
 // Procedural 3D Island Terrain with Warm Firewatch Natural Color Palette & Seasonal Adaptations
 function IslandTerrain({ season = 'summer' }) {
   const terrainGeo = useMemo(() => {
-    // 2800x2800 island mesh spanning [-1400, 1400] to encompass all 24 sites inside dry land
-    const geo = new THREE.PlaneGeometry(2800, 2800, 180, 180);
+    // Optimized 96x96 island mesh (fast loading, buttery smooth 60 FPS on mobile)
+    const geo = new THREE.PlaneGeometry(2800, 2800, 96, 96);
     geo.rotateX(-Math.PI / 2);
 
     const pos = geo.attributes.position;
@@ -1596,7 +1513,7 @@ function IslandTerrain({ season = 'summer' }) {
 
   return (
     <group>
-      <mesh geometry={terrainGeo} receiveShadow castShadow>
+      <mesh geometry={terrainGeo} receiveShadow>
         <meshStandardMaterial
           vertexColors
           roughness={0.88}
@@ -1679,57 +1596,20 @@ function AlpineLake() {
 }
 
 // =============================================================================
-// EXPANSIVE ANIMATED OCEAN (STABLE ZERO-FLICKER COASTLINE & DEEP SEA SWELL)
+// ZERO-OVERHEAD EXPANSIVE OCEAN (PERFECT FLUIDITY, ZERO-FLICKER COASTLINE)
 // =============================================================================
 function AnimatedOcean({ isNight = false }) {
-  const meshRef = useRef();
-
-  // 4800x4800 expansive ocean extending cleanly to the horizon
+  // Ultra-light flat ocean surface: 0 CPU overhead, 0 buffer uploads
   const oceanGeo = useMemo(() => {
-    const geo = new THREE.PlaneGeometry(4800, 4800, 72, 72);
+    const geo = new THREE.PlaneGeometry(5400, 5400, 2, 2);
     geo.rotateX(-Math.PI / 2);
     return geo;
   }, []);
 
-  useFrame(({ clock }) => {
-    if (!meshRef.current) return;
-    const t = clock.getElapsedTime();
-    const pos = meshRef.current.geometry.attributes.position;
-
-    // Only roll gentle waves in the deep open sea far outside the island (>1180m from center and not in harbor)
-    // The island coast and harbor bay remain 100% stationary and perfectly flat at Y = 0.0 (Eliminates all flickering & clipping)
-    let needsUpdate = false;
-    for (let i = 0; i < pos.count; i++) {
-      const x = pos.getX(i);
-      const z = pos.getZ(i);
-      const dist = Math.hypot(x, z);
-      const inHarbor = z < -380 && Math.abs(x - 280) < 260;
-
-      if (dist < 1180 || inHarbor) {
-        // Perfectly still sea level at the island coast, beaches, harbor piers & ships
-        if (pos.getY(i) !== 0.0) {
-          pos.setY(i, 0.0);
-          needsUpdate = true;
-        }
-      } else {
-        // Gentle oceanic horizon swell (fades in smoothly beyond 1180m)
-        const swellFactor = Math.min(1.0, (dist - 1180) / 260);
-        const wave =
-          (Math.sin(x * 0.008 + t * 0.6) * Math.cos(z * 0.008 + t * 0.5) * 0.24 +
-           Math.sin(x * 0.016 - t * 0.8) * 0.10) * swellFactor;
-        pos.setY(i, wave);
-        needsUpdate = true;
-      }
-    }
-    if (needsUpdate) {
-      pos.needsUpdate = true;
-    }
-  });
-
   return (
     <group>
       {/* Pristine Ocean Surface Deck (depthWrite=false completely eliminates any Z-fighting with terrain & seabed) */}
-      <mesh ref={meshRef} geometry={oceanGeo}>
+      <mesh geometry={oceanGeo} position={[0, 0, 0]}>
         <meshStandardMaterial
           color={isNight ? '#0369a1' : '#0284c7'}
           roughness={0.12}
@@ -2739,7 +2619,7 @@ function TrafficVehicles() {
     <group>
       {/* 1. Wind Turbine Service Van (White with Amber Lightbar) */}
       <group ref={van1Ref}>
-        <mesh position={[0, 0.9, 0]} castShadow>
+        <mesh position={[0, 0.9, 0]}>
           <boxGeometry args={[2.2, 1.4, 4.4]} />
           <meshStandardMaterial color="#f8fafc" roughness={0.3} metalness={0.2} />
         </mesh>
@@ -2782,15 +2662,15 @@ function TrafficVehicles() {
 
       {/* 2. Heavy Wind Crane & Maintenance Truck */}
       <group ref={truck1Ref}>
-        <mesh position={[0, 1.2, 1.0]} castShadow>
+        <mesh position={[0, 1.2, 1.0]}>
           <boxGeometry args={[2.5, 1.8, 2.6]} />
           <meshStandardMaterial color="#0284c7" roughness={0.3} metalness={0.4} />
         </mesh>
-        <mesh position={[0, 0.7, -1.5]} castShadow>
+        <mesh position={[0, 0.7, -1.5]}>
           <boxGeometry args={[2.4, 0.6, 3.8]} />
           <meshStandardMaterial color="#334155" roughness={0.9} />
         </mesh>
-        <mesh position={[0, 1.5, -1.5]} castShadow>
+        <mesh position={[0, 1.5, -1.5]}>
           <boxGeometry args={[2.1, 1.0, 3.2]} />
           <meshStandardMaterial color="#cbd5e1" roughness={0.4} />
         </mesh>
@@ -2829,7 +2709,7 @@ function TrafficVehicles() {
 
       {/* 3. Highland Energy Ranger 4x4 SUV (Oncoming Mountain Traffic) */}
       <group ref={rover1Ref}>
-        <mesh position={[0, 0.9, 0]} castShadow>
+        <mesh position={[0, 0.9, 0]}>
           <boxGeometry args={[2.1, 1.3, 4.2]} />
           <meshStandardMaterial color="#15803d" roughness={0.3} metalness={0.3} />
         </mesh>
@@ -2872,21 +2752,21 @@ function TrafficVehicles() {
 
       {/* 4. Mega Battery Logistics Hauler with Glowing Modules */}
       <group ref={haulerRef}>
-        <mesh position={[0, 1.3, 2.2]} castShadow>
+        <mesh position={[0, 1.3, 2.2]}>
           <boxGeometry args={[2.6, 2.0, 2.8]} />
           <meshStandardMaterial color="#0369a1" roughness={0.3} metalness={0.4} />
         </mesh>
-        <mesh position={[0, 0.6, -1.8]} castShadow>
+        <mesh position={[0, 0.6, -1.8]}>
           <boxGeometry args={[2.6, 0.5, 7.2]} />
           <meshStandardMaterial color="#1e293b" roughness={0.9} />
         </mesh>
         {/* Battery Container Cargo 1 */}
-        <mesh position={[0, 1.5, -0.3]} castShadow>
+        <mesh position={[0, 1.5, -0.3]}>
           <boxGeometry args={[2.3, 1.3, 2.8]} />
           <meshStandardMaterial color="#0f766e" roughness={0.4} metalness={0.3} />
         </mesh>
         {/* Battery Container Cargo 2 */}
-        <mesh position={[0, 1.5, -3.4]} castShadow>
+        <mesh position={[0, 1.5, -3.4]}>
           <boxGeometry args={[2.3, 1.3, 2.8]} />
           <meshStandardMaterial color="#0f766e" roughness={0.4} metalness={0.3} />
         </mesh>
@@ -2929,7 +2809,7 @@ function TrafficVehicles() {
 
       {/* 5. Solar Tech Rapid Response Van */}
       <group ref={van2Ref}>
-        <mesh position={[0, 0.9, 0]} castShadow>
+        <mesh position={[0, 0.9, 0]}>
           <boxGeometry args={[2.2, 1.4, 4.4]} />
           <meshStandardMaterial color="#eab308" roughness={0.3} metalness={0.3} />
         </mesh>
@@ -2971,16 +2851,16 @@ function TrafficVehicles() {
 
       {/* 6. Solar Maintenance Flatbed Truck (Oncoming Solar Traffic) */}
       <group ref={flatbedRef}>
-        <mesh position={[0, 1.15, 1.2]} castShadow>
+        <mesh position={[0, 1.15, 1.2]}>
           <boxGeometry args={[2.4, 1.6, 2.4]} />
           <meshStandardMaterial color="#ea580c" roughness={0.3} metalness={0.4} />
         </mesh>
-        <mesh position={[0, 0.65, -1.2]} castShadow>
+        <mesh position={[0, 0.65, -1.2]}>
           <boxGeometry args={[2.4, 0.5, 4.2]} />
           <meshStandardMaterial color="#334155" roughness={0.9} />
         </mesh>
         {/* Inverter Crate Cargo */}
-        <mesh position={[0, 1.35, -1.2]} castShadow>
+        <mesh position={[0, 1.35, -1.2]}>
           <boxGeometry args={[1.8, 1.0, 3.2]} />
           <meshStandardMaterial color="#475569" roughness={0.4} />
         </mesh>
@@ -3014,7 +2894,7 @@ function TrafficVehicles() {
 
       {/* 7. Clean Energy Ranger SUV (South Loop) */}
       <group ref={suv1Ref}>
-        <mesh position={[0, 0.85, 0]} castShadow>
+        <mesh position={[0, 0.85, 0]}>
           <boxGeometry args={[2.1, 1.3, 4.2]} />
           <meshStandardMaterial color="#059669" roughness={0.3} metalness={0.4} />
         </mesh>
@@ -3052,7 +2932,7 @@ function TrafficVehicles() {
 
       {/* 8. Power Grid Transmission Utility Truck (Oncoming South Traffic) */}
       <group ref={truck2Ref}>
-        <mesh position={[0, 1.0, 0]} castShadow>
+        <mesh position={[0, 1.0, 0]}>
           <boxGeometry args={[2.2, 1.4, 4.6]} />
           <meshStandardMaterial color="#475569" roughness={0.4} metalness={0.3} />
         </mesh>
@@ -3096,7 +2976,7 @@ function TrafficVehicles() {
       {/* 9. Intermodal Container Truck 1 (Highway 2 East Solar Steppe Expressway - Maersk 40ft) */}
       <group ref={containerTruck1Ref}>
         {/* Semi Tractor Cab */}
-        <mesh position={[0, 1.4, 4.8]} castShadow>
+        <mesh position={[0, 1.4, 4.8]}>
           <boxGeometry args={[2.5, 2.3, 2.8]} />
           <meshStandardMaterial color="#0284c7" roughness={0.3} metalness={0.3} />
         </mesh>
@@ -3116,12 +2996,12 @@ function TrafficVehicles() {
           <meshStandardMaterial color="#cbd5e1" metalness={0.9} roughness={0.2} />
         </mesh>
         {/* Semi-Trailer Chassis Frame */}
-        <mesh position={[0, 0.7, -0.6]} castShadow>
+        <mesh position={[0, 0.7, -0.6]}>
           <boxGeometry args={[2.44, 0.45, 13.5]} />
           <meshStandardMaterial color="#1e293b" roughness={0.8} />
         </mesh>
         {/* 40ft ISO Shipping Container (Maersk Ocean Blue) */}
-        <mesh position={[0, 2.15, -0.6]} castShadow receiveShadow>
+        <mesh position={[0, 2.15, -0.6]}>
           <boxGeometry args={[2.44, 2.45, 12.0]} />
           <meshStandardMaterial color="#0284c7" roughness={0.45} />
         </mesh>
@@ -3166,7 +3046,7 @@ function TrafficVehicles() {
       {/* 10. Intermodal Container Truck 2 (Highway 1 West Mountain Highway - Evergreen Green) */}
       <group ref={containerTruck2Ref}>
         {/* Semi Tractor Cab */}
-        <mesh position={[0, 1.4, 4.8]} castShadow>
+        <mesh position={[0, 1.4, 4.8]}>
           <boxGeometry args={[2.5, 2.3, 2.8]} />
           <meshStandardMaterial color="#059669" roughness={0.3} metalness={0.3} />
         </mesh>
@@ -3186,12 +3066,12 @@ function TrafficVehicles() {
           <meshStandardMaterial color="#cbd5e1" metalness={0.9} roughness={0.2} />
         </mesh>
         {/* Semi-Trailer Chassis */}
-        <mesh position={[0, 0.7, -0.6]} castShadow>
+        <mesh position={[0, 0.7, -0.6]}>
           <boxGeometry args={[2.44, 0.45, 13.5]} />
           <meshStandardMaterial color="#1e293b" roughness={0.8} />
         </mesh>
         {/* 40ft ISO Shipping Container (Evergreen Green) */}
-        <mesh position={[0, 2.15, -0.6]} castShadow receiveShadow>
+        <mesh position={[0, 2.15, -0.6]}>
           <boxGeometry args={[2.44, 2.45, 12.0]} />
           <meshStandardMaterial color="#059669" roughness={0.45} />
         </mesh>
@@ -3240,16 +3120,16 @@ function TrafficVehicles() {
 // =============================================================================
 export const DENSE_FOREST_ZONES = [
   // 1. Whispering Pines National Reserve (Northwest Mountain Valleys & Lookout Ridge - Evergreen Canopy)
-  { name: 'Whispering Pines Forest', x: -260, z: -220, radius: 185, pineRatio: 0.94, targetTrees: 1400 },
+  { name: 'Whispering Pines Forest', x: -260, z: -220, radius: 185, pineRatio: 0.94, targetTrees: 320 },
   // 2. Emerald River Valley Woodlands (Southwest Mountain Foothills & River Basin - Dense Mixed Forest)
-  { name: 'Emerald River Woods', x: -140, z: 340, radius: 170, pineRatio: 0.72, targetTrees: 1200 },
+  { name: 'Emerald River Woods', x: -140, z: 340, radius: 170, pineRatio: 0.72, targetTrees: 260 },
   // 3. East Ridge Great Forest (Northeast Highland Woods overlooking Bay & Railway)
-  { name: 'East Ridge Forest', x: 260, z: -320, radius: 165, pineRatio: 0.86, targetTrees: 1200 },
+  { name: 'East Ridge Forest', x: 260, z: -320, radius: 165, pineRatio: 0.86, targetTrees: 260 },
   // 4. Alpine Lake Pine Sanctuary (Lush Mountain Spruce Forest Ringing Alpine Lake)
-  { name: 'Alpine Lake Woods', x: -430, z: 140, radius: 140, pineRatio: 0.96, targetTrees: 900 }
+  { name: 'Alpine Lake Woods', x: -430, z: 140, radius: 140, pineRatio: 0.96, targetTrees: 200 }
 ];
 
-// Procedural Deterministic Firewatch Dense Forest & Woodland Generator
+// Procedural Deterministic Firewatch Dense Forest & Woodland Generator (Mobile-Optimized)
 function getVegetationLocations() {
   const locations = [];
   let seed = 1337;
@@ -3262,9 +3142,9 @@ function getVegetationLocations() {
   let decCount = 0;
   let shrubCount = 0;
 
-  const MAX_PINES = 5400;
-  const MAX_DEC = 1400;
-  const MAX_SHRUBS = 800;
+  const MAX_PINES = 1200;
+  const MAX_DEC = 350;
+  const MAX_SHRUBS = 200;
 
   // Strict clearance verification for all candidate tree positions
   function isTreePositionClear(x, z, y) {
@@ -3314,14 +3194,11 @@ function getVegetationLocations() {
     return true;
   }
 
-  // ===========================================================================
-  // PHASE 1: TARGETED HIGH-DENSITY FOREST BIOMES (SIK AĞAÇLI ORMANLIK ALANLAR)
-  // Creates realistic, dense forest canopies with natural tree clusters & groves
-  // ===========================================================================
+  // PHASE 1: TARGETED HIGH-DENSITY FOREST BIOMES
   for (let b = 0; b < DENSE_FOREST_ZONES.length; b++) {
     const fz = DENSE_FOREST_ZONES[b];
     let treesInZone = 0;
-    const maxAttempts = fz.targetTrees * 4;
+    const maxAttempts = fz.targetTrees * 3;
 
     for (let a = 0; a < maxAttempts && treesInZone < fz.targetTrees; a++) {
       const ang = random() * Math.PI * 2;
@@ -3343,45 +3220,15 @@ function getVegetationLocations() {
       else if (type === 'deciduous') decCount++;
       else if (type === 'shrub') shrubCount++;
 
-      // Multi-story canopy scaling (mature tall trees and younger understory)
-      const scale = 0.75 + random() * 0.85;
+      const scale = 0.8 + random() * 0.7;
       const rotY = random() * Math.PI * 2;
       locations.push({ x, y, z, scale, rotY, type });
       treesInZone++;
-
-      // Natural Dense Forest Clumping: 45% chance to add a companion tree / shrub in a close grove
-      if (random() < 0.45 && treesInZone < fz.targetTrees) {
-        const cAngle = random() * Math.PI * 2;
-        const cDist = 3.2 + random() * 4.2;
-        const cx = x + Math.cos(cAngle) * cDist;
-        const cz = z + Math.sin(cAngle) * cDist;
-        const cy = getTerrainHeight(cx, cz);
-
-        if (isTreePositionClear(cx, cz, cy)) {
-          const cType = random() < 0.75 ? type : 'shrub';
-          if (cType === 'pine' && pineCount < MAX_PINES) {
-            pineCount++;
-            locations.push({ x: cx, y: cy, z: cz, scale: scale * (0.65 + random() * 0.35), rotY: random() * Math.PI * 2, type: 'pine' });
-            treesInZone++;
-          } else if (cType === 'deciduous' && decCount < MAX_DEC) {
-            decCount++;
-            locations.push({ x: cx, y: cy, z: cz, scale: scale * (0.65 + random() * 0.35), rotY: random() * Math.PI * 2, type: 'deciduous' });
-            treesInZone++;
-          } else if (cType === 'shrub' && shrubCount < MAX_SHRUBS) {
-            shrubCount++;
-            locations.push({ x: cx, y: cy, z: cz, scale: 0.8 + random() * 0.6, rotY: random() * Math.PI * 2, type: 'shrub' });
-            treesInZone++;
-          }
-        }
-      }
     }
   }
 
-  // ===========================================================================
   // PHASE 2: ISLAND-WIDE NATURAL VEGETATION FILL
-  // Disperses natural trees across meadows, valleys, hills & savannas
-  // ===========================================================================
-  for (let i = 0; i < 9000; i++) {
+  for (let i = 0; i < 1800; i++) {
     if (pineCount >= MAX_PINES && decCount >= MAX_DEC && shrubCount >= MAX_SHRUBS) break;
 
     const angle = random() * Math.PI * 2;
@@ -3392,7 +3239,6 @@ function getVegetationLocations() {
 
     if (!isTreePositionClear(x, z, y)) continue;
 
-    // Biome determination matching Firewatch national forest distribution
     let type = 'pine';
     const isWesternHighlands = x < -45;
     const isNearTower = Math.hypot(x - (-230), z - (-15)) < 190;
@@ -3467,21 +3313,15 @@ function IslandVegetation({ season = 'summer' }) {
     return geo;
   }, [islandBounds]);
 
-  // 4-Tier Stepped Conical Pine Foliage Geometry (Signature Firewatch Fir/Spruce Tree)
+  // 2-Tier Stepped Conical Pine Foliage Geometry (Optimized Low-Poly Firewatch Spruce)
   const pineFoliageGeo = useMemo(() => {
-    const t1 = new THREE.ConeGeometry(3.0, 2.8, 6);
-    t1.translate(0, 2.0, 0);
+    const t1 = new THREE.ConeGeometry(2.8, 3.2, 5);
+    t1.translate(0, 2.2, 0);
 
-    const t2 = new THREE.ConeGeometry(2.4, 2.5, 6);
-    t2.translate(0, 3.6, 0);
+    const t2 = new THREE.ConeGeometry(1.8, 3.6, 5);
+    t2.translate(0, 4.4, 0);
 
-    const t3 = new THREE.ConeGeometry(1.7, 2.2, 6);
-    t3.translate(0, 5.1, 0);
-
-    const t4 = new THREE.ConeGeometry(0.95, 2.0, 6);
-    t4.translate(0, 6.5, 0);
-
-    const merged = BufferGeometryUtils.mergeGeometries([t1, t2, t3, t4]);
+    const merged = BufferGeometryUtils.mergeGeometries([t1, t2]);
     merged.boundingSphere = islandBounds.sphere;
     merged.boundingBox = islandBounds.box;
     return merged;
@@ -3496,7 +3336,7 @@ function IslandVegetation({ season = 'summer' }) {
   }, [islandBounds]);
 
   const decFoliageGeo = useMemo(() => {
-    const geo = new THREE.DodecahedronGeometry(2.2, 1);
+    const geo = new THREE.DodecahedronGeometry(2.2, 0);
     geo.translate(0, 3.8, 0);
     geo.boundingSphere = islandBounds.sphere;
     geo.boundingBox = islandBounds.box;
@@ -3573,20 +3413,18 @@ function IslandVegetation({ season = 'summer' }) {
 
   return (
     <group>
-      {/* 4-Tier Firewatch Coniferous Pines */}
+      {/* 2-Tier Firewatch Coniferous Pines */}
       <instancedMesh
         ref={pineTrunkRef}
-        args={[pineTrunkGeo, null, 5600]}
+        args={[pineTrunkGeo, null, 1300]}
         frustumCulled={false}
-        castShadow
       >
         <meshStandardMaterial color="#3b1d12" roughness={0.92} />
       </instancedMesh>
       <instancedMesh
         ref={pineFoliageRef}
-        args={[pineFoliageGeo, null, 5600]}
+        args={[pineFoliageGeo, null, 1300]}
         frustumCulled={false}
-        castShadow
       >
         <meshStandardMaterial color={pineFoliageColor} roughness={0.84} />
       </instancedMesh>
@@ -3594,17 +3432,15 @@ function IslandVegetation({ season = 'summer' }) {
       {/* Deciduous Valley Trees */}
       <instancedMesh
         ref={decTrunkRef}
-        args={[decTrunkGeo, null, 1500]}
+        args={[decTrunkGeo, null, 400]}
         frustumCulled={false}
-        castShadow
       >
         <meshStandardMaterial color="#6b3414" roughness={0.9} />
       </instancedMesh>
       <instancedMesh
         ref={decFoliageRef}
-        args={[decFoliageGeo, null, 1500]}
+        args={[decFoliageGeo, null, 400]}
         frustumCulled={false}
-        castShadow
       >
         <meshStandardMaterial color={decFoliageColor} roughness={0.78} />
       </instancedMesh>
@@ -3612,9 +3448,8 @@ function IslandVegetation({ season = 'summer' }) {
       {/* Flowering Meadow Shrubs */}
       <instancedMesh
         ref={shrubRef}
-        args={[shrubGeo, null, 900]}
+        args={[shrubGeo, null, 250]}
         frustumCulled={false}
-        castShadow
       >
         <meshStandardMaterial color={shrubColor} roughness={0.8} />
       </instancedMesh>
@@ -3660,7 +3495,7 @@ function AtmosphericClouds({ isNight = false }) {
     <group ref={cloudsGroupRef}>
       {clouds.map((c, idx) => (
         <group key={idx} position={[c.x, c.y, c.z]} scale={c.scale}>
-          <mesh position={[0, 0, 0]} castShadow={!isNight}>
+          <mesh position={[0, 0, 0]}>
             <sphereGeometry args={[28, 8, 8]} />
             <meshStandardMaterial color={mainColor} roughness={0.9} transparent opacity={opacityMain} />
           </mesh>
@@ -3966,91 +3801,36 @@ function FirewatchTower({ position = [-230, 0, -15] }) {
 }
 
 // Articulated Realistic Soaring Avian Bird (Sculpted Fuselage & Flapping Swept Wings)
-function RealisticBird({ offset = [0, 0, 0], flapOffset = 0, scale = 1.0 }) {
-  const leftWingRef = useRef();
-  const rightWingRef = useRef();
-  const bodyRef = useRef();
-
-  useFrame(({ clock }) => {
-    const t = clock.getElapsedTime();
-    // Natural flapping cadence: active wingbeat cycles alternating with thermal soaring glide
-    const cycle = (t * 2.8 + flapOffset) % 6.4;
-    const isGliding = cycle > 3.6;
-
-    const flapAngle = isGliding
-      ? 0.06 // Slight dihedral V during thermal glide
-      : Math.sin(cycle * Math.PI * 2) * 0.48;
-
-    const pitchAngle = isGliding
-      ? 0.04
-      : Math.cos(cycle * Math.PI * 2) * 0.12;
-
-    if (leftWingRef.current) {
-      leftWingRef.current.rotation.z = flapAngle;
-      leftWingRef.current.rotation.y = pitchAngle;
-    }
-    if (rightWingRef.current) {
-      rightWingRef.current.rotation.z = -flapAngle;
-      rightWingRef.current.rotation.y = -pitchAngle;
-    }
-    if (bodyRef.current) {
-      bodyRef.current.rotation.x = isGliding ? 0 : Math.sin(cycle * Math.PI * 2) * 0.04;
-    }
-  });
-
+function RealisticBird({ offset = [0, 0, 0], scale = 1.0 }) {
   return (
     <group position={offset} scale={scale}>
-      <group ref={bodyRef}>
-        {/* Aerodynamic Fuselage Torso */}
-        <mesh position={[0, 0, 0]} rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.22, 0.34, 2.4, 7]} />
-          <meshBasicMaterial color="#18181b" />
-        </mesh>
+      {/* Aerodynamic Fuselage Torso */}
+      <mesh position={[0, 0, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.22, 0.34, 2.4, 5]} />
+        <meshBasicMaterial color="#18181b" />
+      </mesh>
 
-        {/* Head & Pointed Beak */}
-        <mesh position={[0, 0.12, 1.4]} rotation={[Math.PI / 2, 0, 0]}>
-          <coneGeometry args={[0.26, 0.8, 7]} />
-          <meshBasicMaterial color="#18181b" />
-        </mesh>
-        <mesh position={[0, 0.08, 1.95]} rotation={[-Math.PI / 2, 0, 0]}>
-          <coneGeometry args={[0.1, 0.5, 5]} />
-          <meshBasicMaterial color="#f59e0b" />
-        </mesh>
+      {/* Head & Pointed Beak */}
+      <mesh position={[0, 0.12, 1.4]} rotation={[Math.PI / 2, 0, 0]}>
+        <coneGeometry args={[0.26, 0.8, 5]} />
+        <meshBasicMaterial color="#18181b" />
+      </mesh>
 
-        {/* Flared Wedge Tail Fan */}
-        <mesh position={[0, 0.1, -1.5]} rotation={[0.18, 0, 0]}>
-          <boxGeometry args={[1.3, 0.06, 1.0]} />
-          <meshBasicMaterial color="#18181b" />
-        </mesh>
+      {/* Flared Wedge Tail Fan */}
+      <mesh position={[0, 0.1, -1.5]} rotation={[0.18, 0, 0]}>
+        <boxGeometry args={[1.3, 0.06, 1.0]} />
+        <meshBasicMaterial color="#18181b" />
+      </mesh>
 
-        {/* Articulated Left Wing */}
-        <group ref={leftWingRef} position={[-0.3, 0.08, 0.3]}>
-          {/* Inner Wing */}
-          <mesh position={[-1.2, 0, -0.2]} rotation={[0, 0.22, 0]}>
-            <boxGeometry args={[2.4, 0.08, 0.82]} />
-            <meshBasicMaterial color="#18181b" />
-          </mesh>
-          {/* Swept Outer Wingtip */}
-          <mesh position={[-2.8, 0.06, -0.6]} rotation={[0, 0.42, 0.08]}>
-            <boxGeometry args={[1.8, 0.05, 0.54]} />
-            <meshBasicMaterial color="#18181b" />
-          </mesh>
-        </group>
-
-        {/* Articulated Right Wing */}
-        <group ref={rightWingRef} position={[0.3, 0.08, 0.3]}>
-          {/* Inner Wing */}
-          <mesh position={[1.2, 0, -0.2]} rotation={[0, -0.22, 0]}>
-            <boxGeometry args={[2.4, 0.08, 0.82]} />
-            <meshBasicMaterial color="#18181b" />
-          </mesh>
-          {/* Swept Outer Wingtip */}
-          <mesh position={[2.8, 0.06, -0.6]} rotation={[0, -0.42, -0.08]}>
-            <boxGeometry args={[1.8, 0.05, 0.54]} />
-            <meshBasicMaterial color="#18181b" />
-          </mesh>
-        </group>
-      </group>
+      {/* Wings - Natural Thermal Soaring Glide Dihedral */}
+      <mesh position={[-2.0, 0.18, 0]} rotation={[0, 0.15, 0.1]}>
+        <boxGeometry args={[3.8, 0.06, 0.75]} />
+        <meshBasicMaterial color="#18181b" />
+      </mesh>
+      <mesh position={[2.0, 0.18, 0]} rotation={[0, -0.15, -0.1]}>
+        <boxGeometry args={[3.8, 0.06, 0.75]} />
+        <meshBasicMaterial color="#18181b" />
+      </mesh>
     </group>
   );
 }
@@ -4367,17 +4147,6 @@ export default function WorldCanvas({
   focusedSite = null,
   initialSpawnCoords = null,
   onSelectSite,
-  isDrivingMode = false,
-  drivingCameraMode = 'chase',
-  onDrivingCameraModeChange = () => {},
-  touchInput = {},
-  onVehicleStatsUpdate = () => {},
-  onExitDrivingMode = () => {},
-  isWalkingMode = false,
-  walkingCameraMode = 'chase',
-  onWalkingCameraModeChange = () => {},
-  onWalkerStatsUpdate = () => {},
-  onExitWalkingMode = () => {},
   isCinematicMode = false,
   cinematicTourType = 'grand',
   cinematicSpeed = 1.0,
@@ -4387,12 +4156,8 @@ export default function WorldCanvas({
   const isNight = clock?.isNight ?? false;
   const season = clock?.season || 'summer';
 
-  const [spawnPoint, setSpawnPoint] = useState({ pos: [0, 0], yaw: 0 });
   const [viewMode, setViewMode] = useState('free'); // 'free' | 'iso' | 'top'
   const [viewCommand, setViewCommand] = useState(null);
-  const isGroundMode = isDrivingMode || isWalkingMode;
-  const prevGroundMode = useRef(false);
-  const lastGroundStats = useRef(null);
 
   // Interaction tracker to prevent accidental site selection during pan, orbit, or zoom
   const pointerStateRef = useRef({
@@ -4559,71 +4324,6 @@ export default function WorldCanvas({
     ctrl.update();
   }, [viewMode]);
 
-  // Transition handler between aerial orbit view and ground exploration view (Vehicle / Pedestrian)
-  useEffect(() => {
-    if (isGroundMode && !prevGroundMode.current) {
-      // Transitioning into ground exploration: get current orbit target as spawn point
-      let spawnX = 0;
-      let spawnZ = 0;
-      let initialYaw = 0;
-
-      if (initialSpawnCoords && !lastGroundStats.current) {
-        spawnX = Number(initialSpawnCoords[0]);
-        spawnZ = Number(initialSpawnCoords[1]);
-      } else if (controlsRef.current?.target) {
-        const tx = Number(controlsRef.current.target.x);
-        const tz = Number(controlsRef.current.target.z);
-        if (Number.isFinite(tx) && Number.isFinite(tz)) {
-          spawnX = tx;
-          spawnZ = tz;
-        }
-        if (controlsRef.current.object) {
-          const cam = controlsRef.current.object;
-          const cx = Number(cam.position.x);
-          const cz = Number(cam.position.z);
-          if (Number.isFinite(cx) && Number.isFinite(cz)) {
-            const computedYaw = Math.atan2(spawnX - cx, spawnZ - cz);
-            if (Number.isFinite(computedYaw)) {
-              initialYaw = computedYaw;
-            }
-          }
-        }
-      } else if (focusedSite) {
-        const fx = Number(focusedSite.center_x);
-        const fz = Number(focusedSite.center_z);
-        if (Number.isFinite(fx) && Number.isFinite(fz)) {
-          spawnX = fx;
-          spawnZ = fz;
-        }
-      }
-
-      setSpawnPoint({ pos: [spawnX, spawnZ], yaw: initialYaw });
-    } else if (!isGroundMode && prevGroundMode.current) {
-      // Transitioning back to aerial view: refocus camera on where vehicle or pedestrian stopped
-      if (lastGroundStats.current && controlsRef.current) {
-        const lv = lastGroundStats.current;
-        controlsRef.current.target.set(lv.x, (lv.altitude || 0) + 1.2, lv.z);
-        if (controlsRef.current.object) {
-          controlsRef.current.object.position.set(lv.x - 30, (lv.altitude || 0) + 42, lv.z + 42);
-          controlsRef.current.object.fov = 46;
-          controlsRef.current.object.updateProjectionMatrix();
-        }
-        controlsRef.current.update();
-      }
-    }
-    prevGroundMode.current = isGroundMode;
-  }, [isGroundMode, focusedSite]);
-
-  const handleVehicleStats = useCallback((stats) => {
-    lastGroundStats.current = stats;
-    onVehicleStatsUpdate(stats);
-  }, [onVehicleStatsUpdate]);
-
-  const handleWalkerStats = useCallback((stats) => {
-    lastGroundStats.current = stats;
-    onWalkerStatsUpdate(stats);
-  }, [onWalkerStatsUpdate]);
-
   // Settings with defaults
   const showInfrastructure = settings.showInfrastructure ?? true;
   const graphicQuality = settings.graphicQuality || 'high';
@@ -4638,9 +4338,11 @@ export default function WorldCanvas({
   const isUltraGraphics = graphicQuality === 'ultra';
 
   const dpr = useMemo(() => {
+    if (typeof window === 'undefined') return 1;
+    const deviceDpr = window.devicePixelRatio || 1;
     if (isLowGraphics) return 1;
-    if (isUltraGraphics) return [1, 2];
-    return [1, 1.25];
+    if (isUltraGraphics) return Math.min(deviceDpr, 2);
+    return Math.min(deviceDpr, 1.25);
   }, [isLowGraphics, isUltraGraphics]);
 
   const shadowMapSize = useMemo(() => {
@@ -4665,7 +4367,7 @@ export default function WorldCanvas({
       onWheel={handleCanvasWheelCapture}
     >
       {/* Viewpoint Controller Toolbar (Sol Üst: Üstten Bakış, İzometrik, Serbest Çekim, Zoom +, Zoom -, Ada Merkezi) */}
-      {!isGroundMode && !isCinematicMode && (
+      {!isCinematicMode && (
         <div className="absolute top-2 sm:top-2.5 left-3 sm:left-4 z-30 pointer-events-auto select-none flex items-center gap-1 sm:gap-1.5 p-1 sm:p-1.5 rounded-2xl bg-slate-950/85 backdrop-blur-xl border border-slate-700/80 shadow-2xl animate-in fade-in duration-200">
           {/* Mode Switcher Buttons */}
           <div className="flex items-center gap-1">
@@ -4771,7 +4473,7 @@ export default function WorldCanvas({
           companySites={companySites}
           installedAssets={installedAssets}
           controlsRef={controlsRef}
-          enabled={!isGroundMode && !isCinematicMode}
+          enabled={!isCinematicMode}
           viewMode={viewMode}
           viewCommand={viewCommand}
         />
@@ -4841,9 +4543,6 @@ export default function WorldCanvas({
         {/* Iconic Firewatch Lookout Tower on the Western Ridge */}
         <FirewatchTower position={[-230, 0, -15]} />
 
-        {/* Mountain Motocross Tour: 3 Cross/Enduro Bikes touring western mountains & alpine trails */}
-        <MountainMotocrossTour isNight={isNight} />
-
         {/* Living World Nature: Dense Firewatch Coniferous Pines, Valley Trees & Shrubs with Seasonal Foliage */}
         <IslandVegetation season={season} />
 
@@ -4897,11 +4596,13 @@ export default function WorldCanvas({
           const cSite = companySites.find((cs) => cs.id === asset.company_site_id);
           const worldSite = worldSites.find((ws) => ws.id === cSite?.site_id);
 
-          // Find all turbines on this specific company site for coherent site-relative alignment & spacing
-          const siteWindTurbines = installedAssets.filter(
-            (a) => a.company_site_id === asset.company_site_id && a.equipment_catalog?.equipment_type === 'wind_turbine'
+          // Find assets of the same type on this site for graceful, non-clumping spatial arrangement
+          const equipType = asset.equipment_catalog?.equipment_type || 'wind_turbine';
+          const siteSameTypeAssets = installedAssets.filter(
+            (a) => a.company_site_id === asset.company_site_id && (a.equipment_catalog?.equipment_type || 'wind_turbine') === equipType
           );
-          const turbineIndexInSite = Math.max(0, siteWindTurbines.findIndex((a) => a.id === asset.id));
+          const assetIndexInSite = Math.max(0, siteSameTypeAssets.findIndex((a) => a.id === asset.id));
+          const turbineIndexInSite = assetIndexInSite;
 
           const rawX = Number(asset.position_x);
           const rawZ = Number(asset.position_z);
@@ -4913,13 +4614,13 @@ export default function WorldCanvas({
             !isNaN(rawZ) &&
             (rawX !== 0 || rawZ !== 0);
 
-          const slot = TURBINE_SLOTS[turbineIndexInSite % TURBINE_SLOTS.length];
-          const offsetDistX = hasDbCoords ? rawX : slot.x;
-          const offsetDistZ = hasDbCoords ? rawZ : slot.z;
+          const fallbackSlot = getAssetSlotCoordinates(assetIndexInSite, equipType, worldSite?.area_hectares || 50);
+          const offsetDistX = hasDbCoords ? rawX : fallbackSlot.x;
+          const offsetDistZ = hasDbCoords ? rawZ : fallbackSlot.z;
 
           const posX = (worldSite?.center_x || 0) + offsetDistX;
           const posZ = (worldSite?.center_z || 0) + offsetDistZ;
-          const posY = getTerrainHeight(posX, posZ);
+          const posY = getMeshHeightAt(posX, posZ);
 
           // 1 game week = 168 game hours construction duration
           const elapsedHours = Math.max(0, (Number(clock?.gameHour) || 0) - Number(asset.installed_game_hour || 0));
@@ -5003,36 +4704,6 @@ export default function WorldCanvas({
           return null;
         })}
 
-        {/* Interactive Drivable Exploration Buggy */}
-        {isDrivingMode && (
-          <DrivableBuggy
-            spawnPosition={spawnPoint.pos}
-            initialYaw={spawnPoint.yaw}
-            cameraMode={drivingCameraMode}
-            onCameraModeChange={onDrivingCameraModeChange}
-            isNight={isNight}
-            touchInput={touchInput}
-            onStatsUpdate={handleVehicleStats}
-            onExit={onExitDrivingMode}
-            controlsRef={controlsRef}
-          />
-        )}
-
-        {/* Interactive Walkable Pedestrian / Engineer Mode */}
-        {isWalkingMode && (
-          <WalkableCharacter
-            spawnPosition={spawnPoint.pos}
-            initialYaw={spawnPoint.yaw}
-            cameraMode={walkingCameraMode}
-            onCameraModeChange={onWalkingCameraModeChange}
-            isNight={isNight}
-            touchInput={touchInput}
-            onStatsUpdate={handleWalkerStats}
-            onExit={onExitWalkingMode}
-            controlsRef={controlsRef}
-          />
-        )}
-
         {/* 5. Cinematic Auto-Camera Tour Director */}
         <CinematicCameraTour
           isActive={isCinematicMode}
@@ -5044,7 +4715,7 @@ export default function WorldCanvas({
         {/* Orbit Camera Controls: Mode-Aware, Effortless Zoom-In & Responsive Screen-Space Pan */}
         <OrbitControls
           ref={controlsRef}
-          enabled={!isGroundMode && !isCinematicMode}
+          enabled={!isCinematicMode}
           maxPolarAngle={viewMode === 'top' ? 0.06 : viewMode === 'iso' ? Math.PI / 3.0 : Math.PI / 2.06}
           minPolarAngle={viewMode === 'top' ? 0.01 : viewMode === 'iso' ? Math.PI / 4.4 : 0.05}
           minDistance={3.5}

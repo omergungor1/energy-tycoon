@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { Wind, Sun, BatteryCharging, ShoppingCart, Check, AlertCircle, Plus, Minus } from 'lucide-react';
 import { dictionaries } from '@/lib/i18n/dictionaries';
 import { useCurrency } from '@/context/CurrencyContext';
+import { getMaxEquipmentCapacity } from '@/lib/simulation/asset-layout';
 
 function getEquipmentImage(item) {
   if (item?.equipment_type === 'wind_turbine') {
@@ -54,6 +55,7 @@ export default function ShopPanel({
   catalog = [],
   company,
   companySites = [],
+  installedAssets = [],
   lang,
   onActionSuccess,
   initialSiteId = null,
@@ -118,12 +120,27 @@ export default function ShopPanel({
 
   const filteredItems = catalog.filter((item) => item.equipment_type === activeType);
   const selectedSite = companySites.find((cs) => cs.id === selectedSiteId);
+  const siteAreaHa = Number(
+    selectedSite?.world_sites?.area_hectares ||
+    selectedSite?.sites?.area_hectares ||
+    50
+  );
+
+  const siteAssets = (installedAssets || []).filter((a) => a.company_site_id === selectedSiteId);
+  const currentCount = siteAssets.filter(
+    (a) => a.equipment_catalog?.equipment_type === activeType
+  ).length;
+
+  const maxCapacity = getMaxEquipmentCapacity(siteAreaHa, activeType);
+  const remainingSlots = Math.max(0, maxCapacity - currentCount);
+  const isSiteFull = remainingSlots <= 0;
 
   // Quantity Stepper Handlers
   const handleStepQty = (itemId, delta) => {
     setQuantities((prev) => {
       const cur = parseInt(prev[itemId], 10) || 1;
-      const nextVal = Math.max(1, Math.min(99, cur + delta));
+      const maxAllowedQty = Math.max(1, remainingSlots);
+      const nextVal = Math.max(1, Math.min(maxAllowedQty, cur + delta));
       return { ...prev, [itemId]: nextVal };
     });
   };
@@ -135,14 +152,19 @@ export default function ShopPanel({
     }
     const parsed = parseInt(val, 10);
     if (!isNaN(parsed)) {
-      setQuantities((prev) => ({ ...prev, [itemId]: Math.max(1, Math.min(99, parsed)) }));
+      const maxAllowedQty = Math.max(1, remainingSlots);
+      setQuantities((prev) => ({ ...prev, [itemId]: Math.max(1, Math.min(maxAllowedQty, parsed)) }));
     }
   };
 
   const handleQtyBlur = (itemId) => {
     setQuantities((prev) => {
-      const cur = parseInt(prev[itemId], 10) || 1;
-      return { ...prev, [itemId]: Math.max(1, cur) };
+      const val = parseInt(prev[itemId], 10);
+      const maxAllowedQty = Math.max(1, remainingSlots);
+      if (isNaN(val) || val < 1) {
+        return { ...prev, [itemId]: 1 };
+      }
+      return { ...prev, [itemId]: Math.min(maxAllowedQty, val) };
     });
   };
 
@@ -189,7 +211,27 @@ export default function ShopPanel({
       return;
     }
 
+    if (isSiteFull) {
+      setFeedback({
+        type: 'error',
+        text: lang === 'tr'
+          ? `Bu sahanın azami kapasitesi dolmuştur (${maxCapacity} adet). Yeni bir saha edinin.`
+          : `Site capacity reached (${maxCapacity} units). Please acquire a new site.`
+      });
+      return;
+    }
+
     const buyQty = Math.max(1, parseInt(quantity, 10) || 1);
+    if (buyQty > remainingSlots) {
+      setFeedback({
+        type: 'error',
+        text: lang === 'tr'
+          ? `Kapasite aşımı! Bu sahaya en fazla ${remainingSlots} adet daha kurulabilir.`
+          : `Capacity exceeded! You can only install ${remainingSlots} more units.`
+      });
+      return;
+    }
+
     setLoadingId(item.id);
     setFeedback(null);
 
@@ -234,35 +276,56 @@ export default function ShopPanel({
           <p className="text-sm text-slate-400 mt-1">{dict.shop.subtitle}</p>
         </div>
 
-        {/* Site Selector for Installation */}
-        <div className="bg-slate-900 border border-slate-800 p-2.5 rounded-xl flex items-center gap-2">
-          <span className="text-xs text-slate-400 font-semibold whitespace-nowrap">Kurulum Sahası:</span>
-          <select
-            value={selectedSiteId}
-            onChange={(e) => {
-              const newId = e.target.value;
-              setSelectedSiteId(newId);
-              prevInitialSiteIdRef.current = newId;
-              if (onSiteChange) onSiteChange(newId);
-            }}
-            className="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-emerald-300 font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
-          >
-            {companySites.map((cs) => (
-              <option key={cs.id} value={cs.id}>
-                {cs.plant_name}
-              </option>
-            ))}
-          </select>
+        {/* Site Selector and Capacity Indicator */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="bg-slate-900 border border-slate-800 p-2.5 rounded-xl flex items-center gap-2">
+            <span className="text-xs text-slate-400 font-semibold whitespace-nowrap">Kurulum Sahası:</span>
+            <select
+              value={selectedSiteId}
+              onChange={(e) => {
+                const newId = e.target.value;
+                setSelectedSiteId(newId);
+                prevInitialSiteIdRef.current = newId;
+                if (onSiteChange) onSiteChange(newId);
+              }}
+              className="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-emerald-300 font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+            >
+              {companySites.map((cs) => (
+                <option key={cs.id} value={cs.id}>
+                  {cs.plant_name}
+                </option>
+              ))}
+            </select>
+            {selectedSite && (
+              <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700 whitespace-nowrap hidden sm:inline-block">
+                {selectedSite.sites?.region_type === 'wind' || selectedSite.world_sites?.region_type === 'wind'
+                  ? 'Rüzgâr'
+                  : selectedSite.sites?.region_type === 'solar' || selectedSite.world_sites?.region_type === 'solar'
+                  ? 'Güneş'
+                  : 'Hibrit'}
+              </span>
+            )}
+          </div>
+
+          {/* Real-Time Site Capacity Badge */}
           {selectedSite && (
-            <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700 whitespace-nowrap hidden sm:inline-block">
-              {selectedSite.sites?.region_type === 'wind'
-                ? 'Rüzgâr'
-                : selectedSite.sites?.region_type === 'solar'
-                ? 'Güneş'
-                : selectedSite.sites?.region_type === 'hybrid'
-                ? 'Hibrit'
-                : ''}
-            </span>
+            <div
+              className={`p-2.5 rounded-xl border flex items-center gap-2 text-xs font-semibold ${
+                isSiteFull
+                  ? 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                  : remainingSlots <= 2
+                  ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                  : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+              }`}
+            >
+              <span className="text-slate-400 text-[11px]">Kapasite:</span>
+              <strong className="font-mono">
+                {currentCount} / {maxCapacity}
+              </strong>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-900/60 font-mono">
+                {isSiteFull ? 'DOLU' : `${remainingSlots} Boş`}
+              </span>
+            </div>
           )}
         </div>
       </div>
@@ -377,8 +440,9 @@ export default function ShopPanel({
           const userCash = Number(company?.cash || 0);
           const canAfford = userCash >= totalCost;
           const meetsLevel = Number(company?.level || 1) >= item.min_level_required;
-          const isAvailable = canAfford && meetsLevel;
-          const canStepMore = (currentQty + 1) * unitCost <= userCash;
+          const hasCapacity = !isSiteFull && currentQty <= remainingSlots;
+          const isAvailable = canAfford && meetsLevel && hasCapacity;
+          const canStepMore = (currentQty + 1) * unitCost <= userCash && (currentQty + 1) <= remainingSlots;
 
           const capacityMw = Number(item.capacity_kw || 0) / 1000.0;
           const costPerMw = capacityMw > 0 ? unitCost / capacityMw : 0;
@@ -590,6 +654,14 @@ export default function ShopPanel({
                           ? lang === 'tr'
                             ? 'Yetersiz Nakit'
                             : 'No Cash'
+                          : isSiteFull
+                          ? lang === 'tr'
+                            ? `Saha Dolu (Maks: ${maxCapacity})`
+                            : `Site Full (Max: ${maxCapacity})`
+                          : currentQty > remainingSlots
+                          ? lang === 'tr'
+                            ? `Maks ${remainingSlots} Kurulabilir`
+                            : `Max ${remainingSlots} Allowed`
                           : currentQty > 1
                           ? lang === 'tr'
                             ? `${currentQty} Adet Kur`

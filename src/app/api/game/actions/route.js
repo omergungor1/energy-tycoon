@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { calculateCurrentGameHour } from '@/lib/simulation/clock';
 import { calculateCompanyNetWorth, LOAN_TERMS } from '@/lib/simulation/finance';
 import { getDailyStreakInfo } from '@/lib/simulation/dailyBonus';
+import { getMaxEquipmentCapacity, getAssetSlotCoordinates } from '@/lib/simulation/asset-layout';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,10 +52,10 @@ export async function POST(req) {
         return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
       }
 
-      // Verify site belongs to company
+      // Verify site belongs to company and retrieve geographic territory data
       const { data: cSite } = await admin
         .from('company_sites')
-        .select('*')
+        .select('*, world_sites(*)')
         .eq('id', companySiteId)
         .eq('company_id', company.id)
         .single();
@@ -81,6 +82,30 @@ export async function POST(req) {
         }, { status: 400 });
       }
 
+      // Enforce realistic site equipment capacity limits based on concession hectares
+      const areaHa = Number(cSite.world_sites?.area_hectares || 50);
+      const isWind = item.equipment_type === 'wind_turbine';
+      const isSolar = item.equipment_type === 'solar_pack';
+
+      const { data: existingAssets } = await admin
+        .from('installed_assets')
+        .select('id, position_x, position_z, equipment_catalog(equipment_type)')
+        .eq('company_site_id', cSite.id);
+
+      const existingSameTypeCount = (existingAssets || []).filter(
+        (a) => a.equipment_catalog?.equipment_type === item.equipment_type
+      ).length;
+
+      const maxAllowed = getMaxEquipmentCapacity(areaHa, item.equipment_type);
+
+      if (existingSameTypeCount + quantity > maxAllowed) {
+        const typeLabel = isWind ? 'rüzgar türbini' : isSolar ? 'güneş paneli' : 'batarya konteyneri';
+        const remaining = Math.max(0, maxAllowed - existingSameTypeCount);
+        return NextResponse.json({
+          error: `Saha Kapasite Sınırı! ${cSite.world_sites?.name || 'Saha'} (${areaHa} Ha) arazisine en fazla ${maxAllowed} adet ${typeLabel} kurulabilir. (Mevcut: ${existingSameTypeCount}, Kurulabilir Kalan: ${remaining}). Daha fazla üretim için yeni bir santral sahası edinin!`
+        }, { status: 400 });
+      }
+
       // Check funds for total quantity
       const unitCost = Number(item.cost_usd);
       const totalCost = Number((unitCost * quantity).toFixed(2));
@@ -95,64 +120,35 @@ export async function POST(req) {
       // Deduct cash
       await admin.from('companies').update({ cash: newBalance }).eq('id', company.id);
 
-      // Orderly spaced lattice placement across the expansive power plant territory
-      const { data: existingAssets } = await admin
-        .from('installed_assets')
-        .select('id, position_x, position_z')
-        .eq('company_site_id', cSite.id);
-
-      const baseAssetCount = (existingAssets || []).length;
-
-      // Realistic 40m - 60m wake spacing positions across the expansive site
-      const TURBINE_SLOTS = [
-        { x: -32, z: -24 },
-        { x: 34, z: 26 },
-        { x: 38, z: -28 },
-        { x: -36, z: 32 },
-        { x: 0, z: -48 },
-        { x: 0, z: 48 },
-        { x: -52, z: 0 },
-        { x: 52, z: 0 },
-        { x: -24, z: -64 },
-        { x: 24, z: 64 },
-        { x: -64, z: -24 },
-        { x: 64, z: 24 },
-        { x: -44, z: -44 },
-        { x: 44, z: 44 },
-        { x: -44, z: 44 },
-        { x: 44, z: -44 }
-      ];
-
-      // Collect all occupied coordinates on this site to guarantee no overlapping placement
+      // Collect occupied coordinates to prevent collision
       const occupiedCoords = (existingAssets || []).map((a) => {
         const x = Number(a.position_x);
         const z = Number(a.position_z);
-        if (x === 0 && z === 0) return { x: -32, z: -24 };
         return { x: isNaN(x) ? 0 : x, z: isNaN(z) ? 0 : z };
       });
 
-      // Find an unoccupied slot with at least 22m clearance from all existing and newly planned assets
-      function findAvailableSlot(startIdx) {
-        for (let attempt = 0; attempt < 200; attempt++) {
-          const idx = startIdx + attempt;
-          const slot = TURBINE_SLOTS[idx % TURBINE_SLOTS.length];
-          const ring = Math.floor(idx / TURBINE_SLOTS.length);
-          const ringOffset = ring * 16;
-          const posX = slot.x + (ring % 2 === 0 ? ringOffset : -ringOffset);
-          const posZ = slot.z + (ring % 2 === 0 ? -ringOffset : ringOffset);
+      // Find an unoccupied slot in the planned site layout
+      // minClearance ensures no two assets take the same slot, while allowing planned grid spacing (>= 18m)
+      const minClearance = 8;
+      function findAvailableSlot(orderIdx) {
+        for (let attempt = 0; attempt < 100; attempt++) {
+          const idx = orderIdx + attempt;
+          const candidate = getAssetSlotCoordinates(idx, item.equipment_type, areaHa);
 
           const isOverlapping = occupiedCoords.some((occ) => {
-            const dx = occ.x - posX;
-            const dz = occ.z - posZ;
-            return Math.sqrt(dx * dx + dz * dz) < 22; // Minimum 22m wake clearance
+            const dx = occ.x - candidate.x;
+            const dz = occ.z - candidate.z;
+            return Math.sqrt(dx * dx + dz * dz) < minClearance;
           });
 
           if (!isOverlapping) {
-            occupiedCoords.push({ x: posX, z: posZ });
-            return { posX, posZ, idx };
+            occupiedCoords.push({ x: candidate.x, z: candidate.z });
+            return { posX: candidate.x, posZ: candidate.z, idx };
           }
         }
-        return { posX: -32 + startIdx * 20, posZ: -24 + startIdx * 20, idx: startIdx };
+        // Fallback with offset
+        const fallback = getAssetSlotCoordinates(orderIdx, item.equipment_type, areaHa);
+        return { posX: fallback.x, posZ: fallback.z, idx: orderIdx };
       }
 
       const assetsToInsert = [];
@@ -161,9 +157,9 @@ export async function POST(req) {
         if (position && quantity === 1) {
           posX = Number(position.x);
           posZ = Number(position.z);
-          rotIdx = baseAssetCount;
+          rotIdx = existingSameTypeCount;
         } else {
-          const avail = findAvailableSlot(baseAssetCount + i);
+          const avail = findAvailableSlot(existingSameTypeCount + i);
           posX = avail.posX;
           posZ = avail.posZ;
           rotIdx = avail.idx;

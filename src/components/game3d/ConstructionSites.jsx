@@ -77,7 +77,6 @@ function ConstructionWorker({ position = [0, 0, 0], rotation = [0, 0, 0], action
 // =============================================================================
 function ActiveConstructionWorker({
   waypoints = [],
-  speed = 1.1,
   shirtColor = '#ea580c',
   pantsColor = '#1e3a8a',
   hatColor = '#facc15',
@@ -85,98 +84,13 @@ function ActiveConstructionWorker({
   initialWp = 0,
   baseY = 1.36
 }) {
-  const pRef = useRef();
-  const legLRef = useRef();
-  const legRRef = useRef();
-  const armLRef = useRef();
-  const armRRef = useRef();
-
-  const simRef = useRef({
-    wpIdx: initialWp,
-    x: waypoints[initialWp]?.[0] || 0,
-    z: waypoints[initialWp]?.[1] || 0,
-    rot: 0,
-    state: 'walking',
-    idleTimer: 2.0 + Math.random() * 3.0,
-    walkPhase: Math.random() * Math.PI * 2
-  });
-
-  useFrame((_, delta) => {
-    if (!pRef.current || waypoints.length < 2) return;
-    const dt = Math.min(delta, 0.05);
-    const sim = simRef.current;
-
-    if (sim.state === 'idle') {
-      sim.idleTimer -= dt;
-      // Relax legs when standing
-      if (legLRef.current) legLRef.current.rotation.x *= 0.82;
-      if (legRRef.current) legRRef.current.rotation.x *= 0.82;
-
-      // Role-specific idle actions
-      if (role === 'signalman') {
-        // Arm raised high signaling the crane operator with two-way radio
-        if (armRRef.current) {
-          const targetRot = 1.35 + Math.sin(sim.idleTimer * 3.0) * 0.25;
-          armRRef.current.rotation.x += (targetRot - armRRef.current.rotation.x) * dt * 5.0;
-        }
-        if (armLRef.current) armLRef.current.rotation.x *= 0.82;
-      } else if (role === 'foreman') {
-        // Inspecting construction blueprints / tablet
-        if (armRRef.current) {
-          const targetRot = 1.05 + Math.sin(sim.idleTimer * 0.8) * 0.08;
-          armRRef.current.rotation.x += (targetRot - armRRef.current.rotation.x) * dt * 4.0;
-        }
-        if (armLRef.current) {
-          const targetRot = 0.85;
-          armLRef.current.rotation.x += (targetRot - armLRef.current.rotation.x) * dt * 4.0;
-        }
-      } else {
-        if (armLRef.current) armLRef.current.rotation.x *= 0.82;
-        if (armRRef.current) armRRef.current.rotation.x *= 0.82;
-      }
-
-      if (sim.idleTimer <= 0) {
-        sim.wpIdx = (sim.wpIdx + 1) % waypoints.length;
-        sim.state = 'walking';
-      }
-    } else if (sim.state === 'walking') {
-      const target = waypoints[sim.wpIdx];
-      const dx = target[0] - sim.x;
-      const dz = target[1] - sim.z;
-      const dist = Math.hypot(dx, dz);
-
-      if (dist < 0.4) {
-        sim.state = 'idle';
-        sim.idleTimer = 4.0 + Math.random() * 5.0;
-      } else {
-        const targetRot = Math.atan2(dx, dz);
-        let diff = targetRot - sim.rot;
-        diff = Math.atan2(Math.sin(diff), Math.cos(diff));
-        sim.rot += diff * Math.min(dt * 5.0, 1.0);
-
-        const step = Math.min(speed * dt, dist);
-        sim.x += Math.sin(sim.rot) * step;
-        sim.z += Math.cos(sim.rot) * step;
-        sim.walkPhase += dt * 7.5;
-
-        const legSwing = Math.sin(sim.walkPhase) * 0.45;
-        if (legLRef.current) legLRef.current.rotation.x = legSwing;
-        if (legRRef.current) legRRef.current.rotation.x = -legSwing;
-        if (armLRef.current) armLRef.current.rotation.x = -legSwing * 0.75;
-        if (armRRef.current) armRRef.current.rotation.x = legSwing * 0.75;
-      }
-    }
-
-    const walkBob = sim.state === 'walking' ? Math.abs(Math.sin(sim.walkPhase)) * 0.04 : 0;
-    pRef.current.position.x = sim.x;
-    pRef.current.position.y = baseY + walkBob;
-    pRef.current.position.z = sim.z;
-    pRef.current.rotation.y = sim.rot;
-  });
+  const wp = waypoints[initialWp] || waypoints[0] || [0, 0];
+  const posX = wp[0];
+  const posZ = wp[1];
 
   return (
-    <group ref={pRef} position={[simRef.current.x, baseY, simRef.current.z]}>
-      {/* Boots / Shoes */}
+    <group position={[posX, baseY, posZ]}>
+      {/* Boots */}
       <mesh position={[-0.11, 0.1, 0]}>
         <boxGeometry args={[0.14, 0.2, 0.24]} />
         <meshStandardMaterial color="#1e293b" roughness={0.9} />
@@ -186,80 +100,47 @@ function ActiveConstructionWorker({
         <meshStandardMaterial color="#1e293b" roughness={0.9} />
       </mesh>
 
-      {/* Articulated Swinging Legs (Pivoting at hips y=0.7) */}
-      <group ref={legLRef} position={[-0.11, 0.7, 0]}>
-        <mesh position={[0, -0.25, 0]}>
-          <cylinderGeometry args={[0.08, 0.07, 0.5, 8]} />
-          <meshStandardMaterial color={pantsColor} roughness={0.8} />
-        </mesh>
-      </group>
-      <group ref={legRRef} position={[0.11, 0.7, 0]}>
-        <mesh position={[0, -0.25, 0]}>
-          <cylinderGeometry args={[0.08, 0.07, 0.5, 8]} />
-          <meshStandardMaterial color={pantsColor} roughness={0.8} />
-        </mesh>
-      </group>
+      {/* Legs */}
+      <mesh position={[-0.11, 0.45, 0]}>
+        <cylinderGeometry args={[0.08, 0.07, 0.5, 6]} />
+        <meshStandardMaterial color={pantsColor} roughness={0.8} />
+      </mesh>
+      <mesh position={[0.11, 0.45, 0]}>
+        <cylinderGeometry args={[0.08, 0.07, 0.5, 6]} />
+        <meshStandardMaterial color={pantsColor} roughness={0.8} />
+      </mesh>
 
       {/* Torso & High-Vis Safety Vest */}
-      <group position={[0, 0, 0]}>
-        <mesh position={[0, 0.95, 0]}>
-          <boxGeometry args={[0.38, 0.52, 0.22]} />
-          <meshStandardMaterial color={shirtColor} roughness={0.6} />
-        </mesh>
-        {/* Silver Reflective Strip on Vest */}
-        <mesh position={[0, 0.95, 0.12]}>
-          <boxGeometry args={[0.34, 0.08, 0.02]} />
-          <meshStandardMaterial color="#f1f5f9" roughness={0.2} metalness={0.8} />
-        </mesh>
-        <mesh position={[0, 0.95, -0.12]}>
-          <boxGeometry args={[0.34, 0.08, 0.02]} />
-          <meshStandardMaterial color="#f1f5f9" roughness={0.2} metalness={0.8} />
-        </mesh>
+      <mesh position={[0, 0.95, 0]}>
+        <boxGeometry args={[0.38, 0.52, 0.22]} />
+        <meshStandardMaterial color={shirtColor} roughness={0.6} />
+      </mesh>
+      <mesh position={[0, 0.95, 0.12]}>
+        <boxGeometry args={[0.34, 0.08, 0.02]} />
+        <meshStandardMaterial color="#f1f5f9" roughness={0.2} metalness={0.8} />
+      </mesh>
 
-        {/* Articulated Swinging Arms (Pivoting at shoulders y=1.15) */}
-        <group ref={armLRef} position={[-0.24, 1.15, 0]}>
-          <mesh position={[0, -0.22, 0]}>
-            <cylinderGeometry args={[0.06, 0.05, 0.45, 8]} />
-            <meshStandardMaterial color={shirtColor} roughness={0.7} />
-          </mesh>
-        </group>
-        <group ref={armRRef} position={[0.24, 1.15, 0]}>
-          <mesh position={[0, -0.22, 0]}>
-            <cylinderGeometry args={[0.06, 0.05, 0.45, 8]} />
-            <meshStandardMaterial color={shirtColor} roughness={0.7} />
-          </mesh>
-          {/* Clipboard / Tablet for Foreman */}
-          {role === 'foreman' && (
-            <mesh position={[0.08, -0.38, 0.12]} rotation={[0.4, 0, 0]}>
-              <boxGeometry args={[0.22, 0.3, 0.04]} />
-              <meshStandardMaterial color="#f8fafc" roughness={0.5} />
-            </mesh>
-          )}
-          {/* Radio / Walkie-talkie for Signalman */}
-          {role === 'signalman' && (
-            <mesh position={[0.04, -0.35, 0.08]}>
-              <boxGeometry args={[0.08, 0.16, 0.06]} />
-              <meshStandardMaterial color="#09090b" roughness={0.4} />
-            </mesh>
-          )}
-        </group>
+      {/* Arms */}
+      <mesh position={[-0.24, 0.93, 0]}>
+        <cylinderGeometry args={[0.06, 0.05, 0.45, 6]} />
+        <meshStandardMaterial color={shirtColor} roughness={0.7} />
+      </mesh>
+      <mesh position={[0.24, 0.93, 0]}>
+        <cylinderGeometry args={[0.06, 0.05, 0.45, 6]} />
+        <meshStandardMaterial color={shirtColor} roughness={0.7} />
+      </mesh>
 
-        {/* Head */}
-        <mesh position={[0, 1.32, 0]}>
-          <sphereGeometry args={[0.12, 10, 10]} />
-          <meshStandardMaterial color="#fed7aa" roughness={0.7} />
-        </mesh>
+      {/* Head */}
+      <mesh position={[0, 1.32, 0]}>
+        <sphereGeometry args={[0.12, 8, 8]} />
+        <meshStandardMaterial color="#fed7aa" roughness={0.7} />
+      </mesh>
 
-        {/* Safety Hard Hat */}
-        <mesh position={[0, 1.42, 0]}>
-          <sphereGeometry args={[0.15, 12, 12, 0, Math.PI * 2, 0, Math.PI * 0.55]} />
-          <meshStandardMaterial color={hatColor} roughness={0.3} metalness={0.2} />
-        </mesh>
-        <mesh position={[0, 1.38, 0.04]} rotation={[0.1, 0, 0]}>
-          <cylinderGeometry args={[0.18, 0.18, 0.03, 12]} />
-          <meshStandardMaterial color={hatColor} roughness={0.3} />
-        </mesh>
-      </group>
+      {/* Safety Hard Hat */}
+      <mesh position={[0, 1.42, 0]}>
+        <sphereGeometry args={[0.15, 8, 8, 0, Math.PI * 2, 0, Math.PI * 0.55]} />
+        <meshStandardMaterial color={hatColor} roughness={0.3} metalness={0.2} />
+      </mesh>
     </group>
   );
 }
@@ -288,31 +169,20 @@ export function SafetyFloodlightTower({ position = [0, 0, 0], isNight = false })
         <meshStandardMaterial color="#475569" metalness={0.8} />
       </mesh>
 
-      {/* 2 Halogen Floodlight Enclosures */}
+      {/* 2 Halogen Floodlight Enclosures with High-Efficiency Emissive Night Glow */}
       {[-0.45, 0.45].map((xOff, i) => (
         <group key={i} position={[xOff, 4.55, 0]} rotation={[0.45, 0, 0]}>
           <mesh>
             <boxGeometry args={[0.34, 0.24, 0.2]} />
             <meshStandardMaterial color="#1e293b" />
           </mesh>
-          {/* Glowing Lens */}
+          {/* Glowing Lens (Zero-cost emissive, eliminates expensive dynamic point lights) */}
           <mesh position={[0, 0, 0.11]}>
             <planeGeometry args={[0.3, 0.2]} />
             <meshBasicMaterial color={isNight ? '#fef08a' : '#64748b'} />
           </mesh>
         </group>
       ))}
-
-      {/* Active Night Illumination */}
-      {isNight && (
-        <pointLight
-          position={[0, 4.5, 0.6]}
-          intensity={2.8}
-          distance={28}
-          color="#fef08a"
-          decay={1.8}
-        />
-      )}
     </group>
   );
 }
@@ -1387,46 +1257,45 @@ export function WindTurbineConstructionSite({
     <group position={position} onClick={onClick}>
       {/* In-World Construction Site Project Signboard */}
       <InWorldProjectSignboard
-        position={[13.5, 1.36, -8.0]}
-        rotation={[0, -0.6, 0]}
+        position={[6.5, 0.65, -4.0]}
+        rotation={[0, -0.4, 0]}
         timeString={timeString}
         percent={Math.min(100, Math.max(0, Math.round(progress * 100)))}
         title={equipmentName}
       />
-      {/* 1. Substantial 3D Graded Excavation Earthwork Terrace (Elevated above terrain slopes) */}
-      <mesh position={[0, 0.55, 0]} castShadow receiveShadow>
-        <cylinderGeometry args={[19.5, 21.8, 1.6, 32]} />
-        <meshStandardMaterial color="#713f12" roughness={0.96} />
+      {/* 1. Compact Engineered Foundation Civil Pad (Clean octagonal profile, prevents brown blob clumping) */}
+      <mesh position={[0, 0.35, 0]} receiveShadow>
+        <cylinderGeometry args={[6.2, 7.0, 0.7, 16]} />
+        <meshStandardMaterial color="#475569" roughness={0.92} />
       </mesh>
-      {/* Compacted Gravel Working Pad Top Layer */}
-      <mesh position={[0, 1.36, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[19.4, 32]} />
-        <meshStandardMaterial color="#78350f" roughness={0.92} />
+      {/* Compacted Fine Gravel Working Collar */}
+      <mesh position={[0, 0.71, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[6.5, 16]} />
+        <meshStandardMaterial color="#64748b" roughness={0.88} />
       </mesh>
 
       {/* 2. Reinforced Concrete Turbine Foundation Pad */}
-      <mesh position={[0, 1.81, 0]} castShadow>
+      <mesh position={[0, 1.15, 0]} castShadow>
         <cylinderGeometry args={[4.4, 4.8, 0.9, 16]} />
         <meshStandardMaterial color="#94a3b8" roughness={0.88} />
       </mesh>
 
       {/* Circular Rebar / Anchor Flange Collar */}
-      <mesh position={[0, 2.31, 0]}>
+      <mesh position={[0, 1.65, 0]}>
         <cylinderGeometry args={[2.2, 2.2, 0.22, 16]} />
         <meshStandardMaterial color="#334155" metalness={0.8} />
       </mesh>
 
-      {/* 3. Safety Cones around the perimeter */}
-      {[0, 45, 90, 135, 180, 225, 270, 315].map((deg, i) => {
+      {/* 3. Safety Cones around the perimeter collar */}
+      {[0, 60, 120, 180, 240, 300].map((deg, i) => {
         const rad = (deg * Math.PI) / 180;
-        const cx = Math.cos(rad) * 17.5;
-        const cz = Math.sin(rad) * 17.5;
-        return <SafetyCone key={i} position={[cx, 1.36, cz]} />;
+        const cx = Math.cos(rad) * 6.0;
+        const cz = Math.sin(rad) * 6.0;
+        return <SafetyCone key={i} position={[cx, 0.71, cz]} />;
       })}
 
-      {/* 4. Safety Floodlight Tower for Night Illumination */}
-      <SafetyFloodlightTower position={[-12, 1.36, -11]} isNight={isNight} />
-      <SafetyFloodlightTower position={[13, 1.36, -10]} isNight={isNight} />
+      {/* 4. Safety Floodlight Tower for Night Illumination (Zero-overhead emissive) */}
+      <SafetyFloodlightTower position={[-5.8, 0.71, -4.5]} isNight={isNight} />
 
       {/* =====================================================================
           TURBINE STRUCTURE ACCORDING TO CONSTRUCTION PROGRESS
@@ -2060,52 +1929,52 @@ export function SolarConstructionSite({
     ? `${remainingDays}g ${remHoursInDay}s kaldı` 
     : `${actualRemainingHours}s kaldı`;
 
-  // 4x4 Grid layout coordinates (Matching completed SolarArray perfectly)
-  const columnsX = [-13.5, -8.5, -3.5, 1.5];
-  const rowsZ = [-7.5, -2.5, 2.5, 7.5];
+  // 3-Row x 3-Table Compact Grid layout coordinates (Matching completed SolarArray 20m x 14m pad)
+  const columnsX = [-5.5, 0.0, 5.5];
+  const rowsZ = [-3.8, 0.0, 3.8];
 
   return (
     <group position={position} onClick={onClick}>
       {/* In-World Construction Site Project Signboard */}
       <InWorldProjectSignboard
-        position={[-15.5, 1.07, 11.5]}
+        position={[-8.5, 0.71, 5.5]}
         rotation={[0, 0.2, 0]}
         timeString={timeString}
         percent={Math.min(100, Math.max(0, Math.round(progress * 100)))}
         title={equipmentName}
       />
-      {/* 1. Substantial 3D Graded Sand / Gravel Construction Pad (Elevated above terrain slopes) */}
-      <mesh position={[0, 0.45, 0]} castShadow receiveShadow>
-        <boxGeometry args={[38.5, 1.4, 28.5]} />
-        <meshStandardMaterial color="#713f12" roughness={0.96} />
+      {/* 1. Compact Graded Crushed-Stone Construction Pad (Elevated +0.7m, zero dirt clipping) */}
+      <mesh position={[0, 0.35, 0]} receiveShadow>
+        <boxGeometry args={[20.0, 0.7, 14.0]} />
+        <meshStandardMaterial color="#334155" roughness={0.92} />
       </mesh>
-      <mesh position={[0, 1.07, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[38.2, 28.2]} />
-        <meshStandardMaterial color="#78350f" roughness={0.92} />
+      <mesh position={[0, 0.71, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[19.8, 13.8]} />
+        <meshStandardMaterial color="#475569" roughness={0.88} />
       </mesh>
 
       {/* Safety Cones along perimeter */}
-      {[-17, -8, 0, 8, 17].map((cx, i) => (
+      {[-8.5, -4.0, 0, 4.0, 8.5].map((cx, i) => (
         <React.Fragment key={i}>
-          <SafetyCone position={[cx, 1.07, -13]} />
-          <SafetyCone position={[cx, 1.07, 13]} />
+          <SafetyCone position={[cx, 0.71, -6.2]} />
+          <SafetyCone position={[cx, 0.71, 6.2]} />
         </React.Fragment>
       ))}
 
       {/* Floodlights for Night Illumination */}
-      <SafetyFloodlightTower position={[-17, 1.07, -12]} isNight={isNight} />
-      <SafetyFloodlightTower position={[17, 1.07, 12]} isNight={isNight} />
+      <SafetyFloodlightTower position={[-8.8, 0.71, -5.8]} isNight={isNight} />
+      <SafetyFloodlightTower position={[8.8, 0.71, 5.8]} isNight={isNight} />
 
       {/* Concrete Foundation Pillar Piles (Phase 1+) */}
       {columnsX.map((gx, xi) =>
-        [-8, 0, 8].map((gz, zi) => (
-          <group key={`pile_${xi}_${zi}`} position={[gx, 1.07, gz]}>
+        [-4.0, 0, 4.0].map((gz, zi) => (
+          <group key={`pile_${xi}_${zi}`} position={[gx, 0.71, gz]}>
             <mesh position={[0, 0.45, 0]} castShadow>
-              <cylinderGeometry args={[0.22, 0.26, 0.9, 8]} />
+              <cylinderGeometry args={[0.18, 0.22, 0.9, 8]} />
               <meshStandardMaterial color="#94a3b8" roughness={0.85} />
             </mesh>
-            <mesh position={[0, 1.1, 0]}>
-              <cylinderGeometry args={[0.08, 0.08, 0.5, 6]} />
+            <mesh position={[0, 1.05, 0]}>
+              <cylinderGeometry args={[0.07, 0.07, 0.4, 6]} />
               <meshStandardMaterial color="#cbd5e1" metalness={0.9} />
             </mesh>
           </group>
@@ -2116,16 +1985,16 @@ export function SolarConstructionSite({
       {(isPhase2 || isPhase3 || isPhase4) && (
         <group>
           {columnsX.map((rx, ri) => (
-            <group key={`rack_${ri}`} position={[rx, 2.5, 0]}>
+            <group key={`rack_${ri}`} position={[rx, 1.85, 0]}>
               {/* Long Horizontal Torque Tube along Z */}
               <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
-                <cylinderGeometry args={[0.1, 0.1, 21.0, 8]} />
+                <cylinderGeometry args={[0.08, 0.08, 11.5, 8]} />
                 <meshStandardMaterial color="#cbd5e1" metalness={0.8} />
               </mesh>
               {/* Supporting Angle Struts */}
-              {[-8, 0, 8].map((sz, si) => (
-                <mesh key={si} position={[0, -0.6, sz]}>
-                  <cylinderGeometry args={[0.06, 0.06, 1.3, 6]} />
+              {[-4.0, 0, 4.0].map((sz, si) => (
+                <mesh key={si} position={[0, -0.45, sz]}>
+                  <cylinderGeometry args={[0.05, 0.05, 1.0, 6]} />
                   <meshStandardMaterial color="#94a3b8" metalness={0.8} />
                 </mesh>
               ))}
@@ -2134,38 +2003,38 @@ export function SolarConstructionSite({
         </group>
       )}
 
-      {/* Phase 3 & 4: Mounted Solar PV Panel Module Tables (4x4 = 16 Panels, 100% Flat on Top) */}
+      {/* Phase 3 & 4: Mounted Solar PV Panel Module Tables (3x3 Tables, 100% Flat on Top) */}
       {(isPhase3 || isPhase4) && (
         <group>
           {columnsX.map((px, pi) =>
             rowsZ.map((pz, pzi) => {
-              // During Phase 3, panel at [col 3, row 1] is being actively lifted and lowered by the crane!
-              const isActivelyLifted = isPhase3 && pi === 3 && pzi === 1;
+              // During Phase 3, panel at [col 2, row 1] is being actively lifted and lowered by the crane!
+              const isActivelyLifted = isPhase3 && pi === 2 && pzi === 1;
               if (isActivelyLifted) return null;
 
               return (
-                <group key={`pv_${pi}_${pzi}`} position={[px, 2.65, pz]} rotation={[0, 0, -0.25]}>
+                <group key={`pv_${pi}_${pzi}`} position={[px, 1.95, pz]} rotation={[0, 0, -0.22]}>
                   {/* Silicon Solar Panel Frame */}
                   <mesh castShadow>
-                    <boxGeometry args={[4.2, 0.1, 3.2]} />
+                    <boxGeometry args={[3.4, 0.08, 2.8]} />
                     <meshStandardMaterial color="#0284c7" roughness={0.2} metalness={0.6} />
                   </mesh>
-                  {/* Anti-reflective Glass Face - 100% FLAT ON TOP (rotation [-PI/2, 0, 0]) */}
-                  <mesh position={[0, 0.055, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-                    <planeGeometry args={[4.0, 3.0]} />
+                  {/* Anti-reflective Glass Face */}
+                  <mesh position={[0, 0.045, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                    <planeGeometry args={[3.2, 2.6]} />
                     <meshStandardMaterial color="#0b192c" roughness={0.12} metalness={0.9} />
                   </mesh>
                   {/* Silver Grid Lines */}
-                  {[-1.2, 0, 1.2].map((lx, li) => (
-                    <mesh key={li} position={[lx, 0.058, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-                      <planeGeometry args={[0.04, 2.9]} />
+                  {[-0.9, 0, 0.9].map((lx, li) => (
+                    <mesh key={li} position={[lx, 0.048, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                      <planeGeometry args={[0.03, 2.5]} />
                       <meshBasicMaterial color="#94a3b8" />
                     </mesh>
                   ))}
                   {/* Underside mounting clamps */}
-                  {[-1.4, 1.4].map((mx, mi) => (
-                    <mesh key={mi} position={[mx, -0.08, 0]}>
-                      <boxGeometry args={[0.1, 0.16, 2.8]} />
+                  {[-1.1, 1.1].map((mx, mi) => (
+                    <mesh key={mi} position={[mx, -0.06, 0]}>
+                      <boxGeometry args={[0.08, 0.12, 2.4]} />
                       <meshStandardMaterial color="#94a3b8" metalness={0.8} />
                     </mesh>
                   ))}
@@ -2178,18 +2047,9 @@ export function SolarConstructionSite({
 
       {/* Phase 3+: Inground Cable Trenches with High-Voltage Conduit */}
       {(isPhase3 || isPhase4) && (
-        <group position={[4.5, 1.08, 0]}>
-          <mesh position={[0, 0, 0]}>
-            <boxGeometry args={[0.6, 0.15, 20.0]} />
-            <meshStandardMaterial color="#451a03" roughness={0.95} />
-          </mesh>
-          <mesh position={[0, 0.08, 0]} rotation={[Math.PI / 2, 0, 0]}>
-            <cylinderGeometry args={[0.08, 0.08, 19.8, 8]} />
-            <meshStandardMaterial color="#dc2626" roughness={0.5} />
-          </mesh>
-          {/* Branch eastward to inverter kiosk */}
-          <mesh position={[4.0, 0.08, -7.5]} rotation={[0, 0, Math.PI / 2]}>
-            <cylinderGeometry args={[0.08, 0.08, 8.0, 8]} />
+        <group position={[6.5, 0.72, -3.2]}>
+          <mesh position={[0, 0.02, 0]} rotation={[0, 0, Math.PI / 2]}>
+            <cylinderGeometry args={[0.06, 0.06, 2.2, 8]} />
             <meshStandardMaterial color="#dc2626" roughness={0.5} />
           </mesh>
         </group>
@@ -2197,51 +2057,51 @@ export function SolarConstructionSite({
 
       {/* Phase 4: Central Inverter Station & SCADA Monitoring Kiosk */}
       {isPhase4 && (
-        <group position={[13.0, 1.07, -7.5]}>
-          <mesh position={[0, 1.1, 0]} castShadow>
-            <boxGeometry args={[2.8, 2.2, 2.2]} />
+        <group position={[7.8, 0.71, -3.2]}>
+          <mesh position={[0, 0.9, 0]} castShadow>
+            <boxGeometry args={[1.8, 1.8, 1.6]} />
             <meshStandardMaterial color="#e2e8f0" roughness={0.3} metalness={0.4} />
           </mesh>
-          <mesh position={[0, 1.95, 0]}>
-            <cylinderGeometry args={[0.08, 0.08, 0.18, 8]} />
+          <mesh position={[0, 1.85, 0]}>
+            <cylinderGeometry args={[0.06, 0.06, 0.15, 8]} />
             <meshStandardMaterial color="#10b981" emissive="#10b981" emissiveIntensity={0.8} />
           </mesh>
         </group>
       )}
 
-      {/* Active Mobile Telescopic Assembly Crane (Lifting panels from truck and placing on racks) */}
+      {/* Active Mobile Telescopic Assembly Crane */}
       <SolarInstallationCrane
-        position={[8.0, 1.07, -1.0]}
+        position={[7.5, 0.71, 0.0]}
         rotation={[0, 0, 0]}
         isNight={isNight}
         phase={isPhase1 ? 1 : isPhase2 ? 2 : isPhase3 ? 3 : 4}
       />
 
-      {/* Construction Utility Van (Safely parked at front entrance, zero panel overlap) */}
+      {/* Construction Utility Van */}
       <ConstructionVan
-        position={[-13.5, 1.07, 11.5]}
+        position={[-7.5, 0.71, 4.8]}
         rotation={[0, 0.1, 0]}
         isNight={isNight}
       />
 
-      {/* Heavy Material Delivery Flatbed Truck (Parked in dedicated eastern delivery corridor) */}
+      {/* Heavy Material Delivery Flatbed Truck */}
       <HeavyConstructionTransportTruck
-        position={[14.2, 1.07, 3.5]}
+        position={[8.0, 0.71, 3.8]}
         rotation={[0, 0, 0]}
         phase={isPhase1 ? 1 : isPhase2 ? 2 : isPhase3 ? 3 : 4}
         cargoType="solar"
       />
 
-      {/* Active Animated Crew (Visible only during daytime) */}
+      {/* Active Crew (Visible only during daytime) */}
       {!isNight && (
         <group>
           {/* Worker 1: Solar Rack Assembler */}
           <ActiveConstructionWorker
             waypoints={[
-              [-11.0, -4.0],
-              [-11.0, 4.0],
-              [-6.0, 4.0],
-              [-6.0, -4.0]
+              [-6.0, -2.0],
+              [-6.0, 2.0],
+              [-3.0, 2.0],
+              [-3.0, -2.0]
             ]}
             speed={1.1}
             shirtColor="#ea580c"
@@ -2249,15 +2109,15 @@ export function SolarConstructionSite({
             hatColor="#facc15"
             role="worker"
             initialWp={0}
-            baseY={1.07}
+            baseY={0.71}
           />
           {/* Worker 2: Electrical Technician checking cable conduits */}
           <ActiveConstructionWorker
             waypoints={[
-              [3.0, -3.0],
-              [5.0, -3.0],
-              [5.0, 5.0],
-              [3.0, 5.0]
+              [2.0, -2.0],
+              [4.0, -2.0],
+              [4.0, 3.0],
+              [2.0, 3.0]
             ]}
             speed={1.15}
             shirtColor="#1e3a8a"
@@ -2265,15 +2125,15 @@ export function SolarConstructionSite({
             hatColor="#ea580c"
             role="technician"
             initialWp={1}
-            baseY={1.07}
+            baseY={0.71}
           />
           {/* Worker 3: Site Inspector / Quality Foreman with clipboard */}
           <ActiveConstructionWorker
             waypoints={[
-              [-10.0, 9.5],
-              [0.0, 9.5],
-              [6.0, 9.5],
-              [-2.0, 9.5]
+              [-5.0, 4.5],
+              [0.0, 4.5],
+              [4.0, 4.5],
+              [-1.0, 4.5]
             ]}
             speed={1.05}
             shirtColor="#eab308"
@@ -2281,7 +2141,7 @@ export function SolarConstructionSite({
             hatColor="#ffffff"
             role="foreman"
             initialWp={2}
-            baseY={1.07}
+            baseY={0.71}
           />
         </group>
       )}

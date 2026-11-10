@@ -96,13 +96,13 @@ function RetroCamperVan({ position = [0, 0, 0], rotation = [0, 0, 0], bodyColor 
   return (
     <group position={position} rotation={rotation}>
       {/* Lower Main Van Body */}
-      <mesh position={[0, 0.85, 0]} castShadow receiveShadow>
+      <mesh position={[0, 0.85, 0]} receiveShadow>
         <boxGeometry args={[2.0, 1.0, 4.6]} />
         <meshStandardMaterial color={bodyColor} roughness={0.4} />
       </mesh>
 
       {/* Cream Upper Body / Cab Roof */}
-      <mesh position={[0, 1.55, 0]} castShadow receiveShadow>
+      <mesh position={[0, 1.55, 0]} receiveShadow>
         <boxGeometry args={[1.96, 0.65, 4.5]} />
         <meshStandardMaterial color="#f8fafc" roughness={0.35} />
       </mesh>
@@ -144,7 +144,7 @@ function RetroCamperVan({ position = [0, 0, 0], rotation = [0, 0, 0], bodyColor 
       {popUp && (
         <group position={[0, 1.9, -0.2]}>
           {/* Tilted Roof Fiberglass Lid */}
-          <mesh position={[0, 0.72, 0]} rotation={[0.26, 0, 0]} castShadow>
+          <mesh position={[0, 0.72, 0]} rotation={[0.26, 0, 0]}>
             <boxGeometry args={[1.85, 0.12, 3.2]} />
             <meshStandardMaterial color="#f8fafc" roughness={0.4} />
           </mesh>
@@ -182,7 +182,7 @@ function RetroCamperVan({ position = [0, 0, 0], rotation = [0, 0, 0], bodyColor 
       {/* Two Beach Surfboards Leaning against Rear Van Corner */}
       <group position={[-1.15, 0.8, -1.8]} rotation={[0.18, 0.35, -0.15]}>
         {/* Pink/Coral Surfboard */}
-        <mesh castShadow>
+        <mesh>
           <boxGeometry args={[0.42, 2.1, 0.06]} />
           <meshStandardMaterial color="#f43f5e" roughness={0.3} />
         </mesh>
@@ -194,7 +194,7 @@ function RetroCamperVan({ position = [0, 0, 0], rotation = [0, 0, 0], bodyColor 
       </group>
       <group position={[-1.12, 0.75, -1.4]} rotation={[0.15, 0.25, -0.18]}>
         {/* Aqua Surfboard */}
-        <mesh castShadow>
+        <mesh>
           <boxGeometry args={[0.38, 1.9, 0.06]} />
           <meshStandardMaterial color="#06b6d4" roughness={0.3} />
         </mesh>
@@ -227,17 +227,17 @@ function SilverAirstreamCaravan({ position = [0, 0, 0], rotation = [0, 0, 0], ha
   return (
     <group position={position} rotation={rotation}>
       {/* Polished Silver Aluminum Shell with Rounded Shoulders */}
-      <mesh position={[0, 1.4, 0]} castShadow receiveShadow>
+      <mesh position={[0, 1.4, 0]} receiveShadow>
         <boxGeometry args={[2.3, 1.7, 5.8]} />
         <meshStandardMaterial color="#e2e8f0" metalness={0.85} roughness={0.22} />
       </mesh>
 
       {/* Curved Front & Rear Rounded End Caps */}
-      <mesh position={[0, 1.4, 2.9]} castShadow>
+      <mesh position={[0, 1.4, 2.9]}>
         <cylinderGeometry args={[1.15, 1.15, 1.7, 12, 1, false, 0, Math.PI]} rotation={[0, 0, 0]} />
         <meshStandardMaterial color="#e2e8f0" metalness={0.85} roughness={0.22} />
       </mesh>
-      <mesh position={[0, 1.4, -2.9]} castShadow>
+      <mesh position={[0, 1.4, -2.9]}>
         <cylinderGeometry args={[1.15, 1.15, 1.7, 12, 1, false, Math.PI, Math.PI]} rotation={[0, 0, 0]} />
         <meshStandardMaterial color="#e2e8f0" metalness={0.85} roughness={0.22} />
       </mesh>
@@ -340,7 +340,7 @@ function ModernClassCMotorhome({ position = [0, 0, 0], rotation = [0, 0, 0] }) {
   return (
     <group position={position} rotation={rotation}>
       {/* Driver Cab */}
-      <mesh position={[0, 1.0, 2.4]} castShadow>
+      <mesh position={[0, 1.0, 2.4]}>
         <boxGeometry args={[2.3, 1.3, 1.8]} />
         <meshStandardMaterial color="#f8fafc" roughness={0.35} />
       </mesh>
@@ -351,13 +351,13 @@ function ModernClassCMotorhome({ position = [0, 0, 0], rotation = [0, 0, 0] }) {
       </mesh>
 
       {/* Over-Cab Sleeper Alcove (Signature Class-C Feature) */}
-      <mesh position={[0, 2.4, 2.0]} castShadow>
+      <mesh position={[0, 2.4, 2.0]}>
         <boxGeometry args={[2.42, 1.0, 2.4]} />
         <meshStandardMaterial color="#f8fafc" roughness={0.35} />
       </mesh>
 
       {/* Main Living Coach Body */}
-      <mesh position={[0, 1.7, -0.6]} castShadow receiveShadow>
+      <mesh position={[0, 1.7, -0.6]} receiveShadow>
         <boxGeometry args={[2.45, 2.2, 4.8]} />
         <meshStandardMaterial color="#f8fafc" roughness={0.35} />
       </mesh>
@@ -427,7 +427,7 @@ function Overland4x4Camper({ position = [0, 0, 0], rotation = [0, 0, 0] }) {
   return (
     <group position={position} rotation={rotation}>
       {/* Matte Olive Heavy Duty Pickup Body */}
-      <mesh position={[0, 1.1, 0]} castShadow receiveShadow>
+      <mesh position={[0, 1.1, 0]} receiveShadow>
         <boxGeometry args={[2.2, 1.1, 4.8]} />
         <meshStandardMaterial color="#3f6212" roughness={0.7} />
       </mesh>
@@ -457,7 +457,7 @@ function Overland4x4Camper({ position = [0, 0, 0], rotation = [0, 0, 0] }) {
       </mesh>
 
       {/* Rear Overland Bed Canopy Shell */}
-      <mesh position={[0, 1.85, -0.9]} castShadow>
+      <mesh position={[0, 1.85, -0.9]}>
         <boxGeometry args={[2.15, 0.85, 2.6]} />
         <meshStandardMaterial color="#1c1917" roughness={0.8} />
       </mesh>
@@ -470,7 +470,7 @@ function Overland4x4Camper({ position = [0, 0, 0], rotation = [0, 0, 0] }) {
           <meshStandardMaterial color="#0f172a" />
         </mesh>
         {/* A-Frame Safari Tan Canvas Tent */}
-        <mesh position={[0, 0.7, 0]} rotation={[0, Math.PI / 4, 0]} castShadow>
+        <mesh position={[0, 0.7, 0]} rotation={[0, Math.PI / 4, 0]}>
           <coneGeometry args={[1.3, 1.2, 4]} />
           <meshStandardMaterial color="#d97706" roughness={0.85} />
         </mesh>
@@ -513,7 +513,7 @@ function DomeCampingTent({ position = [0, 0, 0], color = '#f97316', rotation = [
   return (
     <group position={position} rotation={rotation}>
       {/* Geodesic Half-Dome Fabric */}
-      <mesh position={[0, 0.85, 0]} castShadow>
+      <mesh position={[0, 0.85, 0]}>
         <sphereGeometry args={[1.35, 8, 8, 0, Math.PI * 2, 0, Math.PI * 0.5]} />
         <meshStandardMaterial color={color} roughness={0.7} />
       </mesh>
@@ -561,7 +561,7 @@ function BeachParasolAndLoungers({ position = [0, 0, 0], umbrellaColor = '#ef444
 
       {/* Blue Hard Cooler Box with White Lid */}
       <group position={[-0.8, 0.22, 0.6]} rotation={[0, 0.25, 0]}>
-        <mesh castShadow>
+        <mesh>
           <boxGeometry args={[0.6, 0.4, 0.4]} />
           <meshStandardMaterial color="#0284c7" roughness={0.4} />
         </mesh>
@@ -579,7 +579,7 @@ function CampDiningArea({ position = [0, 0, 0], rotation = [0, 0, 0] }) {
   return (
     <group position={position} rotation={rotation}>
       {/* Heavy Timber Picnic Table */}
-      <mesh position={[0, 0.72, 0]} castShadow receiveShadow>
+      <mesh position={[0, 0.72, 0]} receiveShadow>
         <boxGeometry args={[1.1, 0.1, 2.1]} />
         <meshStandardMaterial color="#78350f" roughness={0.85} />
       </mesh>
@@ -595,7 +595,7 @@ function CampDiningArea({ position = [0, 0, 0], rotation = [0, 0, 0] }) {
 
       {/* Two Attached Bench Planks */}
       {[-0.75, 0.75].map((bx, bi) => (
-        <mesh key={`bench_${bi}`} position={[bx, 0.42, 0]} castShadow>
+        <mesh key={`bench_${bi}`} position={[bx, 0.42, 0]}>
           <boxGeometry args={[0.35, 0.08, 2.1]} />
           <meshStandardMaterial color="#78350f" roughness={0.85} />
         </mesh>

@@ -453,7 +453,7 @@ export default function RailwaySystem({ isNight = false }) {
           <boxGeometry args={[0.35, 0.05, 38]} />
         </mesh>
         {/* Modern Canopy Roof */}
-        <mesh position={[6.5, 4.4, 0]} material={mats.stationRoof} castShadow>
+        <mesh position={[6.5, 4.4, 0]} material={mats.stationRoof}>
           <boxGeometry args={[8.5, 0.25, 34]} />
         </mesh>
         {/* Canopy Support Columns */}
@@ -511,21 +511,21 @@ export default function RailwaySystem({ isNight = false }) {
         </mesh>
         {/* Heavy Industrial Gantry Overhead Crane */}
         <group position={[0, 0, 0]}>
-          <mesh position={[-3.5, 3.8, 0]} material={mats.locoNose} castShadow>
+          <mesh position={[-3.5, 3.8, 0]} material={mats.locoNose}>
             <boxGeometry args={[0.5, 8.6, 0.5]} />
           </mesh>
-          <mesh position={[10.5, 3.8, 0]} material={mats.locoNose} castShadow>
+          <mesh position={[10.5, 3.8, 0]} material={mats.locoNose}>
             <boxGeometry args={[0.5, 8.6, 0.5]} />
           </mesh>
-          <mesh position={[3.5, 8.1, 0]} material={mats.locoNose} castShadow>
+          <mesh position={[3.5, 8.1, 0]} material={mats.locoNose}>
             <boxGeometry args={[14.5, 0.8, 1.2]} />
           </mesh>
         </group>
         {/* Cargo Shipping Crates on Platform */}
-        <mesh position={[7.5, 1.6, -8]} material={mats.containerGreen} castShadow>
+        <mesh position={[7.5, 1.6, -8]} material={mats.containerGreen}>
           <boxGeometry args={[2.8, 1.4, 3.6]} />
         </mesh>
-        <mesh position={[7.5, 1.6, 8]} material={mats.containerOrange} castShadow>
+        <mesh position={[7.5, 1.6, 8]} material={mats.containerOrange}>
           <boxGeometry args={[2.8, 1.4, 3.6]} />
         </mesh>
         {/* Terminal Signboard */}
@@ -588,7 +588,7 @@ export default function RailwaySystem({ isNight = false }) {
             <boxGeometry args={[3.2, 2.8, 0.2]} />
           </mesh>
           {/* Shingle Pitch Roof */}
-          <mesh position={[0, 3.0, 0]} rotation={[0, 0, 0.15]} material={mats.stationRoof} castShadow>
+          <mesh position={[0, 3.0, 0]} rotation={[0, 0, 0.15]} material={mats.stationRoof}>
             <boxGeometry args={[4.2, 0.2, 13.5]} />
           </mesh>
           {/* Waiting Benches */}
@@ -710,7 +710,7 @@ export default function RailwaySystem({ isNight = false }) {
       {/* 1. LOCOMOTIVE */}
       <group ref={locomotiveRef}>
         {/* Steel Chassis */}
-        <mesh position={[0, 0.45, 0]} material={mats.metalChassis} castShadow>
+        <mesh position={[0, 0.45, 0]} material={mats.metalChassis}>
           <boxGeometry args={[2.5, 0.7, 7.5]} />
         </mesh>
         {/* Rear Coupler Drawbar (Connects to Wagon 1) */}
@@ -722,11 +722,11 @@ export default function RailwaySystem({ isNight = false }) {
           <boxGeometry args={[2.4, 0.4, 0.3]} />
         </mesh>
         {/* Locomotive Cab Body */}
-        <mesh position={[0, 2.1, 0.6]} material={mats.locoBody} castShadow>
+        <mesh position={[0, 2.1, 0.6]} material={mats.locoBody}>
           <boxGeometry args={[2.3, 2.6, 5.8]} />
         </mesh>
         {/* High-visibility Warning Nose */}
-        <mesh position={[0, 1.8, 3.4]} material={mats.locoNose} castShadow>
+        <mesh position={[0, 1.8, 3.4]} material={mats.locoNose}>
           <boxGeometry args={[2.1, 2.0, 0.8]} />
         </mesh>
         {/* Exhaust Smokestack / Chimney */}
@@ -769,11 +769,11 @@ export default function RailwaySystem({ isNight = false }) {
           <boxGeometry args={[0.35, 0.22, 0.8]} />
         </mesh>
         {/* Chassis */}
-        <mesh position={[0, 0.4, 0]} material={mats.metalChassis} castShadow>
+        <mesh position={[0, 0.4, 0]} material={mats.metalChassis}>
           <boxGeometry args={[2.4, 0.6, 6.8]} />
         </mesh>
         {/* Orange Container */}
-        <mesh position={[0, 1.9, 0]} material={mats.containerOrange} castShadow>
+        <mesh position={[0, 1.9, 0]} material={mats.containerOrange}>
           <boxGeometry args={[2.3, 2.4, 6.2]} />
         </mesh>
         {/* Wheels */}
@@ -797,11 +797,11 @@ export default function RailwaySystem({ isNight = false }) {
           <boxGeometry args={[0.35, 0.22, 0.8]} />
         </mesh>
         {/* Chassis */}
-        <mesh position={[0, 0.4, 0]} material={mats.metalChassis} castShadow>
+        <mesh position={[0, 0.4, 0]} material={mats.metalChassis}>
           <boxGeometry args={[2.4, 0.6, 6.8]} />
         </mesh>
         {/* Green Container */}
-        <mesh position={[0, 1.9, 0]} material={mats.containerGreen} castShadow>
+        <mesh position={[0, 1.9, 0]} material={mats.containerGreen}>
           <boxGeometry args={[2.3, 2.4, 6.2]} />
         </mesh>
         {/* Wheels */}
@@ -825,11 +825,11 @@ export default function RailwaySystem({ isNight = false }) {
           <boxGeometry args={[0.35, 0.22, 0.8]} />
         </mesh>
         {/* Chassis */}
-        <mesh position={[0, 0.4, 0]} material={mats.metalChassis} castShadow>
+        <mesh position={[0, 0.4, 0]} material={mats.metalChassis}>
           <boxGeometry args={[2.4, 0.6, 6.8]} />
         </mesh>
         {/* Silver Tank Body */}
-        <mesh position={[0, 1.9, 0]} rotation={[Math.PI / 2, 0, 0]} material={mats.tankerSilver} castShadow>
+        <mesh position={[0, 1.9, 0]} rotation={[Math.PI / 2, 0, 0]} material={mats.tankerSilver}>
           <cylinderGeometry args={[1.2, 1.2, 6.2, 16]} />
         </mesh>
         {/* Wheels */}
@@ -850,15 +850,15 @@ export default function RailwaySystem({ isNight = false }) {
           <boxGeometry args={[0.35, 0.22, 0.8]} />
         </mesh>
         {/* Chassis */}
-        <mesh position={[0, 0.4, 0]} material={mats.metalChassis} castShadow>
+        <mesh position={[0, 0.4, 0]} material={mats.metalChassis}>
           <boxGeometry args={[2.4, 0.6, 6.2]} />
         </mesh>
         {/* Red Cabin */}
-        <mesh position={[0, 1.8, 0]} material={mats.cabooseRed} castShadow>
+        <mesh position={[0, 1.8, 0]} material={mats.cabooseRed}>
           <boxGeometry args={[2.3, 2.2, 5.2]} />
         </mesh>
         {/* Cupola Observation Dome */}
-        <mesh position={[0, 3.2, 0]} material={mats.cabooseRed} castShadow>
+        <mesh position={[0, 3.2, 0]} material={mats.cabooseRed}>
           <boxGeometry args={[1.8, 0.8, 2.2]} />
         </mesh>
         {/* Red Rear Marker Light */}

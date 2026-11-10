@@ -10,6 +10,9 @@ import SeasideCampgrounds from './SeasideCampgrounds';
 // =============================================================================
 // REUSABLE LOW-POLY PARKED VEHICLE COMPONENT
 // =============================================================================
+// =============================================================================
+// REUSABLE ULTRA-LIGHT LOW-POLY PARKED VEHICLE COMPONENT (MOBILE-OPTIMIZED)
+// =============================================================================
 function LowPolyParkedCar({
   position = [0, 0, 0],
   rotation = [0, 0, 0],
@@ -18,268 +21,43 @@ function LowPolyParkedCar({
 }) {
   const isPickup = type === 'pickup';
   const isSUV = type === 'suv';
-  const isHatch = type === 'hatchback';
-  const isWagon = type === 'wagon';
 
-  const bodyW = isSUV ? 2.2 : isPickup ? 2.2 : isHatch ? 1.85 : 2.0;
-  const bodyH = isSUV ? 0.8 : isPickup ? 0.75 : 0.65;
-  const bodyL = isSUV ? 4.6 : isPickup ? 4.9 : isHatch ? 3.8 : 4.4;
-
-  const cabW = bodyW - 0.25;
-  const cabH = isSUV ? 0.8 : 0.65;
-  const cabL = isPickup ? 1.9 : isHatch ? 2.1 : isWagon ? 2.8 : 2.3;
-  const cabZ = isPickup ? 0.55 : isWagon ? -0.35 : -0.2;
+  const bodyW = isSUV ? 2.2 : isPickup ? 2.2 : 2.0;
+  const bodyH = isSUV ? 0.75 : 0.65;
+  const bodyL = isSUV ? 4.5 : isPickup ? 4.8 : 4.2;
 
   return (
     <group position={position} rotation={rotation}>
       {/* Lower Car Chassis / Body */}
-      <mesh position={[0, bodyH * 0.5 + 0.25, 0]} castShadow receiveShadow>
+      <mesh position={[0, bodyH * 0.5 + 0.25, 0]}>
         <boxGeometry args={[bodyW, bodyH, bodyL]} />
-        <meshStandardMaterial color={color} roughness={0.4} metalness={0.25} />
+        <meshStandardMaterial color={color} roughness={0.5} />
       </mesh>
 
-      {/* Glass Cabin / Windows */}
-      <mesh position={[0, bodyH + cabH * 0.5 + 0.25, cabZ]} castShadow>
-        <boxGeometry args={[cabW, cabH, cabL]} />
-        <meshStandardMaterial color="#0f172a" roughness={0.15} metalness={0.8} />
+      {/* Cabin / Windows */}
+      <mesh position={[0, bodyH + 0.55, isPickup ? 0.4 : -0.2]}>
+        <boxGeometry args={[bodyW - 0.25, 0.6, isPickup ? 2.0 : bodyL * 0.5]} />
+        <meshStandardMaterial color="#0f172a" roughness={0.2} metalness={0.7} />
       </mesh>
 
-      {/* Roof Panel */}
-      <mesh position={[0, bodyH + cabH + 0.26, cabZ]}>
-        <boxGeometry args={[cabW - 0.05, 0.04, cabL - 0.05]} />
-        <meshStandardMaterial color={color} roughness={0.4} metalness={0.25} />
+      {/* Wheels */}
+      <mesh position={[0, 0.32, bodyL * 0.28]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[0.32, 0.32, bodyW + 0.1, 8]} />
+        <meshStandardMaterial color="#18181b" roughness={0.9} />
       </mesh>
-
-      {/* Pickup Truck Open Cargo Bed */}
-      {isPickup && (
-        <group position={[0, 0.25 + bodyH * 0.5, -1.2]}>
-          <mesh position={[0, 0.15, 0]}>
-            <boxGeometry args={[cabW, 0.45, 2.0]} />
-            <meshStandardMaterial color="#1e293b" roughness={0.9} />
-          </mesh>
-          <mesh position={[0, 0.55, 0.4]} castShadow>
-            <boxGeometry args={[1.5, 0.45, 0.7]} />
-            <meshStandardMaterial color="#b45309" roughness={0.8} />
-          </mesh>
-        </group>
-      )}
-
-      {/* Front & Rear Bumpers */}
-      <mesh position={[0, 0.38, bodyL * 0.5 + 0.04]}>
-        <boxGeometry args={[bodyW + 0.05, 0.26, 0.1]} />
-        <meshStandardMaterial color="#1e293b" roughness={0.8} />
+      <mesh position={[0, 0.32, -bodyL * 0.28]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[0.32, 0.32, bodyW + 0.1, 8]} />
+        <meshStandardMaterial color="#18181b" roughness={0.9} />
       </mesh>
-      <mesh position={[0, 0.38, -bodyL * 0.5 - 0.04]}>
-        <boxGeometry args={[bodyW + 0.05, 0.26, 0.1]} />
-        <meshStandardMaterial color="#1e293b" roughness={0.8} />
-      </mesh>
-
-      {/* Headlights (Front +Z) */}
-      {[-bodyW * 0.36, bodyW * 0.36].map((lx, i) => (
-        <mesh key={`hl_${i}`} position={[lx, 0.55, bodyL * 0.5 + 0.06]}>
-          <boxGeometry args={[0.35, 0.16, 0.06]} />
-          <meshBasicMaterial color="#fef08a" />
-        </mesh>
-      ))}
-
-      {/* Taillights (Rear -Z) */}
-      {[-bodyW * 0.36, bodyW * 0.36].map((lx, i) => (
-        <mesh key={`tl_${i}`} position={[lx, 0.55, -bodyL * 0.5 - 0.06]}>
-          <boxGeometry args={[0.35, 0.16, 0.06]} />
-          <meshBasicMaterial color="#ef4444" />
-        </mesh>
-      ))}
-
-      {/* 4 Wheels (Rubber Tires + Silver Hubcaps) */}
-      {[-bodyW * 0.5 - 0.05, bodyW * 0.5 + 0.05].map((wx, wxi) =>
-        [-bodyL * 0.28, bodyL * 0.28].map((wz, wzi) => (
-          <group key={`w_${wxi}_${wzi}`} position={[wx, 0.34, wz]}>
-            <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
-              <cylinderGeometry args={[0.34, 0.34, 0.24, 12]} />
-              <meshStandardMaterial color="#18181b" roughness={0.9} />
-            </mesh>
-            <mesh position={[wxi === 0 ? -0.11 : 0.11, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-              <cylinderGeometry args={[0.2, 0.2, 0.04, 8]} />
-              <meshStandardMaterial color="#cbd5e1" metalness={0.8} roughness={0.2} />
-            </mesh>
-          </group>
-        ))
-      )}
     </group>
   );
 }
 
 // =============================================================================
-// REUSABLE ANIMATED SETTLEMENT PEDESTRIAN COMPONENT
+// SETTLEMENT PEDESTRIANS (DISABLED IN TYCOON VIEW FOR ZERO CPU LOAD)
 // =============================================================================
-function SettlementPedestrian({
-  waypoints = [],
-  speed = 1.2,
-  shirtColor = '#1e3a8a',
-  pantsColor = '#334155',
-  hatType = 'none',
-  hatColor = '#451a03',
-  initialWp = 0,
-  parentWorldPos = null,
-  groundOffset = 0,
-  customGetY = null
-}) {
-  const pRef = useRef();
-  const legLRef = useRef();
-  const legRRef = useRef();
-  const armLRef = useRef();
-  const armRRef = useRef();
-
-  const simRef = useRef({
-    wpIdx: initialWp,
-    x: waypoints[initialWp]?.[0] || 0,
-    z: waypoints[initialWp]?.[1] || 0,
-    y: 0,
-    rot: 0,
-    state: 'walking',
-    idleTimer: 0,
-    walkPhase: Math.random() * Math.PI * 2
-  });
-
-  useFrame((_, delta) => {
-    if (!pRef.current || waypoints.length < 2) return;
-    const dt = Math.min(delta, 0.05);
-    const sim = simRef.current;
-
-    if (sim.state === 'idle') {
-      sim.idleTimer -= dt;
-      if (legLRef.current) legLRef.current.rotation.x *= 0.82;
-      if (legRRef.current) legRRef.current.rotation.x *= 0.82;
-      if (armLRef.current) armLRef.current.rotation.x *= 0.82;
-      if (armRRef.current) armRRef.current.rotation.x *= 0.82;
-
-      if (sim.idleTimer <= 0) {
-        sim.wpIdx = (sim.wpIdx + 1) % waypoints.length;
-        sim.state = 'walking';
-      }
-    } else if (sim.state === 'walking') {
-      const target = waypoints[sim.wpIdx];
-      const dx = target[0] - sim.x;
-      const dz = target[1] - sim.z;
-      const dist = Math.hypot(dx, dz);
-
-      if (dist < 0.4) {
-        sim.state = 'idle';
-        sim.idleTimer = 3.5 + Math.random() * 4.5;
-      } else {
-        const targetRot = Math.atan2(dx, dz);
-        let diff = targetRot - sim.rot;
-        diff = Math.atan2(Math.sin(diff), Math.cos(diff));
-        sim.rot += diff * Math.min(dt * 5.0, 1.0);
-
-        const step = Math.min(speed * dt, dist);
-        sim.x += Math.sin(sim.rot) * step;
-        sim.z += Math.cos(sim.rot) * step;
-        sim.walkPhase += dt * 7.5;
-
-        const legSwing = Math.sin(sim.walkPhase) * 0.42;
-        if (legLRef.current) legLRef.current.rotation.x = legSwing;
-        if (legRRef.current) legRRef.current.rotation.x = -legSwing;
-        if (armLRef.current) armLRef.current.rotation.x = -legSwing * 0.75;
-        if (armRRef.current) armRRef.current.rotation.x = legSwing * 0.75;
-      }
-
-      pRef.current.position.x = sim.x;
-      pRef.current.position.z = sim.z;
-      pRef.current.rotation.y = sim.rot;
-    }
-
-    // Dynamic ground elevation tracking: ensures feet remain locked to actual ground/terrain
-    let targetGroundY = sim.y;
-    if (customGetY) {
-      const worldX = (parentWorldPos ? parentWorldPos[0] : 0) + sim.x;
-      const worldZ = (parentWorldPos ? parentWorldPos[2] : 0) + sim.z;
-      targetGroundY = customGetY(worldX, worldZ, sim.x, sim.z);
-    } else if (parentWorldPos) {
-      const worldX = parentWorldPos[0] + sim.x;
-      const worldZ = parentWorldPos[2] + sim.z;
-      const terrainHeight = Math.max(
-        typeof getMeshHeightAt === 'function' ? getMeshHeightAt(worldX, worldZ) : getTerrainHeight(worldX, worldZ),
-        getTerrainHeight(worldX, worldZ)
-      );
-      targetGroundY = terrainHeight - parentWorldPos[1] + groundOffset;
-    }
-    sim.y = targetGroundY;
-    const walkBob = sim.state === 'walking' ? Math.abs(Math.sin(sim.walkPhase)) * 0.04 : 0;
-    pRef.current.position.y = targetGroundY + walkBob;
-  });
-
-  return (
-    <group ref={pRef} position={[simRef.current.x, 0, simRef.current.z]}>
-      {/* Torso */}
-      <mesh position={[0, 0.95, 0]} castShadow>
-        <boxGeometry args={[0.38, 0.52, 0.22]} />
-        <meshStandardMaterial color={shirtColor} roughness={0.7} />
-      </mesh>
-      {/* Head */}
-      <mesh position={[0, 1.32, 0]}>
-        <sphereGeometry args={[0.12, 10, 10]} />
-        <meshStandardMaterial color="#fed7aa" roughness={0.7} />
-      </mesh>
-      {/* Hat or Hair */}
-      {hatType === 'hardHat' && (
-        <group position={[0, 1.38, 0]}>
-          <mesh position={[0, 0.04, 0]}>
-            <sphereGeometry args={[0.15, 12, 12, 0, Math.PI * 2, 0, Math.PI * 0.55]} />
-            <meshStandardMaterial color={hatColor || '#facc15'} roughness={0.3} />
-          </mesh>
-          <mesh position={[0, 0, 0.04]} rotation={[0.1, 0, 0]}>
-            <cylinderGeometry args={[0.18, 0.18, 0.03, 12]} />
-            <meshStandardMaterial color={hatColor || '#facc15'} roughness={0.3} />
-          </mesh>
-        </group>
-      )}
-      {hatType === 'cap' && (
-        <mesh position={[0, 1.4, 0.03]}>
-          <boxGeometry args={[0.26, 0.08, 0.32]} />
-          <meshStandardMaterial color={hatColor || '#1e3a8a'} roughness={0.8} />
-        </mesh>
-      )}
-      {hatType === 'beanie' && (
-        <mesh position={[0, 1.42, 0]}>
-          <sphereGeometry args={[0.14, 10, 10, 0, Math.PI * 2, 0, Math.PI * 0.65]} />
-          <meshStandardMaterial color={hatColor || '#991b1b'} roughness={0.9} />
-        </mesh>
-      )}
-      {hatType === 'none' && (
-        <mesh position={[0, 1.39, 0]}>
-          <sphereGeometry args={[0.13, 10, 10, 0, Math.PI * 2, 0, Math.PI * 0.55]} />
-          <meshStandardMaterial color={hatColor || '#451a03'} roughness={0.8} />
-        </mesh>
-      )}
-      {/* Legs (swinging from hips at y = 0.68) */}
-      <group ref={legLRef} position={[-0.11, 0.68, 0]}>
-        <mesh position={[0, -0.34, 0]}>
-          <cylinderGeometry args={[0.07, 0.06, 0.68, 8]} />
-          <meshStandardMaterial color={pantsColor} roughness={0.85} />
-        </mesh>
-      </group>
-      <group ref={legRRef} position={[0.11, 0.68, 0]}>
-        <mesh position={[0, -0.34, 0]}>
-          <cylinderGeometry args={[0.07, 0.06, 0.68, 8]} />
-          <meshStandardMaterial color={pantsColor} roughness={0.85} />
-        </mesh>
-      </group>
-      {/* Arms (swinging from shoulders at y = 1.15) */}
-      <group ref={armLRef} position={[-0.24, 1.15, 0]}>
-        <mesh position={[0, -0.22, 0]}>
-          <cylinderGeometry args={[0.05, 0.05, 0.44, 8]} />
-          <meshStandardMaterial color={shirtColor} roughness={0.7} />
-        </mesh>
-      </group>
-      <group ref={armRRef} position={[0.24, 1.15, 0]}>
-        <mesh position={[0, -0.22, 0]}>
-          <cylinderGeometry args={[0.05, 0.05, 0.44, 8]} />
-          <meshStandardMaterial color={shirtColor} roughness={0.7} />
-        </mesh>
-      </group>
-    </group>
-  );
+function SettlementPedestrian() {
+  return null;
 }
 
 // =============================================================================
@@ -385,13 +163,13 @@ function AnimatedFarmTractor({
   return (
     <group ref={rootRef} position={[simRef.current.x, 0, simRef.current.z]}>
       {/* Tractor Engine Hood / Body */}
-      <mesh position={[0, 1.05, 0.55]} castShadow>
+      <mesh position={[0, 1.05, 0.55]}>
         <boxGeometry args={[1.5, 1.05, 2.3]} />
         <meshStandardMaterial color={bodyColor} roughness={0.4} metalness={0.2} />
       </mesh>
 
       {/* Front Radiator Grille */}
-      <mesh position={[0, 1.05, 1.71]} castShadow>
+      <mesh position={[0, 1.05, 1.71]}>
         <boxGeometry args={[1.3, 0.85, 0.06]} />
         <meshStandardMaterial color="#0f172a" roughness={0.8} />
       </mesh>
@@ -421,7 +199,7 @@ function AnimatedFarmTractor({
       {/* Cab / Safety Enclosure */}
       <group position={[0, 1.8, -0.6]}>
         {/* Tinted Glass Cabin */}
-        <mesh position={[0, 0, 0]} castShadow>
+        <mesh position={[0, 0, 0]}>
           <boxGeometry args={[1.5, 1.25, 1.4]} />
           <meshStandardMaterial color="#0f172a" roughness={0.15} metalness={0.75} />
         </mesh>
@@ -451,7 +229,7 @@ function AnimatedFarmTractor({
       {/* Left Rear Wheel */}
       <group position={[-1.02, 0.85, -0.7]}>
         <group ref={(el) => (rearWheelsRef.current[0] = el)}>
-          <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
+          <mesh rotation={[0, 0, Math.PI / 2]}>
             <cylinderGeometry args={[0.85, 0.85, 0.48, 16]} />
             <meshStandardMaterial color="#0f172a" roughness={0.95} />
           </mesh>
@@ -469,7 +247,7 @@ function AnimatedFarmTractor({
       {/* Right Rear Wheel */}
       <group position={[1.02, 0.85, -0.7]}>
         <group ref={(el) => (rearWheelsRef.current[1] = el)}>
-          <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
+          <mesh rotation={[0, 0, Math.PI / 2]}>
             <cylinderGeometry args={[0.85, 0.85, 0.48, 16]} />
             <meshStandardMaterial color="#0f172a" roughness={0.95} />
           </mesh>
@@ -491,7 +269,7 @@ function AnimatedFarmTractor({
           <meshStandardMaterial color="#334155" metalness={0.6} />
         </mesh>
         <group position={[-0.82, 0, 0]} ref={(el) => (frontWheelsRef.current[0] = el)}>
-          <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
+          <mesh rotation={[0, 0, Math.PI / 2]}>
             <cylinderGeometry args={[0.5, 0.5, 0.32, 14]} />
             <meshStandardMaterial color="#0f172a" roughness={0.95} />
           </mesh>
@@ -501,7 +279,7 @@ function AnimatedFarmTractor({
           </mesh>
         </group>
         <group position={[0.82, 0, 0]} ref={(el) => (frontWheelsRef.current[1] = el)}>
-          <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
+          <mesh rotation={[0, 0, Math.PI / 2]}>
             <cylinderGeometry args={[0.5, 0.5, 0.32, 14]} />
             <meshStandardMaterial color="#0f172a" roughness={0.95} />
           </mesh>
@@ -535,15 +313,15 @@ function AnimatedFarmTractor({
             <cylinderGeometry args={[0.06, 0.06, 1.0, 8]} />
             <meshStandardMaterial color="#334155" metalness={0.7} />
           </mesh>
-          <mesh position={[0, 0.65, -0.6]} castShadow receiveShadow>
+          <mesh position={[0, 0.65, -0.6]} receiveShadow>
             <boxGeometry args={[1.8, 0.5, 2.2]} />
             <meshStandardMaterial color="#991b1b" roughness={0.6} />
           </mesh>
-          <mesh position={[-0.35, 1.05, -0.6]} castShadow>
+          <mesh position={[-0.35, 1.05, -0.6]}>
             <boxGeometry args={[0.65, 0.45, 0.7]} />
             <meshStandardMaterial color="#78350f" roughness={0.8} />
           </mesh>
-          <mesh position={[0.38, 1.05, -0.6]} castShadow>
+          <mesh position={[0.38, 1.05, -0.6]}>
             <boxGeometry args={[0.65, 0.45, 0.7]} />
             <meshStandardMaterial color="#78350f" roughness={0.8} />
           </mesh>
@@ -600,7 +378,7 @@ function FarmhouseGableRoof({
       <mesh
         position={[-totalHalfW * 0.5, pitchHeight * 0.5, 0]}
         rotation={[0, 0, slopeAngle]}
-        castShadow
+       
         material={roofMat}
       >
         <boxGeometry args={[slopeLen, 0.28, roofDepth]} />
@@ -610,14 +388,14 @@ function FarmhouseGableRoof({
       <mesh
         position={[totalHalfW * 0.5, pitchHeight * 0.5, 0]}
         rotation={[0, 0, -slopeAngle]}
-        castShadow
+       
         material={roofMat}
       >
         <boxGeometry args={[slopeLen, 0.28, roofDepth]} />
       </mesh>
 
       {/* Weatherproof Ridge Cap Beam */}
-      <mesh position={[0, pitchHeight + 0.12, 0]} castShadow material={roofMat}>
+      <mesh position={[0, pitchHeight + 0.12, 0]} material={roofMat}>
         <boxGeometry args={[0.38, 0.22, roofDepth + 0.1]} />
       </mesh>
     </group>
@@ -674,7 +452,7 @@ function RusticBarnRoof({
       <mesh
         position={[-totalHalfW * 0.5, pitchHeight * 0.5, 0]}
         rotation={[0, 0, slopeAngle]}
-        castShadow
+       
         material={roofMat}
       >
         <boxGeometry args={[slopeLen, 0.35, roofDepth]} />
@@ -684,14 +462,14 @@ function RusticBarnRoof({
       <mesh
         position={[totalHalfW * 0.5, pitchHeight * 0.5, 0]}
         rotation={[0, 0, -slopeAngle]}
-        castShadow
+       
         material={roofMat}
       >
         <boxGeometry args={[slopeLen, 0.35, roofDepth]} />
       </mesh>
 
       {/* Weatherproof Ridge Cap Beam */}
-      <mesh position={[0, pitchHeight + 0.18, 0]} castShadow material={roofMat}>
+      <mesh position={[0, pitchHeight + 0.18, 0]} material={roofMat}>
         <boxGeometry args={[0.45, 0.28, roofDepth + 0.1]} />
       </mesh>
 
@@ -733,7 +511,7 @@ function AnimatedFarmWindmill({ position = [0, 0, 0], mats }) {
   return (
     <group position={position}>
       {/* Galvanized Steel Lattice Mast */}
-      <mesh position={[0, 4.5, 0]} material={mats.metalChassis} castShadow>
+      <mesh position={[0, 4.5, 0]} material={mats.metalChassis}>
         <cylinderGeometry args={[0.3, 1.4, 9.0, 4]} rotation={[0, Math.PI / 4, 0]} />
       </mesh>
       {/* Tail Direction Rudder */}
@@ -872,14 +650,14 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
 
         {/* Historic Alpine Church & Clock Tower */}
         <group position={[0, 0.7, -8]}>
-          <mesh position={[0, 4.0, 0]} castShadow receiveShadow material={mats.stoneFoundation}>
+          <mesh position={[0, 4.0, 0]} receiveShadow material={mats.stoneFoundation}>
             <boxGeometry args={[9, 8, 14]} />
           </mesh>
           {/* Steeple Tower */}
-          <mesh position={[0, 11.5, 5.5]} castShadow material={mats.stoneFoundation}>
+          <mesh position={[0, 11.5, 5.5]} material={mats.stoneFoundation}>
             <boxGeometry args={[4.2, 15, 4.2]} />
           </mesh>
-          <mesh position={[0, 20.5, 5.5]} rotation={[0, Math.PI / 4, 0]} castShadow material={mats.chaletRoof}>
+          <mesh position={[0, 20.5, 5.5]} rotation={[0, Math.PI / 4, 0]} material={mats.chaletRoof}>
             <coneGeometry args={[3.2, 7.5, 4]} />
           </mesh>
           {/* Glowing Stained Glass Church Windows */}
@@ -905,15 +683,15 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
         ].map((h, i) => (
           <group key={`chalet_${i}`} position={[h.x, 0.7, h.z]} rotation={[0, h.rot, 0]}>
             {/* House Body */}
-            <mesh position={[0, 2.2, 0]} castShadow receiveShadow material={mats.woodChaletWall}>
+            <mesh position={[0, 2.2, 0]} receiveShadow material={mats.woodChaletWall}>
               <boxGeometry args={[6.5, 4.4, 7.8]} />
             </mesh>
             {/* Pitched Chalet Roof */}
-            <mesh position={[0, 5.4, 0]} rotation={[0, Math.PI / 4, 0]} castShadow material={mats.chaletRoof}>
+            <mesh position={[0, 5.4, 0]} rotation={[0, Math.PI / 4, 0]} material={mats.chaletRoof}>
               <coneGeometry args={[5.8, 2.6, 4]} />
             </mesh>
             {/* Stone Chimney */}
-            <mesh position={[2.2, 6.2, 1.8]} castShadow material={mats.stoneFoundation}>
+            <mesh position={[2.2, 6.2, 1.8]} material={mats.stoneFoundation}>
               <boxGeometry args={[0.9, 3.8, 0.9]} />
             </mesh>
             {/* Glowing Windows */}
@@ -1022,30 +800,30 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
         ].map((b, bi) => (
           <group key={`city_b_${bi}`} position={[b.x, 0.98, b.z]} rotation={[0, b.rot, 0]}>
             {/* 1. Main Structural Tower Body */}
-            <mesh position={[0, b.h * 0.5, 0]} castShadow receiveShadow material={mats.cityWallMat}>
+            <mesh position={[0, b.h * 0.5, 0]} receiveShadow material={mats.cityWallMat}>
               <boxGeometry args={[b.w, b.h, b.d]} />
             </mesh>
 
             {/* 2. Glass Curtain Façade Paneling (3D Inset - Zero Shadow Acne or Z-Fighting) */}
             {/* Front Window Façade (+Z) */}
-            <mesh position={[0, b.h * 0.5, b.d * 0.5 + 0.05]} material={mats.cityGlassMat} castShadow={false} receiveShadow={false}>
+            <mesh position={[0, b.h * 0.5, b.d * 0.5 + 0.05]} material={mats.cityGlassMat} receiveShadow={false}>
               <boxGeometry args={[b.w * 0.86, b.h * 0.88, 0.08]} />
             </mesh>
             {/* Back Window Façade (-Z) */}
-            <mesh position={[0, b.h * 0.5, -b.d * 0.5 - 0.05]} material={mats.cityGlassMat} castShadow={false} receiveShadow={false}>
+            <mesh position={[0, b.h * 0.5, -b.d * 0.5 - 0.05]} material={mats.cityGlassMat} receiveShadow={false}>
               <boxGeometry args={[b.w * 0.86, b.h * 0.88, 0.08]} />
             </mesh>
             {/* East Window Façade (+X) */}
-            <mesh position={[b.w * 0.5 + 0.05, b.h * 0.5, 0]} material={mats.cityGlassMat} castShadow={false} receiveShadow={false}>
+            <mesh position={[b.w * 0.5 + 0.05, b.h * 0.5, 0]} material={mats.cityGlassMat} receiveShadow={false}>
               <boxGeometry args={[0.08, b.h * 0.88, b.d * 0.86]} />
             </mesh>
             {/* West Window Façade (-X) */}
-            <mesh position={[-b.w * 0.5 - 0.05, b.h * 0.5, 0]} material={mats.cityGlassMat} castShadow={false} receiveShadow={false}>
+            <mesh position={[-b.w * 0.5 - 0.05, b.h * 0.5, 0]} material={mats.cityGlassMat} receiveShadow={false}>
               <boxGeometry args={[0.08, b.h * 0.88, b.d * 0.86]} />
             </mesh>
 
             {/* 3. Rooftop Mechanical Penthouse Core */}
-            <mesh position={[0, b.h + 1.2, 0]} castShadow material={mats.industrialShed}>
+            <mesh position={[0, b.h + 1.2, 0]} material={mats.industrialShed}>
               <boxGeometry args={[b.w * 0.5, 2.4, b.d * 0.5]} />
             </mesh>
 
@@ -1126,7 +904,7 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
       <group position={[AGRI_FARM_POS.x, AGRI_FARM_POS.y, AGRI_FARM_POS.z]}>
         {/* Large Traditional Red Barn with Authentic Country Gambrel/Gable Roof */}
         <group position={[0, 0, 0]}>
-          <mesh position={[0, 3.8, 0]} castShadow receiveShadow material={mats.redBarnMat}>
+          <mesh position={[0, 3.8, 0]} receiveShadow material={mats.redBarnMat}>
             <boxGeometry args={[14, 7.6, 18]} />
           </mesh>
           <RusticBarnRoof
@@ -1145,25 +923,25 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
 
         {/* Twin Silver Grain Silos */}
         <group position={[12, 0, -2]}>
-          <mesh position={[0, 6.0, 0]} castShadow material={mats.siloMat}>
+          <mesh position={[0, 6.0, 0]} material={mats.siloMat}>
             <cylinderGeometry args={[2.8, 2.8, 12, 16]} />
           </mesh>
-          <mesh position={[0, 13.0, 0]} castShadow material={mats.siloMat}>
+          <mesh position={[0, 13.0, 0]} material={mats.siloMat}>
             <coneGeometry args={[3.0, 2.4, 16]} />
           </mesh>
         </group>
         <group position={[12, 0, 6]}>
-          <mesh position={[0, 5.0, 0]} castShadow material={mats.siloMat}>
+          <mesh position={[0, 5.0, 0]} material={mats.siloMat}>
             <cylinderGeometry args={[2.5, 2.5, 10, 16]} />
           </mesh>
-          <mesh position={[0, 11.0, 0]} castShadow material={mats.siloMat}>
+          <mesh position={[0, 11.0, 0]} material={mats.siloMat}>
             <coneGeometry args={[2.7, 2.2, 16]} />
           </mesh>
         </group>
 
         {/* Farmhouse */}
         <group position={[-16, 0, 4]}>
-          <mesh position={[0, 2.6, 0]} castShadow receiveShadow material={mats.cityWallMat}>
+          <mesh position={[0, 2.6, 0]} receiveShadow material={mats.cityWallMat}>
             <boxGeometry args={[8.5, 5.2, 8.5]} />
           </mesh>
           <FarmhouseGableRoof
@@ -1175,7 +953,7 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
             roofMat={mats.chaletRoof}
           />
           {/* Stone Chimney */}
-          <mesh position={[2.6, 6.4, 1.4]} castShadow material={mats.stoneFoundation}>
+          <mesh position={[2.6, 6.4, 1.4]} material={mats.stoneFoundation}>
             <boxGeometry args={[1.0, 2.6, 1.0]} />
           </mesh>
           {/* Front Door */}
@@ -1263,7 +1041,7 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
             </mesh>
             {/* Parallel Rows of Golden Wheat Crops */}
             {[-12, -8, -4, 0, 4, 8, 12].map((rowX, ri) => (
-              <mesh key={`wheat_row_${ri}`} position={[rowX, 0.94, 0]} receiveShadow castShadow material={mats.wheatRowMat}>
+              <mesh key={`wheat_row_${ri}`} position={[rowX, 0.94, 0]} receiveShadow material={mats.wheatRowMat}>
                 <boxGeometry args={[2.0, 0.42, 26]} />
               </mesh>
             ))}
@@ -1277,7 +1055,7 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
               [11, 0.95, 8]
             ].map(([hx, hy, hz], hi) => (
               <group key={`hay_${hi}`} position={[hx, hy, hz]}>
-                <mesh castShadow rotation={[0, 0, Math.PI / 2]} material={mats.hayBaleMat}>
+                <mesh rotation={[0, 0, Math.PI / 2]} material={mats.hayBaleMat}>
                   <cylinderGeometry args={[0.7, 0.7, 1.4, 12]} />
                 </mesh>
                 <mesh rotation={[0, 0, Math.PI / 2]}>
@@ -1307,7 +1085,7 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
             {/* Parallel Rows of Lush Green Vegetables / Crops with Carrots & Greens */}
             {[-12, -8, -4, 0, 4, 8, 12].map((rowX, ri) => (
               <group key={`crop_row_${ri}`} position={[rowX, 0.92, 0]}>
-                <mesh receiveShadow castShadow material={ri % 2 === 0 ? mats.cropRowMat : mats.cropFieldMat}>
+                <mesh receiveShadow material={ri % 2 === 0 ? mats.cropRowMat : mats.cropFieldMat}>
                   <boxGeometry args={[1.9, 0.38, 26]} />
                 </mesh>
                 {/* Carrot & Vegetable tops along the row */}
@@ -1320,13 +1098,13 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
             ))}
             {/* Rustic Scarecrow in the middle of the field */}
             <group position={[0, 0.8, 0]}>
-              <mesh position={[0, 1.4, 0]} castShadow material={mats.fenceWoodMat}>
+              <mesh position={[0, 1.4, 0]} material={mats.fenceWoodMat}>
                 <cylinderGeometry args={[0.07, 0.07, 2.8, 8]} />
               </mesh>
-              <mesh position={[0, 2.1, 0]} rotation={[0, 0, Math.PI / 2]} castShadow material={mats.fenceWoodMat}>
+              <mesh position={[0, 2.1, 0]} rotation={[0, 0, Math.PI / 2]} material={mats.fenceWoodMat}>
                 <cylinderGeometry args={[0.05, 0.05, 2.0, 8]} />
               </mesh>
-              <mesh position={[0, 1.9, 0]} castShadow material={mats.redBarnMat}>
+              <mesh position={[0, 1.9, 0]} material={mats.redBarnMat}>
                 <boxGeometry args={[0.7, 0.8, 0.3]} />
               </mesh>
               <mesh position={[0, 2.5, 0]} material={mats.hayBaleMat}>
@@ -1342,7 +1120,7 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
               [13.5, 0.95, -10],
               [12.8, 1.45, -10]
             ].map(([cx, cy, cz], ci) => (
-              <mesh key={`crate_${ci}`} position={[cx, cy, cz]} castShadow material={mats.fenceWoodMat}>
+              <mesh key={`crate_${ci}`} position={[cx, cy, cz]} material={mats.fenceWoodMat}>
                 <boxGeometry args={[1.0, 0.6, 0.8]} />
               </mesh>
             ))}
@@ -1398,7 +1176,7 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
 
         {/* Large Industrial Distribution Warehouses */}
         <group position={[-18, 0.9, -8]}>
-          <mesh position={[0, 4.2, 0]} castShadow receiveShadow material={mats.industrialShed}>
+          <mesh position={[0, 4.2, 0]} receiveShadow material={mats.industrialShed}>
             <boxGeometry args={[26, 8.4, 18]} />
           </mesh>
           {/* Sawtooth Industrial Roof */}
@@ -1415,10 +1193,10 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
 
         {/* Spherical & Cylindrical Industrial Energy Fuel Tanks */}
         <group position={[18, 0.9, -10]}>
-          <mesh position={[0, 5.2, 0]} castShadow material={mats.siloMat}>
+          <mesh position={[0, 5.2, 0]} material={mats.siloMat}>
             <sphereGeometry args={[4.8, 16, 16]} />
           </mesh>
-          <mesh position={[10, 4.5, 0]} castShadow material={mats.siloMat}>
+          <mesh position={[10, 4.5, 0]} material={mats.siloMat}>
             <cylinderGeometry args={[3.4, 3.4, 9, 16]} />
           </mesh>
         </group>
@@ -1426,17 +1204,17 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
         {/* Stacked ISO Shipping Containers (Logistics Depot) */}
         <group position={[12, 0.9, 14]}>
           {/* Row 1 */}
-          <mesh position={[0, 1.3, 0]} castShadow material={mats.containerBlue}>
+          <mesh position={[0, 1.3, 0]} material={mats.containerBlue}>
             <boxGeometry args={[6.2, 2.6, 2.6]} />
           </mesh>
-          <mesh position={[6.6, 1.3, 0]} castShadow material={mats.containerOrange}>
+          <mesh position={[6.6, 1.3, 0]} material={mats.containerOrange}>
             <boxGeometry args={[6.2, 2.6, 2.6]} />
           </mesh>
-          <mesh position={[0, 3.9, 0]} castShadow material={mats.containerGreen}>
+          <mesh position={[0, 3.9, 0]} material={mats.containerGreen}>
             <boxGeometry args={[6.2, 2.6, 2.6]} />
           </mesh>
           {/* Row 2 */}
-          <mesh position={[3.2, 1.3, 3.8]} castShadow material={mats.containerOrange}>
+          <mesh position={[3.2, 1.3, 3.8]} material={mats.containerOrange}>
             <boxGeometry args={[6.2, 2.6, 2.6]} />
           </mesh>
         </group>
@@ -1492,7 +1270,7 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
       <group position={[MARINA_HARBOR_POS.x, MARINA_HARBOR_POS.y, MARINA_HARBOR_POS.z]}>
         {/* Main Timber Harbor Pier extending from shoreline into ocean bay */}
         <group position={[15, -MARINA_HARBOR_POS.y + 0.8, -25]} rotation={[0, -0.32, 0]}>
-          <mesh position={[0, 0, 0]} castShadow receiveShadow material={mats.dockWoodMat}>
+          <mesh position={[0, 0, 0]} receiveShadow material={mats.dockWoodMat}>
             <boxGeometry args={[8.5, 0.8, 36]} />
           </mesh>
           {/* Wooden Mooring Pilings descending into ocean water */}
@@ -1563,7 +1341,7 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
         {/* Scenic Rocky Promontory Cape with Historic Coastal Lighthouse */}
         <group position={[-20, getTerrainHeight(175, -565) - MARINA_HARBOR_POS.y, 5]}>
           {/* Octagonal Stone Foundation Terrace on Cape Rocks */}
-          <mesh position={[0, 0.6, 0]} castShadow receiveShadow material={mats.stoneFoundation}>
+          <mesh position={[0, 0.6, 0]} receiveShadow material={mats.stoneFoundation}>
             <cylinderGeometry args={[5.2, 5.8, 1.2, 8]} />
           </mesh>
 
@@ -1583,15 +1361,15 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
           {/* Whitewashed Lighthouse Keeper's Quarters / Cottage */}
           <group position={[-5.5, 0.6, -1.2]}>
             {/* Cottage Walls */}
-            <mesh position={[0, 1.5, 0]} castShadow receiveShadow material={mats.cityWallMat}>
+            <mesh position={[0, 1.5, 0]} receiveShadow material={mats.cityWallMat}>
               <boxGeometry args={[4.4, 3.0, 4.8]} />
             </mesh>
             {/* Pitch Slate Roof - Rotated 45 degrees on mesh to align perfectly with cottage walls */}
-            <mesh position={[0, 3.8, 0]} rotation={[0, Math.PI / 4, 0]} scale={[1.0, 1.0, 1.06]} castShadow material={mats.barnRoofMat}>
+            <mesh position={[0, 3.8, 0]} rotation={[0, Math.PI / 4, 0]} scale={[1.0, 1.0, 1.06]} material={mats.barnRoofMat}>
               <coneGeometry args={[3.85, 2.0, 4]} />
             </mesh>
             {/* Stone Chimney */}
-            <mesh position={[1.4, 4.2, 1.0]} castShadow material={mats.stoneFoundation}>
+            <mesh position={[1.4, 4.2, 1.0]} material={mats.stoneFoundation}>
               <boxGeometry args={[0.65, 2.2, 0.65]} />
             </mesh>
             {/* Cozy Glowing Window at Night */}
@@ -1603,15 +1381,15 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
           {/* Classic White & Red Striped Tapered Lighthouse Tower */}
           <group position={[0, 1.2, 0]}>
             {/* Lower White Base Cylinder */}
-            <mesh position={[0, 4.0, 0]} castShadow material={mats.cityWallMat}>
+            <mesh position={[0, 4.0, 0]} material={mats.cityWallMat}>
               <cylinderGeometry args={[2.5, 3.8, 8, 16]} />
             </mesh>
             {/* Mid Bold Nautical Red Band */}
-            <mesh position={[0, 10.5, 0]} castShadow material={mats.redBarnMat}>
+            <mesh position={[0, 10.5, 0]} material={mats.redBarnMat}>
               <cylinderGeometry args={[2.1, 2.5, 5, 16]} />
             </mesh>
             {/* Upper White Tower Section */}
-            <mesh position={[0, 15.5, 0]} castShadow material={mats.cityWallMat}>
+            <mesh position={[0, 15.5, 0]} material={mats.cityWallMat}>
               <cylinderGeometry args={[1.8, 2.1, 5, 16]} />
             </mesh>
             {/* Top Red Band */}
@@ -1723,7 +1501,7 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
       <group position={[SUNFLOWER_FARM_POS.x, SUNFLOWER_FARM_POS.y, SUNFLOWER_FARM_POS.z]}>
         {/* Traditional White & Crimson Trim Farm Barn with Authentic Gable/Gambrel Roof */}
         <group position={[0, 0, 0]}>
-          <mesh position={[0, 3.8, 0]} castShadow receiveShadow material={mats.whiteBarnMat}>
+          <mesh position={[0, 3.8, 0]} receiveShadow material={mats.whiteBarnMat}>
             <boxGeometry args={[13, 7.6, 17]} />
           </mesh>
           <RusticBarnRoof
@@ -1742,17 +1520,17 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
 
         {/* Tall Silver Grain Silo */}
         <group position={[11, 0, 2]}>
-          <mesh position={[0, 6.0, 0]} castShadow material={mats.siloMat}>
+          <mesh position={[0, 6.0, 0]} material={mats.siloMat}>
             <cylinderGeometry args={[2.8, 2.8, 12, 16]} />
           </mesh>
-          <mesh position={[0, 13.0, 0]} castShadow material={mats.siloMat}>
+          <mesh position={[0, 13.0, 0]} material={mats.siloMat}>
             <coneGeometry args={[3.0, 2.4, 16]} />
           </mesh>
         </group>
 
         {/* Steppe Farmhouse */}
         <group position={[-15, 0, 4]}>
-          <mesh position={[0, 2.5, 0]} castShadow receiveShadow material={mats.cityWallMat}>
+          <mesh position={[0, 2.5, 0]} receiveShadow material={mats.cityWallMat}>
             <boxGeometry args={[8.0, 5.0, 8.0]} />
           </mesh>
           <FarmhouseGableRoof
@@ -1764,7 +1542,7 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
             roofMat={mats.chaletRoof}
           />
           {/* Stone Chimney */}
-          <mesh position={[2.4, 6.2, 1.2]} castShadow material={mats.stoneFoundation}>
+          <mesh position={[2.4, 6.2, 1.2]} material={mats.stoneFoundation}>
             <boxGeometry args={[0.9, 2.4, 0.9]} />
           </mesh>
           <mesh position={[0, 1.3, 4.05]} material={mats.barnRoofMat}>
@@ -1876,7 +1654,7 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
             </mesh>
             {/* Golden Barley Rows */}
             {[-11, -7.5, -4, 0, 4, 7.5, 11].map((rowX, ri) => (
-              <mesh key={`barley_row_${ri}`} position={[rowX, 0.92, 0]} receiveShadow castShadow material={mats.wheatRowMat}>
+              <mesh key={`barley_row_${ri}`} position={[rowX, 0.92, 0]} receiveShadow material={mats.wheatRowMat}>
                 <boxGeometry args={[1.9, 0.38, 26]} />
               </mesh>
             ))}
@@ -1889,7 +1667,7 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
               [11, 0.95, -8]
             ].map(([hx, hy, hz], hi) => (
               <group key={`hay_sun_${hi}`} position={[hx, hy, hz]}>
-                <mesh castShadow rotation={[0, 0, Math.PI / 2]} material={mats.hayBaleMat}>
+                <mesh rotation={[0, 0, Math.PI / 2]} material={mats.hayBaleMat}>
                   <cylinderGeometry args={[0.7, 0.7, 1.4, 12]} />
                 </mesh>
                 <mesh rotation={[0, 0, Math.PI / 2]}>
@@ -1916,7 +1694,7 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
       <group position={[ORCHARD_FARM_POS.x, ORCHARD_FARM_POS.y, ORCHARD_FARM_POS.z]}>
         {/* Alpine Dark Timber Barn with Stone Foundation */}
         <group position={[0, 0, 0]}>
-          <mesh position={[0, 3.8, 0]} castShadow receiveShadow material={mats.woodChaletWall}>
+          <mesh position={[0, 3.8, 0]} receiveShadow material={mats.woodChaletWall}>
             <boxGeometry args={[13, 7.6, 17]} />
           </mesh>
           <RusticBarnRoof
@@ -1935,7 +1713,7 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
 
         {/* Alpine Dairy Shed with Milk Churns */}
         <group position={[12, 0, 4]}>
-          <mesh position={[0, 2.2, 0]} material={mats.stoneFoundation} castShadow>
+          <mesh position={[0, 2.2, 0]} material={mats.stoneFoundation}>
             <boxGeometry args={[7.0, 4.4, 8.0]} />
           </mesh>
           <mesh position={[0, 4.8, 0]} material={mats.chaletRoof}>
@@ -1949,7 +1727,7 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
 
         {/* Alpine Farmhouse */}
         <group position={[-15, 0, 4]}>
-          <mesh position={[0, 2.6, 0]} castShadow receiveShadow material={mats.woodChaletWall}>
+          <mesh position={[0, 2.6, 0]} receiveShadow material={mats.woodChaletWall}>
             <boxGeometry args={[8.0, 5.2, 8.0]} />
           </mesh>
           <FarmhouseGableRoof
@@ -1961,7 +1739,7 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
             roofMat={mats.chaletRoof}
           />
           {/* Stone Chimney */}
-          <mesh position={[2.4, 6.2, 1.2]} castShadow material={mats.stoneFoundation}>
+          <mesh position={[2.4, 6.2, 1.2]} material={mats.stoneFoundation}>
             <boxGeometry args={[0.9, 2.4, 0.9]} />
           </mesh>
           <mesh position={[0, 1.4, 4.05]} material={mats.stoneFoundation}>
@@ -1998,21 +1776,21 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
         {/* Layered 3D Lavender Fields & Apple Fruit Tree Orchard (Firmly Grounded Alpine Terrace) */}
         <group position={[0, 0.02, 36]}>
           {/* Western Mountain Terrace Stone Retaining Wall (Anchors field into mountain bedrock) */}
-          <mesh position={[-33.2, -4.5, 0]} castShadow receiveShadow material={mats.stoneFoundation}>
+          <mesh position={[-33.2, -4.5, 0]} receiveShadow material={mats.stoneFoundation}>
             <boxGeometry args={[1.4, 9.5, 29.0]} />
           </mesh>
           {/* Eastern Valley Terrace Stone Retaining Wall (Guarantees zero floating gap on the slope) */}
-          <mesh position={[33.2, -4.5, 0]} castShadow receiveShadow material={mats.stoneFoundation}>
+          <mesh position={[33.2, -4.5, 0]} receiveShadow material={mats.stoneFoundation}>
             <boxGeometry args={[1.4, 9.5, 29.0]} />
           </mesh>
           {/* Eastern Stepped Foundation Buttresses along the downhill cliff */}
           {[-9.5, 0, 9.5].map((bz, bi) => (
-            <mesh key={`buttress_${bi}`} position={[34.0, -4.5, bz]} castShadow receiveShadow material={mats.stoneFoundation}>
+            <mesh key={`buttress_${bi}`} position={[34.0, -4.5, bz]} receiveShadow material={mats.stoneFoundation}>
               <boxGeometry args={[1.6, 9.2, 2.6]} />
             </mesh>
           ))}
           {/* Southern Perimeter Stone Foundation Skirt */}
-          <mesh position={[0, -4.5, 14.2]} castShadow receiveShadow material={mats.stoneFoundation}>
+          <mesh position={[0, -4.5, 14.2]} receiveShadow material={mats.stoneFoundation}>
             <boxGeometry args={[67.8, 9.5, 1.4]} />
           </mesh>
 
@@ -2042,7 +1820,7 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
                 key={`lav_row_${ri}`}
                 position={[rowX, 0.52, 0]}
                 receiveShadow
-                castShadow
+               
                 material={ri % 2 === 0 ? mats.lavenderMat : mats.lavenderDeepMat}
               >
                 <boxGeometry args={[2.0, 0.36, 26]} />
@@ -2093,11 +1871,11 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
             ].map(([tx, tz], ti) => (
               <group key={`apple_tree_${ti}`} position={[tx, 0.42, tz]}>
                 {/* Tree Trunk */}
-                <mesh position={[0, 1.2, 0]} castShadow material={mats.woodChaletWall}>
+                <mesh position={[0, 1.2, 0]} material={mats.woodChaletWall}>
                   <cylinderGeometry args={[0.22, 0.3, 2.4, 8]} />
                 </mesh>
                 {/* Foliage Canopy (Vibrant Green) */}
-                <mesh position={[0, 2.9, 0]} castShadow material={mats.orchardFoliageMat}>
+                <mesh position={[0, 2.9, 0]} material={mats.orchardFoliageMat}>
                   <sphereGeometry args={[1.65, 10, 10]} />
                 </mesh>
                 {/* Bright Red Apples */}
@@ -2120,7 +1898,7 @@ export default function LivingSettlements({ isNight = false, season = 'summer' }
               [13.5, 0.55, -10],
               [12.8, 1.05, -10]
             ].map(([cx, cy, cz], ci) => (
-              <mesh key={`orch_crate_${ci}`} position={[cx, cy, cz]} castShadow material={mats.fenceWoodMat}>
+              <mesh key={`orch_crate_${ci}`} position={[cx, cy, cz]} material={mats.fenceWoodMat}>
                 <boxGeometry args={[1.0, 0.6, 0.8]} />
               </mesh>
             ))}

@@ -510,7 +510,7 @@ export default function WildlifeAndSky({ isNight = false }) {
           {/* Balloon 1: Warm Sunset Orange & Gold */}
           <group ref={balloon1Ref} position={[-120, 145, -45]}>
             {/* Teardrop Envelope */}
-            <mesh position={[0, 12, 0]} castShadow>
+            <mesh position={[0, 12, 0]}>
               <sphereGeometry args={[9.5, 24, 18, 0, Math.PI * 2, 0, Math.PI * 0.85]} />
               <primitive attach="material" object={mats.balloonStripes1} />
             </mesh>
@@ -519,7 +519,7 @@ export default function WildlifeAndSky({ isNight = false }) {
               <primitive attach="material" object={mats.balloonStripes2} />
             </mesh>
             {/* Wicker Basket */}
-            <mesh position={[0, -1.8, 0]} material={mats.wickerBasket} castShadow>
+            <mesh position={[0, -1.8, 0]} material={mats.wickerBasket}>
               <boxGeometry args={[2.4, 1.8, 2.4]} />
             </mesh>
             {/* Burner Flame Glow */}
@@ -531,7 +531,7 @@ export default function WildlifeAndSky({ isNight = false }) {
 
           {/* Balloon 2: Vibrant Cyan & White */}
           <group ref={balloon2Ref} position={[180, 165, 120]}>
-            <mesh position={[0, 11, 0]} castShadow>
+            <mesh position={[0, 11, 0]}>
               <sphereGeometry args={[8.5, 24, 18, 0, Math.PI * 2, 0, Math.PI * 0.85]} />
               <meshStandardMaterial color="#0284c7" roughness={0.6} />
             </mesh>
@@ -539,7 +539,7 @@ export default function WildlifeAndSky({ isNight = false }) {
               <coneGeometry args={[4.8, 6.8, 24, 1, true]} rotation={[Math.PI, 0, 0]} />
               <meshStandardMaterial color="#f8fafc" roughness={0.6} />
             </mesh>
-            <mesh position={[0, -1.6, 0]} material={mats.wickerBasket} castShadow>
+            <mesh position={[0, -1.6, 0]} material={mats.wickerBasket}>
               <boxGeometry args={[2.2, 1.6, 2.2]} />
             </mesh>
             <mesh position={[0, 0.4, 0]}>
@@ -555,10 +555,10 @@ export default function WildlifeAndSky({ isNight = false }) {
           {/* ========================================================= */}
           <group ref={helicopterRef} position={[0, 95, 0]}>
             {/* Aerodynamic Teardrop Fuselage */}
-            <mesh position={[0, 0, 0.4]} material={mats.heliBody} castShadow>
+            <mesh position={[0, 0, 0.4]} material={mats.heliBody}>
               <sphereGeometry args={[2.0, 16, 12]} />
             </mesh>
-            <mesh position={[0, 0, 1.2]} material={mats.heliBody} castShadow>
+            <mesh position={[0, 0, 1.2]} material={mats.heliBody}>
               <coneGeometry args={[1.9, 2.6, 16]} rotation={[-Math.PI / 2, 0, 0]} />
             </mesh>
 
@@ -703,7 +703,7 @@ export default function WildlifeAndSky({ isNight = false }) {
               scale={[d.scale, d.scale, d.scale]}
             >
               {/* Deer Body */}
-              <mesh name="deer_body" position={[0, 1.3, 0]} material={mats.deerCoat} castShadow>
+              <mesh name="deer_body" position={[0, 1.3, 0]} material={mats.deerCoat}>
                 <boxGeometry args={[0.9, 0.85, 2.0]} />
               </mesh>
 
@@ -771,16 +771,16 @@ function RegionalJetModel({ mats, isNight, propRefL, propRefR }) {
   return (
     <group>
       {/* 1. AERODYNAMIC FUSELAGE */}
-      <mesh position={[0, -0.05, 10.2]} rotation={[Math.PI / 2, 0, 0]} material={mats.planeBody} castShadow>
+      <mesh position={[0, -0.05, 10.2]} rotation={[Math.PI / 2, 0, 0]} material={mats.planeBody}>
         <sphereGeometry args={[0.55, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.5]} />
       </mesh>
-      <mesh position={[0, 0, 8.4]} rotation={[Math.PI / 2, 0, 0]} material={mats.planeBody} castShadow>
+      <mesh position={[0, 0, 8.4]} rotation={[Math.PI / 2, 0, 0]} material={mats.planeBody}>
         <cylinderGeometry args={[1.28, 0.55, 3.6, 24]} />
       </mesh>
       <mesh position={[0, 0.52, 8.2]} rotation={[-0.24, 0, 0]} material={mats.planeGlass}>
         <cylinderGeometry args={[1.3, 1.25, 1.3, 16, 1, false, Math.PI * 0.65, Math.PI * 0.7]} />
       </mesh>
-      <mesh position={[0, 0, 1.8]} rotation={[Math.PI / 2, 0, 0]} material={mats.planeBody} castShadow>
+      <mesh position={[0, 0, 1.8]} rotation={[Math.PI / 2, 0, 0]} material={mats.planeBody}>
         <cylinderGeometry args={[1.28, 1.28, 10.2, 24]} />
       </mesh>
       <mesh position={[0, 0.05, 1.8]} rotation={[Math.PI / 2, 0, 0]} material={mats.planeTrim}>
@@ -792,20 +792,20 @@ function RegionalJetModel({ mats, isNight, propRefL, propRefR }) {
       <mesh position={[1.27, 0.28, 1.8]} material={mats.planeGlass}>
         <boxGeometry args={[0.06, 0.32, 7.8]} />
       </mesh>
-      <mesh position={[0, 0.22, -8.2]} rotation={[Math.PI / 2 - 0.045, 0, 0]} material={mats.planeBody} castShadow>
+      <mesh position={[0, 0.22, -8.2]} rotation={[Math.PI / 2 - 0.045, 0, 0]} material={mats.planeBody}>
         <cylinderGeometry args={[1.28, 0.42, 10.2, 24]} />
       </mesh>
       <mesh position={[0, 0.44, -13.4]} rotation={[Math.PI / 2, 0, 0]} material={mats.planeEngineCore}>
         <cylinderGeometry args={[0.22, 0.3, 0.6, 16]} />
       </mesh>
-      <mesh position={[0, -0.45, 1.6]} material={mats.planeBody} castShadow>
+      <mesh position={[0, -0.45, 1.6]} material={mats.planeBody}>
         <boxGeometry args={[3.4, 0.65, 5.2]} />
       </mesh>
 
       {/* 2. SWEPT-BACK WINGS WITH UPWARD DIHEDRAL & WINGLETS */}
       {/* Port Swept Wing */}
       <group position={[-1.3, -0.22, 2.2]} rotation={[0.04, -0.34, 0.07]}>
-        <mesh position={[-5.2, 0, -0.3]} material={mats.planeWing} castShadow>
+        <mesh position={[-5.2, 0, -0.3]} material={mats.planeWing}>
           <boxGeometry args={[9.8, 0.18, 2.4]} />
         </mesh>
         <mesh position={[-5.2, 0, 0.95]} material={mats.planeChrome}>
@@ -828,7 +828,7 @@ function RegionalJetModel({ mats, isNight, propRefL, propRefR }) {
 
       {/* Starboard Swept Wing */}
       <group position={[1.3, -0.22, 2.2]} rotation={[-0.04, 0.34, -0.07]}>
-        <mesh position={[5.2, 0, -0.3]} material={mats.planeWing} castShadow>
+        <mesh position={[5.2, 0, -0.3]} material={mats.planeWing}>
           <boxGeometry args={[9.8, 0.18, 2.4]} />
         </mesh>
         <mesh position={[5.2, 0, 0.95]} material={mats.planeChrome}>
@@ -854,7 +854,7 @@ function RegionalJetModel({ mats, isNight, propRefL, propRefR }) {
         <mesh position={[0, 0.42, -0.3]} material={mats.planeWing}>
           <boxGeometry args={[0.16, 0.65, 2.2]} />
         </mesh>
-        <mesh rotation={[Math.PI / 2, 0, 0]} material={mats.planeBody} castShadow>
+        <mesh rotation={[Math.PI / 2, 0, 0]} material={mats.planeBody}>
           <cylinderGeometry args={[0.82, 0.74, 3.6, 20]} />
         </mesh>
         <mesh position={[0, 0, 1.8]} material={mats.planeChrome}>
@@ -882,7 +882,7 @@ function RegionalJetModel({ mats, isNight, propRefL, propRefR }) {
         <mesh position={[0, 0.42, -0.3]} material={mats.planeWing}>
           <boxGeometry args={[0.16, 0.65, 2.2]} />
         </mesh>
-        <mesh rotation={[Math.PI / 2, 0, 0]} material={mats.planeBody} castShadow>
+        <mesh rotation={[Math.PI / 2, 0, 0]} material={mats.planeBody}>
           <cylinderGeometry args={[0.82, 0.74, 3.6, 20]} />
         </mesh>
         <mesh position={[0, 0, 1.8]} material={mats.planeChrome}>
@@ -908,7 +908,7 @@ function RegionalJetModel({ mats, isNight, propRefL, propRefR }) {
 
       {/* 4. SWEPT EMPENNAGE */}
       <group position={[0, 1.1, -8.2]}>
-        <mesh position={[0, 1.9, -1.2]} rotation={[0.48, 0, 0]} material={mats.planeTrim} castShadow>
+        <mesh position={[0, 1.9, -1.2]} rotation={[0.48, 0, 0]} material={mats.planeTrim}>
           <boxGeometry args={[0.18, 4.4, 2.2]} />
         </mesh>
         <mesh position={[0, 3.8, -1.8]}>
@@ -949,16 +949,16 @@ function TwinTurbopropModel({ mats, isNight, propRefL, propRefR }) {
   return (
     <group>
       {/* 1. Fuselage: Length 15m, diameter 2.1m */}
-      <mesh position={[0, -0.05, 8.2]} rotation={[Math.PI / 2, 0, 0]} material={mats.turbopropBody} castShadow>
+      <mesh position={[0, -0.05, 8.2]} rotation={[Math.PI / 2, 0, 0]} material={mats.turbopropBody}>
         <sphereGeometry args={[0.55, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.5]} />
       </mesh>
-      <mesh position={[0, 0, 6.6]} rotation={[Math.PI / 2, 0, 0]} material={mats.turbopropBody} castShadow>
+      <mesh position={[0, 0, 6.6]} rotation={[Math.PI / 2, 0, 0]} material={mats.turbopropBody}>
         <cylinderGeometry args={[1.05, 0.55, 3.2, 20]} />
       </mesh>
       <mesh position={[0, 0.42, 6.5]} rotation={[-0.22, 0, 0]} material={mats.planeGlass}>
         <cylinderGeometry args={[1.08, 1.04, 1.2, 16, 1, false, Math.PI * 0.65, Math.PI * 0.7]} />
       </mesh>
-      <mesh position={[0, 0, 1.2]} rotation={[Math.PI / 2, 0, 0]} material={mats.turbopropBody} castShadow>
+      <mesh position={[0, 0, 1.2]} rotation={[Math.PI / 2, 0, 0]} material={mats.turbopropBody}>
         <cylinderGeometry args={[1.05, 1.05, 9.6, 20]} />
       </mesh>
       <mesh position={[0, 0.04, 1.2]} rotation={[Math.PI / 2, 0, 0]} material={mats.turbopropTrim}>
@@ -969,7 +969,7 @@ function TwinTurbopropModel({ mats, isNight, propRefL, propRefR }) {
           <boxGeometry args={[0.06, 0.28, 7.5]} />
         </mesh>
       ))}
-      <mesh position={[0, 0.18, -6.8]} rotation={[Math.PI / 2 - 0.04, 0, 0]} material={mats.turbopropBody} castShadow>
+      <mesh position={[0, 0.18, -6.8]} rotation={[Math.PI / 2 - 0.04, 0, 0]} material={mats.turbopropBody}>
         <cylinderGeometry args={[1.05, 0.35, 8.4, 20]} />
       </mesh>
 
@@ -978,7 +978,7 @@ function TwinTurbopropModel({ mats, isNight, propRefL, propRefR }) {
         <mesh position={[0, 0, 0]} material={mats.turbopropBody}>
           <boxGeometry args={[2.8, 0.35, 3.2]} />
         </mesh>
-        <mesh position={[0, 0, 0]} material={mats.planeWing} castShadow>
+        <mesh position={[0, 0, 0]} material={mats.planeWing}>
           <boxGeometry args={[21.0, 0.16, 2.6]} />
         </mesh>
         <mesh position={[0, 0, 1.32]} material={mats.planeChrome}>
@@ -1006,7 +1006,7 @@ function TwinTurbopropModel({ mats, isNight, propRefL, propRefR }) {
         {/* Dual Turboprop Engine Nacelles */}
         {[-4.6, 4.6].map((ex, ei) => (
           <group key={ei} position={[ex, -0.32, 0.6]}>
-            <mesh rotation={[Math.PI / 2, 0, 0]} material={mats.turbopropBody} castShadow>
+            <mesh rotation={[Math.PI / 2, 0, 0]} material={mats.turbopropBody}>
               <cylinderGeometry args={[0.55, 0.48, 3.8, 16]} />
             </mesh>
             <mesh position={[0, -0.38, 1.2]} material={mats.planeEngineCore}>
@@ -1034,7 +1034,7 @@ function TwinTurbopropModel({ mats, isNight, propRefL, propRefR }) {
 
       {/* 3. High T-Tail Empennage (Distinctive Commuter Tail) */}
       <group position={[0, 1.1, -7.5]}>
-        <mesh position={[0, 2.4, -1.2]} rotation={[0.35, 0, 0]} material={mats.turbopropTrim} castShadow>
+        <mesh position={[0, 2.4, -1.2]} rotation={[0.35, 0, 0]} material={mats.turbopropTrim}>
           <boxGeometry args={[0.22, 4.8, 2.4]} />
         </mesh>
         <group position={[0, 4.6, -1.8]}>
@@ -1071,16 +1071,16 @@ function BusinessJetModel({ mats, isNight }) {
   return (
     <group>
       {/* Needle-Nose Aerodynamic Radome */}
-      <mesh position={[0, -0.05, 8.4]} rotation={[Math.PI / 2, 0, 0]} material={mats.bizjetBody} castShadow>
+      <mesh position={[0, -0.05, 8.4]} rotation={[Math.PI / 2, 0, 0]} material={mats.bizjetBody}>
         <coneGeometry args={[0.32, 1.6, 16]} />
       </mesh>
-      <mesh position={[0, 0, 6.6]} rotation={[Math.PI / 2, 0, 0]} material={mats.bizjetBody} castShadow>
+      <mesh position={[0, 0, 6.6]} rotation={[Math.PI / 2, 0, 0]} material={mats.bizjetBody}>
         <cylinderGeometry args={[0.92, 0.32, 2.4, 20]} />
       </mesh>
       <mesh position={[0, 0.35, 6.4]} rotation={[-0.26, 0, 0]} material={mats.planeGlass}>
         <sphereGeometry args={[0.82, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.45]} />
       </mesh>
-      <mesh position={[0, 0, 1.6]} rotation={[Math.PI / 2, 0, 0]} material={mats.bizjetBody} castShadow>
+      <mesh position={[0, 0, 1.6]} rotation={[Math.PI / 2, 0, 0]} material={mats.bizjetBody}>
         <cylinderGeometry args={[0.92, 0.92, 7.8, 20]} />
       </mesh>
       <mesh position={[0, 0.04, 1.6]} rotation={[Math.PI / 2, 0, 0]} material={mats.bizjetGold}>
@@ -1091,14 +1091,14 @@ function BusinessJetModel({ mats, isNight }) {
           <boxGeometry args={[0.04, 0.24, 6.0]} />
         </mesh>
       ))}
-      <mesh position={[0, 0.15, -5.6]} rotation={[Math.PI / 2 - 0.04, 0, 0]} material={mats.bizjetBody} castShadow>
+      <mesh position={[0, 0.15, -5.6]} rotation={[Math.PI / 2 - 0.04, 0, 0]} material={mats.bizjetBody}>
         <cylinderGeometry args={[0.92, 0.28, 6.8, 20]} />
       </mesh>
 
       {/* Swept Low Wings with Tall Winglets */}
       <group position={[0, -0.32, 1.2]}>
         <group position={[-1.0, 0, 0]} rotation={[0.04, -0.36, 0.08]}>
-          <mesh position={[-4.2, 0, -0.2]} material={mats.planeWing} castShadow>
+          <mesh position={[-4.2, 0, -0.2]} material={mats.planeWing}>
             <boxGeometry args={[8.2, 0.14, 2.0]} />
           </mesh>
           <mesh position={[-4.2, 0, 0.85]} material={mats.planeChrome}>
@@ -1117,7 +1117,7 @@ function BusinessJetModel({ mats, isNight }) {
           </mesh>
         </group>
         <group position={[1.0, 0, 0]} rotation={[-0.04, 0.36, -0.08]}>
-          <mesh position={[4.2, 0, -0.2]} material={mats.planeWing} castShadow>
+          <mesh position={[4.2, 0, -0.2]} material={mats.planeWing}>
             <boxGeometry args={[8.2, 0.14, 2.0]} />
           </mesh>
           <mesh position={[4.2, 0, 0.85]} material={mats.planeChrome}>
@@ -1143,7 +1143,7 @@ function BusinessJetModel({ mats, isNight }) {
           <mesh position={[ei === 0 ? 0.35 : -0.35, 0, 0]} material={mats.bizjetBody}>
             <boxGeometry args={[0.7, 0.14, 1.4]} />
           </mesh>
-          <mesh rotation={[Math.PI / 2, 0, 0]} material={mats.bizjetBody} castShadow>
+          <mesh rotation={[Math.PI / 2, 0, 0]} material={mats.bizjetBody}>
             <cylinderGeometry args={[0.52, 0.46, 3.2, 16]} />
           </mesh>
           <mesh position={[0, 0, 1.6]} material={mats.planeChrome}>
@@ -1160,7 +1160,7 @@ function BusinessJetModel({ mats, isNight }) {
 
       {/* Swept Empennage */}
       <group position={[0, 0.8, -6.6]}>
-        <mesh position={[0, 1.8, -0.8]} rotation={[0.48, 0, 0]} material={mats.bizjetBody} castShadow>
+        <mesh position={[0, 1.8, -0.8]} rotation={[0.48, 0, 0]} material={mats.bizjetBody}>
           <boxGeometry args={[0.16, 3.8, 1.8]} />
         </mesh>
         <mesh position={[0, 0.6, -1.8]} material={mats.planeWing}>
@@ -1192,7 +1192,7 @@ function BushUtilityPlaneModel({ mats, isNight, propRef }) {
   return (
     <group>
       {/* Front Nose Cowl with Single 3-Blade Propeller */}
-      <mesh position={[0, 0, 4.4]} rotation={[Math.PI / 2, 0, 0]} material={mats.bushBody} castShadow>
+      <mesh position={[0, 0, 4.4]} rotation={[Math.PI / 2, 0, 0]} material={mats.bushBody}>
         <cylinderGeometry args={[0.62, 0.72, 1.6, 16]} />
       </mesh>
       <mesh position={[0, 0, 5.4]} rotation={[Math.PI / 2, 0, 0]} material={mats.planeChrome}>
@@ -1215,7 +1215,7 @@ function BushUtilityPlaneModel({ mats, isNight, propRef }) {
       <mesh position={[0, 0.22, 2.2]} rotation={[-0.32, 0, 0]} material={mats.planeGlass}>
         <boxGeometry args={[1.2, 0.95, 1.6]} />
       </mesh>
-      <mesh position={[0, 0, 0.6]} material={mats.bushBody} castShadow>
+      <mesh position={[0, 0, 0.6]} material={mats.bushBody}>
         <boxGeometry args={[1.3, 1.35, 4.8]} />
       </mesh>
       <mesh position={[0, -0.05, 0.6]} material={mats.bushTrim}>
@@ -1226,13 +1226,13 @@ function BushUtilityPlaneModel({ mats, isNight, propRef }) {
           <boxGeometry args={[0.04, 0.42, 3.2]} />
         </mesh>
       ))}
-      <mesh position={[0, 0.15, -3.8]} rotation={[0.06, 0, 0]} material={mats.bushBody} castShadow>
+      <mesh position={[0, 0.15, -3.8]} rotation={[0.06, 0, 0]} material={mats.bushBody}>
         <boxGeometry args={[0.85, 0.9, 4.4]} />
       </mesh>
 
       {/* High Braced Wing with Aerodynamic Struts */}
       <group position={[0, 0.78, 1.0]}>
-        <mesh material={mats.bushBody} castShadow>
+        <mesh material={mats.bushBody}>
           <boxGeometry args={[15.2, 0.14, 2.2]} />
         </mesh>
         <mesh position={[0, 0, 1.12]} material={mats.bushTrim}>
@@ -1305,7 +1305,7 @@ function BushUtilityPlaneModel({ mats, isNight, propRef }) {
 
       {/* Classic Tail Fin & Stabilizer */}
       <group position={[0, 0.5, -5.6]}>
-        <mesh position={[0, 1.2, -0.4]} material={mats.bushBody} castShadow>
+        <mesh position={[0, 1.2, -0.4]} material={mats.bushBody}>
           <boxGeometry args={[0.14, 2.6, 1.6]} />
         </mesh>
         <mesh position={[0, 1.2, -1.2]} material={mats.bushTrim}>

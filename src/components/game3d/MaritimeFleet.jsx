@@ -139,27 +139,27 @@ function VisitingContainerShip({ isNight = false }) {
       <group ref={shipGroupRef} position={[308.2, 0, -710]}>
         {/* Ship Hull: Length 54m, Beam 11.5m, Height 6.2m */}
         {/* Red Anti-fouling Underbody (at/below waterline) */}
-        <mesh position={[0, 0.4, 0]} castShadow>
+        <mesh position={[0, 0.4, 0]}>
           <boxGeometry args={[11.2, 1.8, 52]} />
           <meshStandardMaterial color="#7f1d1d" roughness={0.6} />
         </mesh>
 
         {/* Main Dark Navy Hull Body */}
-        <mesh position={[0, 2.4, 0]} castShadow receiveShadow>
+        <mesh position={[0, 2.4, 0]} receiveShadow>
           <boxGeometry args={[11.6, 2.6, 53]} />
           <meshStandardMaterial color="#0f172a" roughness={0.45} />
         </mesh>
 
         {/* Tapered Bulbous Bow Wedge */}
         <group position={[0, 2.4, -27]}>
-          <mesh rotation={[-Math.PI / 2, Math.PI / 4, 0]} castShadow>
+          <mesh rotation={[-Math.PI / 2, Math.PI / 4, 0]}>
             <coneGeometry args={[5.8, 6.5, 4]} />
             <meshStandardMaterial color="#0f172a" roughness={0.45} />
           </mesh>
         </group>
 
         {/* Raised Forecastle Deck */}
-        <mesh position={[0, 4.1, -23]} castShadow>
+        <mesh position={[0, 4.1, -23]}>
           <boxGeometry args={[10.6, 0.8, 8]} />
           <meshStandardMaterial color="#334155" roughness={0.5} />
         </mesh>
@@ -178,23 +178,23 @@ function VisitingContainerShip({ isNight = false }) {
         {/* Stacked Intermodal Shipping Containers in Hold Bays */}
         {/* Bay 1 (Forward Cargo Hold) */}
         <group position={[0, 4.9, -13]}>
-          <mesh position={[-2.6, 0, 0]} castShadow>
+          <mesh position={[-2.6, 0, 0]}>
             <boxGeometry args={[4.8, 2.1, 10]} />
             <meshStandardMaterial color="#0284c7" roughness={0.4} metalness={0.2} />
           </mesh>
-          <mesh position={[2.6, 0, 0]} castShadow>
+          <mesh position={[2.6, 0, 0]}>
             <boxGeometry args={[4.8, 2.1, 10]} />
             <meshStandardMaterial color="#c2410c" roughness={0.4} metalness={0.2} />
           </mesh>
-          <mesh position={[-2.6, 2.1, 0]} castShadow>
+          <mesh position={[-2.6, 2.1, 0]}>
             <boxGeometry args={[4.8, 2.1, 10]} />
             <meshStandardMaterial color="#15803d" roughness={0.4} metalness={0.2} />
           </mesh>
-          <mesh position={[2.6, 2.1, 0]} castShadow>
+          <mesh position={[2.6, 2.1, 0]}>
             <boxGeometry args={[4.8, 2.1, 10]} />
             <meshStandardMaterial color="#e2e8f0" roughness={0.4} metalness={0.2} />
           </mesh>
-          <mesh position={[0, 4.1, 0]} castShadow>
+          <mesh position={[0, 4.1, 0]}>
             <boxGeometry args={[4.8, 2.0, 9.8]} />
             <meshStandardMaterial color="#ca8a04" roughness={0.4} metalness={0.2} />
           </mesh>
@@ -202,19 +202,19 @@ function VisitingContainerShip({ isNight = false }) {
 
         {/* Bay 2 (Midships Hold - Active Crane Target) */}
         <group position={[0, 4.9, 0]}>
-          <mesh position={[-2.6, 0, 0]} castShadow>
+          <mesh position={[-2.6, 0, 0]}>
             <boxGeometry args={[4.8, 2.1, 11]} />
             <meshStandardMaterial color="#475569" roughness={0.4} metalness={0.2} />
           </mesh>
-          <mesh position={[2.6, 0, 0]} castShadow>
+          <mesh position={[2.6, 0, 0]}>
             <boxGeometry args={[4.8, 2.1, 11]} />
             <meshStandardMaterial color="#0284c7" roughness={0.4} metalness={0.2} />
           </mesh>
-          <mesh position={[-2.6, 2.1, 0]} castShadow>
+          <mesh position={[-2.6, 2.1, 0]}>
             <boxGeometry args={[4.8, 2.1, 11]} />
             <meshStandardMaterial color="#c2410c" roughness={0.4} metalness={0.2} />
           </mesh>
-          <mesh position={[2.6, 2.1, 0]} castShadow>
+          <mesh position={[2.6, 2.1, 0]}>
             <boxGeometry args={[4.8, 2.1, 11]} />
             <meshStandardMaterial color="#16a34a" roughness={0.4} metalness={0.2} />
           </mesh>
@@ -223,17 +223,17 @@ function VisitingContainerShip({ isNight = false }) {
         {/* Stern Superstructure / Multi-Deck Bridge */}
         <group position={[0, 4.0, 16]}>
           {/* Tier 1 Accommodation */}
-          <mesh position={[0, 1.4, 0]} castShadow receiveShadow>
+          <mesh position={[0, 1.4, 0]} receiveShadow>
             <boxGeometry args={[9.8, 2.8, 9]} />
             <meshStandardMaterial color="#f8fafc" roughness={0.4} />
           </mesh>
           {/* Tier 2 Cabin deck */}
-          <mesh position={[0, 3.8, 0]} castShadow>
+          <mesh position={[0, 3.8, 0]}>
             <boxGeometry args={[9.2, 2.0, 8.4]} />
             <meshStandardMaterial color="#f8fafc" roughness={0.4} />
           </mesh>
           {/* Navigation Bridge / Wheelhouse with Wing Cantilevers */}
-          <mesh position={[0, 5.7, 0]} castShadow>
+          <mesh position={[0, 5.7, 0]}>
             <boxGeometry args={[11.8, 1.8, 7.2]} />
             <meshStandardMaterial color="#f8fafc" roughness={0.4} />
           </mesh>
@@ -254,18 +254,18 @@ function VisitingContainerShip({ isNight = false }) {
           </mesh>
 
           {/* Orange Davit Lifeboats */}
-          <mesh position={[-5.1, 3.5, 0]} castShadow>
+          <mesh position={[-5.1, 3.5, 0]}>
             <boxGeometry args={[1.0, 1.0, 3.6]} />
             <meshStandardMaterial color="#ea580c" roughness={0.5} />
           </mesh>
-          <mesh position={[5.1, 3.5, 0]} castShadow>
+          <mesh position={[5.1, 3.5, 0]}>
             <boxGeometry args={[1.0, 1.0, 3.6]} />
             <meshStandardMaterial color="#ea580c" roughness={0.5} />
           </mesh>
 
           {/* Smokestack Funnel behind bridge */}
           <group position={[0, 6.8, 4.8]}>
-            <mesh castShadow>
+            <mesh>
               <cylinderGeometry args={[1.1, 1.4, 4.6, 12]} />
               <meshStandardMaterial color="#dc2626" roughness={0.4} />
             </mesh>
@@ -277,7 +277,7 @@ function VisitingContainerShip({ isNight = false }) {
 
           {/* Rooftop Main Communication Radar Mast */}
           <group position={[0, 8.2, -1.0]}>
-            <mesh position={[0, 2.5, 0]} castShadow>
+            <mesh position={[0, 2.5, 0]}>
               <cylinderGeometry args={[0.15, 0.3, 5.2, 8]} />
               <meshStandardMaterial color="#cbd5e1" metalness={0.7} />
             </mesh>
@@ -401,12 +401,12 @@ function ActiveReachStacker({ mats, isNight }) {
   return (
     <group ref={stackerRef} position={[336.0, 2.3, -665]}>
       {/* Yellow Heavy Body */}
-      <mesh position={[0, 1.3, 0]} castShadow>
+      <mesh position={[0, 1.3, 0]}>
         <boxGeometry args={[3.2, 1.8, 5.5]} />
         <primitive attach="material" object={mats.spreaderYellow} />
       </mesh>
       {/* Operator Cab with Panoramic Windows */}
-      <mesh position={[-1.0, 2.2, 0.4]} castShadow>
+      <mesh position={[-1.0, 2.2, 0.4]}>
         <boxGeometry args={[1.2, 1.4, 2.0]} />
         <primitive attach="material" object={mats.cWhite} />
       </mesh>
@@ -447,7 +447,7 @@ function ActiveReachStacker({ mats, isNight }) {
       {/* Dynamic Telescopic Boom Assembly */}
       <group position={[0, 2.4, 0.8]} ref={boomRef}>
         {/* Main Boom Arm */}
-        <mesh position={[0, 1.8, -2.4]} rotation={[0, 0, 0]} castShadow>
+        <mesh position={[0, 1.8, -2.4]} rotation={[0, 0, 0]}>
           <boxGeometry args={[0.9, 0.9, 6.8]} />
           <primitive attach="material" object={mats.craneDark} />
         </mesh>
@@ -464,7 +464,7 @@ function ActiveReachStacker({ mats, isNight }) {
 
         {/* Gripped Shipping Container (Visible when lifting/transporting) */}
         <group ref={heldContainerRef} position={[0, 1.8, -5.4]} visible={false}>
-          <mesh castShadow receiveShadow>
+          <mesh receiveShadow>
             <boxGeometry args={[2.44, 2.5, 6.0]} />
             <primitive attach="material" object={mats.cHapag} />
           </mesh>
@@ -516,7 +516,7 @@ function ActivePortContainerTruck({ mats, isNight, curve }) {
   return (
     <group ref={truckRef}>
       {/* Tractor Cab (Modern Aerodynamic Long-Haul Cab) */}
-      <mesh position={[0, 1.4, 4.8]} castShadow>
+      <mesh position={[0, 1.4, 4.8]}>
         <boxGeometry args={[2.5, 2.5, 3.2]} />
         <primitive attach="material" object={mats.cEvergreen} />
       </mesh>
@@ -561,14 +561,14 @@ function ActivePortContainerTruck({ mats, isNight, curve }) {
       ))}
 
       {/* Semi-Trailer Chassis Frame */}
-      <mesh position={[0, 0.7, -0.6]} castShadow>
+      <mesh position={[0, 0.7, -0.6]}>
         <boxGeometry args={[2.5, 0.6, 12.0]} />
         <primitive attach="material" object={mats.craneDark} />
       </mesh>
 
       {/* 40ft Intermodal Shipping Container (Maersk Sky Blue) */}
       <group position={[0, 2.3, -0.6]}>
-        <mesh castShadow receiveShadow>
+        <mesh receiveShadow>
           <boxGeometry args={[2.44, 2.5, 11.2]} />
           <primitive attach="material" object={mats.cMaersk} />
         </mesh>
@@ -623,7 +623,7 @@ function ActiveTerminalYardMule({ mats, isNight }) {
   return (
     <group ref={muleRef} position={[328.0, 2.3, -700]}>
       {/* High-Vis Orange Yard Mule Cab */}
-      <mesh position={[-0.4, 1.2, 1.4]} castShadow>
+      <mesh position={[-0.4, 1.2, 1.4]}>
         <boxGeometry args={[1.4, 1.8, 1.8]} />
         <primitive attach="material" object={mats.cHapag} />
       </mesh>
@@ -633,12 +633,12 @@ function ActiveTerminalYardMule({ mats, isNight }) {
         <meshBasicMaterial color="#38bdf8" transparent opacity={0.7} />
       </mesh>
       {/* Trailer Chassis */}
-      <mesh position={[0, 0.6, -1.8]} castShadow>
+      <mesh position={[0, 0.6, -1.8]}>
         <boxGeometry args={[2.4, 0.4, 6.2]} />
         <primitive attach="material" object={mats.craneDark} />
       </mesh>
       {/* 20ft Green Container */}
-      <mesh position={[0, 1.9, -1.8]} castShadow>
+      <mesh position={[0, 1.9, -1.8]}>
         <boxGeometry args={[2.4, 2.4, 5.8]} />
         <primitive attach="material" object={mats.cEvergreen} />
       </mesh>
@@ -950,20 +950,20 @@ function NorthHarborContainerPort({ isNight = false }) {
       <group ref={gantryGroupRef} position={[0, 0, 0]}>
         {/* 4 Heavy Steel Gantry Portal Legs */}
         {/* Waterside Legs (x = 318.0) */}
-        <mesh position={[318.0, 8.8, -715.5]} rotation={[0, 0, -0.06]} castShadow>
+        <mesh position={[318.0, 8.8, -715.5]} rotation={[0, 0, -0.06]}>
           <boxGeometry args={[1.2, 13.5, 1.2]} />
           <primitive attach="material" object={mats.craneOrange} />
         </mesh>
-        <mesh position={[318.0, 8.8, -704.5]} rotation={[0, 0, -0.06]} castShadow>
+        <mesh position={[318.0, 8.8, -704.5]} rotation={[0, 0, -0.06]}>
           <boxGeometry args={[1.2, 13.5, 1.2]} />
           <primitive attach="material" object={mats.craneOrange} />
         </mesh>
         {/* Landside Legs (x = 328.0) */}
-        <mesh position={[328.0, 8.8, -715.5]} rotation={[0, 0, 0.06]} castShadow>
+        <mesh position={[328.0, 8.8, -715.5]} rotation={[0, 0, 0.06]}>
           <boxGeometry args={[1.2, 13.5, 1.2]} />
           <primitive attach="material" object={mats.craneOrange} />
         </mesh>
-        <mesh position={[328.0, 8.8, -704.5]} rotation={[0, 0, 0.06]} castShadow>
+        <mesh position={[328.0, 8.8, -704.5]} rotation={[0, 0, 0.06]}>
           <boxGeometry args={[1.2, 13.5, 1.2]} />
           <primitive attach="material" object={mats.craneOrange} />
         </mesh>
@@ -999,18 +999,18 @@ function NorthHarborContainerPort({ isNight = false }) {
           <primitive attach="material" object={mats.craneOrange} />
         </mesh>
         {/* Machinery House on Portal Bridge */}
-        <mesh position={[326.5, 16.8, -710.0]} castShadow>
+        <mesh position={[326.5, 16.8, -710.0]}>
           <boxGeometry args={[4.5, 2.2, 8.5]} />
           <primitive attach="material" object={mats.craneDark} />
         </mesh>
 
         {/* Long Horizontal Cantilever Boom Girder (Extends from x = 301 to x = 332 at y = 18.5) */}
         {/* Twin Box Girder Beams */}
-        <mesh position={[316.5, 18.5, -711.2]} castShadow>
+        <mesh position={[316.5, 18.5, -711.2]}>
           <boxGeometry args={[31.0, 1.1, 0.45]} />
           <primitive attach="material" object={mats.craneOrange} />
         </mesh>
-        <mesh position={[316.5, 18.5, -708.8]} castShadow>
+        <mesh position={[316.5, 18.5, -708.8]}>
           <boxGeometry args={[31.0, 1.1, 0.45]} />
           <primitive attach="material" object={mats.craneOrange} />
         </mesh>
@@ -1049,7 +1049,7 @@ function NorthHarborContainerPort({ isNight = false }) {
 
         {/* Active Animated Crane Trolley Carriage (Moves along X axis on boom) */}
         <group ref={trolleyRef} position={[320.0, 18.6, -710.0]}>
-          <mesh castShadow>
+          <mesh>
             <boxGeometry args={[2.8, 0.7, 2.6]} />
             <primitive attach="material" object={mats.craneDark} />
           </mesh>
@@ -1085,7 +1085,7 @@ function NorthHarborContainerPort({ isNight = false }) {
         {/* Active Animated 40ft Container Spreader Frame */}
         <group ref={spreaderRef} position={[320.0, 15.0, -710.0]}>
           {/* Spreader Main Telescopic Beam */}
-          <mesh castShadow>
+          <mesh>
             <boxGeometry args={[2.5, 0.45, 11.2]} />
             <primitive attach="material" object={mats.spreaderYellow} />
           </mesh>
@@ -1101,7 +1101,7 @@ function NorthHarborContainerPort({ isNight = false }) {
 
           {/* Gripped 40ft ISO Shipping Container (Shown during hoist & transport phases) */}
           <group ref={liftedContainerRef} position={[0, -1.45, 0]}>
-            <mesh castShadow receiveShadow>
+            <mesh receiveShadow>
               <boxGeometry args={[2.44, 2.45, 11.0]} />
               <primitive attach="material" object={mats.cHapag} />
             </mesh>
@@ -1128,11 +1128,11 @@ function NorthHarborContainerPort({ isNight = false }) {
           { z: -680, h: 1, c1: mats.cHapag, c2: null }
         ].map((item, idx) => (
           <group key={`bay1_${idx}`} position={[0, 0, item.z]}>
-            <mesh position={[0, 1.25, 0]} castShadow receiveShadow material={item.c1}>
+            <mesh position={[0, 1.25, 0]} receiveShadow material={item.c1}>
               <boxGeometry args={[2.44, 2.5, 11.0]} />
             </mesh>
             {item.h >= 2 && item.c2 && (
-              <mesh position={[0, 3.75, 0]} castShadow receiveShadow material={item.c2}>
+              <mesh position={[0, 3.75, 0]} receiveShadow material={item.c2}>
                 <boxGeometry args={[2.44, 2.5, 11.0]} />
               </mesh>
             )}
@@ -1151,16 +1151,16 @@ function NorthHarborContainerPort({ isNight = false }) {
           { z: -680, h: 2, c1: mats.cMaersk, c2: mats.cMSC, c3: null }
         ].map((item, idx) => (
           <group key={`bay2_${idx}`} position={[0, 0, item.z]}>
-            <mesh position={[0, 1.25, 0]} castShadow receiveShadow material={item.c1}>
+            <mesh position={[0, 1.25, 0]} receiveShadow material={item.c1}>
               <boxGeometry args={[2.44, 2.5, 11.0]} />
             </mesh>
             {item.h >= 2 && item.c2 && (
-              <mesh position={[0, 3.75, 0]} castShadow receiveShadow material={item.c2}>
+              <mesh position={[0, 3.75, 0]} receiveShadow material={item.c2}>
                 <boxGeometry args={[2.44, 2.5, 11.0]} />
               </mesh>
             )}
             {item.h >= 3 && item.c3 && (
-              <mesh position={[0, 6.25, 0]} castShadow receiveShadow material={item.c3}>
+              <mesh position={[0, 6.25, 0]} receiveShadow material={item.c3}>
                 <boxGeometry args={[2.44, 2.5, 11.0]} />
               </mesh>
             )}
@@ -1176,7 +1176,7 @@ function NorthHarborContainerPort({ isNight = false }) {
           { z: -700, c: mats.cHapag },
           { z: -680, c: mats.cEvergreen }
         ].map((item, idx) => (
-          <mesh key={`bay3_${idx}`} position={[0, 1.25, item.z]} castShadow receiveShadow material={item.c}>
+          <mesh key={`bay3_${idx}`} position={[0, 1.25, item.z]} receiveShadow material={item.c}>
             <boxGeometry args={[2.44, 2.5, 11.0]} />
           </mesh>
         ))}
@@ -1199,7 +1199,7 @@ function NorthHarborContainerPort({ isNight = false }) {
       {/* Port Security Gatehouse & Checkpoint at x = 356, z = -665 */}
       <group position={[356.0, 2.3, -665.0]}>
         {/* Guard Booth */}
-        <mesh position={[0, 1.4, 0]} castShadow>
+        <mesh position={[0, 1.4, 0]}>
           <boxGeometry args={[3.2, 2.8, 3.8]} />
           <primitive attach="material" object={mats.quayConcrete} />
         </mesh>
@@ -1235,12 +1235,12 @@ function NorthHarborContainerPort({ isNight = false }) {
       {/* ========================================================= */}
       <group position={[353.0, 2.3, -665]}>
         {/* Tower Concrete Shaft */}
-        <mesh position={[0, 5.5, 0]} castShadow>
+        <mesh position={[0, 5.5, 0]}>
           <boxGeometry args={[5.0, 11.0, 5.0]} />
           <primitive attach="material" object={mats.quayConcrete} />
         </mesh>
         {/* Observation Control Level with Panoramic Glass Windows */}
-        <mesh position={[0, 12.0, 0]} castShadow>
+        <mesh position={[0, 12.0, 0]}>
           <boxGeometry args={[6.8, 2.8, 6.8]} />
           <primitive attach="material" object={mats.cWhite} />
         </mesh>
@@ -1291,7 +1291,7 @@ function NorthHarborContainerPort({ isNight = false }) {
             <primitive attach="material" object={mats.quayConcrete} />
           </mesh>
           {/* Lattice Steel Mast */}
-          <mesh position={[0, 8.5, 0]} castShadow>
+          <mesh position={[0, 8.5, 0]}>
             <cylinderGeometry args={[0.2, 0.45, 16.0, 6]} />
             <primitive attach="material" object={mats.craneDark} />
           </mesh>
@@ -1333,7 +1333,7 @@ function AnchoredCoastalTanker({ position = [240, 0, -810], rotation = [0, 0.22,
   return (
     <group ref={groupRef} position={position} rotation={rotation}>
       {/* Tanker Hull: Length 42m, Beam 9.2m */}
-      <mesh position={[0, 1.8, 0]} castShadow receiveShadow>
+      <mesh position={[0, 1.8, 0]} receiveShadow>
         <boxGeometry args={[9.2, 3.4, 42]} />
         <meshStandardMaterial color="#334155" roughness={0.5} />
       </mesh>
@@ -1363,7 +1363,7 @@ function AnchoredCoastalTanker({ position = [240, 0, -810], rotation = [0, 0.22,
 
       {/* Aft Wheelhouse & Accommodation */}
       <group position={[0, 3.6, 13]}>
-        <mesh position={[0, 2.0, 0]} castShadow>
+        <mesh position={[0, 2.0, 0]}>
           <boxGeometry args={[8.0, 3.8, 7.5]} />
           <meshStandardMaterial color="#f1f5f9" roughness={0.4} />
         </mesh>
@@ -1373,7 +1373,7 @@ function AnchoredCoastalTanker({ position = [240, 0, -810], rotation = [0, 0.22,
           <meshStandardMaterial color="#0369a1" metalness={0.8} roughness={0.2} />
         </mesh>
         {/* Funnel */}
-        <mesh position={[0, 4.6, 2.2]} castShadow>
+        <mesh position={[0, 4.6, 2.2]}>
           <cylinderGeometry args={[0.8, 1.0, 3.2, 10]} />
           <meshStandardMaterial color="#e11d48" roughness={0.5} />
         </mesh>
@@ -1411,12 +1411,12 @@ function ActiveFishingTrawler({ position = [275, 0, -655], rotation = [0, 0.65, 
   return (
     <group ref={groupRef} position={position} rotation={rotation}>
       {/* Trawler Hull (Length 19m, Width 5.6m, Height 2.8m) */}
-      <mesh position={[0, 1.2, 0]} castShadow receiveShadow>
+      <mesh position={[0, 1.2, 0]} receiveShadow>
         <boxGeometry args={[5.4, 2.4, 18]} />
         <meshStandardMaterial color="#1e3a8a" roughness={0.5} />
       </mesh>
       {/* High Flared Bow Wedge */}
-      <mesh position={[0, 1.5, -9.5]} rotation={[-Math.PI / 2, Math.PI / 4, 0]} castShadow>
+      <mesh position={[0, 1.5, -9.5]} rotation={[-Math.PI / 2, Math.PI / 4, 0]}>
         <coneGeometry args={[2.7, 3.8, 4]} />
         <meshStandardMaterial color="#1e3a8a" roughness={0.5} />
       </mesh>
@@ -1428,7 +1428,7 @@ function ActiveFishingTrawler({ position = [275, 0, -655], rotation = [0, 0.65, 
 
       {/* Forward Wheelhouse / Cabin */}
       <group position={[0, 2.4, -3.2]}>
-        <mesh position={[0, 1.5, 0]} castShadow>
+        <mesh position={[0, 1.5, 0]}>
           <boxGeometry args={[4.2, 2.6, 5.2]} />
           <meshStandardMaterial color="#f8fafc" roughness={0.4} />
         </mesh>
@@ -1459,17 +1459,17 @@ function ActiveFishingTrawler({ position = [275, 0, -655], rotation = [0, 0.65, 
       {/* Heavy Steel Stern Gantry (A-Frame Arch for Trailing Nets) */}
       <group position={[0, 2.4, 7.8]}>
         {/* Left Leg */}
-        <mesh position={[-2.2, 2.2, 0]} rotation={[0, 0, -0.15]} castShadow>
+        <mesh position={[-2.2, 2.2, 0]} rotation={[0, 0, -0.15]}>
           <boxGeometry args={[0.3, 4.6, 0.3]} />
           <meshStandardMaterial color="#eab308" roughness={0.6} metalness={0.4} />
         </mesh>
         {/* Right Leg */}
-        <mesh position={[2.2, 2.2, 0]} rotation={[0, 0, 0.15]} castShadow>
+        <mesh position={[2.2, 2.2, 0]} rotation={[0, 0, 0.15]}>
           <boxGeometry args={[0.3, 4.6, 0.3]} />
           <meshStandardMaterial color="#eab308" roughness={0.6} metalness={0.4} />
         </mesh>
         {/* Top Crossbar */}
-        <mesh position={[0, 4.4, 0]} castShadow>
+        <mesh position={[0, 4.4, 0]}>
           <boxGeometry args={[4.4, 0.3, 0.3]} />
           <meshStandardMaterial color="#eab308" roughness={0.6} metalness={0.4} />
         </mesh>
@@ -1486,7 +1486,7 @@ function ActiveFishingTrawler({ position = [275, 0, -655], rotation = [0, 0.65, 
       </mesh>
 
       {/* Rolled Fishing Nets Stack on Deck */}
-      <mesh position={[-1.2, 2.7, 4.5]} castShadow>
+      <mesh position={[-1.2, 2.7, 4.5]}>
         <cylinderGeometry args={[0.7, 0.7, 2.4, 10]} rotation={[0, 0, Math.PI / 2]} />
         <meshStandardMaterial color="#14532d" roughness={0.9} />
       </mesh>
@@ -1532,12 +1532,12 @@ function SmallFishingBoatWithAngler({ position = [245, 0, -625], rotation = [0, 
   return (
     <group ref={boatRef} position={position} rotation={rotation}>
       {/* Wooden Clinker Rowboat Hull (Length 5.2m, Width 1.85m) */}
-      <mesh position={[0, 0.45, 0]} castShadow receiveShadow>
+      <mesh position={[0, 0.45, 0]} receiveShadow>
         <boxGeometry args={[1.85, 0.85, 5.2]} />
         <meshStandardMaterial color="#78350f" roughness={0.85} />
       </mesh>
       {/* Pointed Bow Wedge */}
-      <mesh position={[0, 0.52, -2.9]} rotation={[-Math.PI / 2, Math.PI / 4, 0]} castShadow>
+      <mesh position={[0, 0.52, -2.9]} rotation={[-Math.PI / 2, Math.PI / 4, 0]}>
         <coneGeometry args={[0.95, 1.5, 4]} />
         <meshStandardMaterial color="#78350f" roughness={0.85} />
       </mesh>
@@ -1592,12 +1592,12 @@ function SmallFishingBoatWithAngler({ position = [245, 0, -625], rotation = [0, 
           <meshStandardMaterial color="#1e3a8a" roughness={0.8} />
         </mesh>
         {/* Torso in Yellow Foul-Weather Slicker Jacket */}
-        <mesh position={[0, 0.58, 0]} castShadow>
+        <mesh position={[0, 0.58, 0]}>
           <boxGeometry args={[0.55, 0.6, 0.38]} />
           <meshStandardMaterial color="#eab308" roughness={0.6} />
         </mesh>
         {/* Head */}
-        <mesh position={[0, 1.02, 0]} castShadow>
+        <mesh position={[0, 1.02, 0]}>
           <sphereGeometry args={[0.18, 10, 10]} />
           <meshStandardMaterial color="#fed7aa" roughness={0.7} />
         </mesh>
@@ -1660,7 +1660,7 @@ function SmallFishingBoatWithAngler({ position = [245, 0, -625], rotation = [0, 
       </group>
 
       {/* Wooden Tackle Box & Metal Fish Bucket */}
-      <mesh position={[-0.35, 0.48, 0.3]} castShadow>
+      <mesh position={[-0.35, 0.48, 0.3]}>
         <boxGeometry args={[0.42, 0.24, 0.3]} />
         <meshStandardMaterial color="#b45309" roughness={0.8} />
       </mesh>
@@ -1703,11 +1703,11 @@ function CliffFishingBoatWithAngler({ position = [230, 0, -655], rotation = [0, 
   return (
     <group ref={boatRef} position={position} rotation={rotation}>
       {/* Forest Green & White Dory Boat (Length 4.8m, Width 1.7m) */}
-      <mesh position={[0, 0.42, 0]} castShadow receiveShadow>
+      <mesh position={[0, 0.42, 0]} receiveShadow>
         <boxGeometry args={[1.7, 0.8, 4.8]} />
         <meshStandardMaterial color="#166534" roughness={0.7} />
       </mesh>
-      <mesh position={[0, 0.5, -2.6]} rotation={[-Math.PI / 2, Math.PI / 4, 0]} castShadow>
+      <mesh position={[0, 0.5, -2.6]} rotation={[-Math.PI / 2, Math.PI / 4, 0]}>
         <coneGeometry args={[0.85, 1.4, 4]} />
         <meshStandardMaterial color="#166534" roughness={0.7} />
       </mesh>
@@ -1733,7 +1733,7 @@ function CliffFishingBoatWithAngler({ position = [230, 0, -655], rotation = [0, 
           <meshStandardMaterial color="#1e3a8a" roughness={0.8} />
         </mesh>
         {/* Orange Marine Parka */}
-        <mesh position={[0, 1.2, 0]} castShadow>
+        <mesh position={[0, 1.2, 0]}>
           <boxGeometry args={[0.52, 0.65, 0.35]} />
           <meshStandardMaterial color="#ea580c" roughness={0.7} />
         </mesh>
@@ -1800,12 +1800,12 @@ function SailingYacht({ position = [330, 0, -640], rotation = [0, -0.28, 0], isN
   return (
     <group ref={yachtRef} position={position} rotation={rotation}>
       {/* Sleek Hull: Length 13.5m, Width 3.8m */}
-      <mesh position={[0, 0.9, 0]} castShadow receiveShadow>
+      <mesh position={[0, 0.9, 0]} receiveShadow>
         <boxGeometry args={[3.8, 1.8, 13.5]} />
         <meshStandardMaterial color="#ffffff" roughness={0.3} />
       </mesh>
       {/* Sharp Bow Entry */}
-      <mesh position={[0, 0.95, -7.2]} rotation={[-Math.PI / 2, Math.PI / 4, 0]} castShadow>
+      <mesh position={[0, 0.95, -7.2]} rotation={[-Math.PI / 2, Math.PI / 4, 0]}>
         <coneGeometry args={[1.9, 2.8, 4]} />
         <meshStandardMaterial color="#ffffff" roughness={0.3} />
       </mesh>
@@ -1821,7 +1821,7 @@ function SailingYacht({ position = [330, 0, -640], rotation = [0, -0.28, 0], isN
         <meshStandardMaterial color="#d97706" roughness={0.7} />
       </mesh>
       {/* Low Coachroof Cabin with Tinted Windows */}
-      <mesh position={[0, 2.3, -1.8]} castShadow>
+      <mesh position={[0, 2.3, -1.8]}>
         <boxGeometry args={[2.8, 0.85, 6.2]} />
         <meshStandardMaterial color="#ffffff" roughness={0.3} />
       </mesh>
@@ -1832,12 +1832,12 @@ function SailingYacht({ position = [330, 0, -640], rotation = [0, -0.28, 0], isN
 
       {/* Tall Sailing Mast (Height 15m) */}
       <group position={[0, 2.4, -1.2]}>
-        <mesh position={[0, 7.5, 0]} castShadow>
+        <mesh position={[0, 7.5, 0]}>
           <cylinderGeometry args={[0.09, 0.14, 15, 8]} />
           <meshStandardMaterial color="#e2e8f0" metalness={0.8} roughness={0.2} />
         </mesh>
         {/* Horizontal Boom */}
-        <mesh position={[0, 1.8, 3.2]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+        <mesh position={[0, 1.8, 3.2]} rotation={[Math.PI / 2, 0, 0]}>
           <cylinderGeometry args={[0.07, 0.07, 6.4, 8]} />
           <meshStandardMaterial color="#e2e8f0" metalness={0.8} />
         </mesh>
@@ -1902,7 +1902,7 @@ function MaritimeChannelBuoy({ position = [245, 0, -608], color = '#16a34a', isN
   return (
     <group ref={buoyRef} position={position}>
       {/* Cylindrical Float Hull */}
-      <mesh position={[0, 0.4, 0]} castShadow>
+      <mesh position={[0, 0.4, 0]}>
         <cylinderGeometry args={[0.9, 0.9, 1.2, 12]} />
         <meshStandardMaterial color={color} roughness={0.4} />
       </mesh>
