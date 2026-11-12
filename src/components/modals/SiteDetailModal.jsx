@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import RevenueTrendChart from '@/components/ui/RevenueTrendChart';
 import { useCurrency } from '@/context/CurrencyContext';
+import { getMaxEquipmentCapacity } from '@/lib/simulation/asset-layout';
 
 export default function SiteDetailModal({
   site,
@@ -50,6 +51,25 @@ export default function SiteDetailModal({
   const [trackerLoading, setTrackerLoading] = useState(false);
   const [feedback, setFeedback] = useState(null);
   const [plantFinancials, setPlantFinancials] = useState(null);
+
+  // Capacity limit & fullness calculations
+  const primaryEquipType =
+    site?.region_type === 'solar'
+      ? 'solar_pack'
+      : site?.region_type === 'wind'
+        ? 'wind_turbine'
+        : 'wind_turbine';
+
+  const maxCapacityUnits = getMaxEquipmentCapacity(site?.area_hectares, primaryEquipType);
+  const currentUnitsCount = siteAssets.length;
+  const isFull = currentUnitsCount >= maxCapacityUnits;
+  const remainingSlots = Math.max(0, maxCapacityUnits - currentUnitsCount);
+  const fullnessPercent = Math.min(100, Math.round((currentUnitsCount / maxCapacityUnits) * 100));
+
+  // Average asset health & operational count
+  const avgHealth = siteAssets.length > 0
+    ? Math.round(siteAssets.reduce((sum, a) => sum + Number(a.condition || 100), 0) / siteAssets.length)
+    : 100;
 
   // Compute total capacity
   const siteTotalCapacityKw = siteAssets.reduce((sum, a) => {
@@ -243,6 +263,60 @@ export default function SiteDetailModal({
           </div>
         </div>
 
+        {/* SITE CAPACITY & FULLNESS CARD */}
+        <div className="bg-slate-950/80 p-2.5 sm:p-3 rounded-2xl border border-slate-800/90 mb-3 shadow-inner shrink-0">
+          <div className="flex items-center justify-between gap-2 mb-1.5">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Layers className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+              <span className="text-xs font-bold text-slate-200 truncate">Arazi Kurulum Doluluğu</span>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="font-mono text-xs sm:text-sm font-black text-white">
+                <strong className={isFull ? 'text-amber-400' : 'text-emerald-400'}>{currentUnitsCount}</strong>
+                <span className="text-slate-500 font-normal"> / {maxCapacityUnits} Ünite</span>
+              </span>
+              {isFull ? (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                  Kapasite Dolu
+                </span>
+              ) : (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                  {remainingSlots} Boş Slot
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Fullness Bar */}
+          <div className="w-full h-2 bg-slate-900 rounded-full overflow-hidden mb-1.5 border border-slate-800/80">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${
+                isFull
+                  ? 'bg-gradient-to-r from-amber-500 via-orange-400 to-amber-300'
+                  : fullnessPercent > 75
+                    ? 'bg-gradient-to-r from-cyan-500 to-emerald-400'
+                    : 'bg-gradient-to-r from-emerald-500 to-teal-400'
+              }`}
+              style={{ width: `${Math.max(3, fullnessPercent)}%` }}
+            />
+          </div>
+
+          {/* Sub-info Line */}
+          <div className="flex items-center justify-between text-[10px] text-slate-400">
+            <span className="truncate">
+              {primaryEquipType === 'wind_turbine' ? 'Türbin Limiti' : 'GES Paketi Limiti'}: <strong>{maxCapacityUnits} adet</strong> ({site.area_hectares} Ha zemin)
+            </span>
+            <span className="shrink-0 flex items-center gap-1.5">
+              <span>Sağlık:</span>
+              <strong className={avgHealth > 80 ? 'text-emerald-400' : avgHealth > 50 ? 'text-amber-400' : 'text-rose-400'}>
+                %{avgHealth}
+              </strong>
+              <span className="text-slate-600">•</span>
+              <span>{currentUnitsCount - underConstructionCount} Devrede{underConstructionCount > 0 ? `, ${underConstructionCount} Kurulumda` : ''}</span>
+            </span>
+          </div>
+        </div>
+
         {/* FEEDBACK ALERT */}
         {feedback && (
           <div
@@ -266,31 +340,34 @@ export default function SiteDetailModal({
           <button
             type="button"
             onClick={() => setActiveTab('equipment')}
-            className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            className={`flex-1 min-w-0 py-1.5 px-2 sm:px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer ${
               activeTab === 'equipment'
                 ? 'bg-slate-800 text-white shadow-sm border border-slate-700/80'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-850/50'
             }`}
           >
-            <Cpu className={`w-3.5 h-3.5 ${activeTab === 'equipment' ? 'text-emerald-400' : 'text-slate-500'}`} />
-            <span>Ekipmanlar ({siteAssets.length})</span>
+            <Cpu className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'equipment' ? 'text-emerald-400' : 'text-slate-500'}`} />
+            <span className="truncate">Ekipmanlar ({siteAssets.length})</span>
             {underConstructionCount > 0 && (
-              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
             )}
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('finance')}
-            className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            className={`flex-1 min-w-0 py-1.5 px-2 sm:px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer ${
               activeTab === 'finance'
                 ? 'bg-slate-800 text-white shadow-sm border border-slate-700/80'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-850/50'
             }`}
           >
-            <TrendingUp className={`w-3.5 h-3.5 ${activeTab === 'finance' ? 'text-emerald-400' : 'text-slate-500'}`} />
-            <span>Gelir & Gider (Finans)</span>
-            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+            <TrendingUp className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'finance' ? 'text-emerald-400' : 'text-slate-500'}`} />
+            <span className="truncate">
+              <span className="hidden sm:inline">Gelir & Gider (Finans)</span>
+              <span className="sm:hidden inline">Finans</span>
+            </span>
+            <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 shrink-0 hidden xs:inline">
               1W - 1Y
             </span>
           </button>
@@ -347,7 +424,12 @@ export default function SiteDetailModal({
               <div className="flex items-center justify-between pb-1">
                 <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
                   <Layers className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Kurulu Üniteler ({siteAssets.length})</span>
+                  <span>Kurulu Üniteler ({currentUnitsCount}/{maxCapacityUnits})</span>
+                  {isFull && (
+                    <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.2 rounded border border-amber-500/30 font-sans normal-case">
+                      Saha Dolu
+                    </span>
+                  )}
                 </span>
 
                 {companySite && !isGuestMode && (
@@ -358,10 +440,14 @@ export default function SiteDetailModal({
                       else onNavigateToShop(companySite.id, null);
                       onClose();
                     }}
-                    className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 flex items-center gap-1 transition-all cursor-pointer"
+                    className={`text-[11px] font-bold px-2.5 py-1 rounded-lg flex items-center gap-1 transition-all cursor-pointer border ${
+                      isFull
+                        ? 'bg-amber-500/10 text-amber-300 border-amber-500/30 hover:bg-amber-500/20'
+                        : 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border-emerald-500/40'
+                    }`}
                   >
                     <ShoppingBag className="w-3.5 h-3.5" />
-                    <span>Ekipman Ekle (Mağaza)</span>
+                    <span>{isFull ? 'Mağaza (Saha Dolu)' : 'Ekipman Ekle (Mağaza)'}</span>
                   </button>
                 )}
               </div>

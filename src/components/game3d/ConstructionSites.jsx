@@ -1943,12 +1943,12 @@ export function SolarConstructionSite({
         percent={Math.min(100, Math.max(0, Math.round(progress * 100)))}
         title={equipmentName}
       />
-      {/* 1. Compact Graded Crushed-Stone Construction Pad (Elevated +0.7m, zero dirt clipping) */}
-      <mesh position={[0, 0.35, 0]} receiveShadow>
-        <boxGeometry args={[20.0, 0.7, 14.0]} />
+      {/* 1. Compact Graded Crushed-Stone Construction Pad with subterranean foundation skirt */}
+      <mesh position={[0, 0.45, 0]} receiveShadow>
+        <boxGeometry args={[20.0, 1.3, 14.0]} />
         <meshStandardMaterial color="#334155" roughness={0.92} />
       </mesh>
-      <mesh position={[0, 0.71, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh position={[0, 1.11, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[19.8, 13.8]} />
         <meshStandardMaterial color="#475569" roughness={0.88} />
       </mesh>
@@ -1956,19 +1956,19 @@ export function SolarConstructionSite({
       {/* Safety Cones along perimeter */}
       {[-8.5, -4.0, 0, 4.0, 8.5].map((cx, i) => (
         <React.Fragment key={i}>
-          <SafetyCone position={[cx, 0.71, -6.2]} />
-          <SafetyCone position={[cx, 0.71, 6.2]} />
+          <SafetyCone position={[cx, 1.11, -6.2]} />
+          <SafetyCone position={[cx, 1.11, 6.2]} />
         </React.Fragment>
       ))}
 
       {/* Floodlights for Night Illumination */}
-      <SafetyFloodlightTower position={[-8.8, 0.71, -5.8]} isNight={isNight} />
-      <SafetyFloodlightTower position={[8.8, 0.71, 5.8]} isNight={isNight} />
+      <SafetyFloodlightTower position={[-8.8, 1.11, -5.8]} isNight={isNight} />
+      <SafetyFloodlightTower position={[8.8, 1.11, 5.8]} isNight={isNight} />
 
       {/* Concrete Foundation Pillar Piles (Phase 1+) */}
       {columnsX.map((gx, xi) =>
         [-4.0, 0, 4.0].map((gz, zi) => (
-          <group key={`pile_${xi}_${zi}`} position={[gx, 0.71, gz]}>
+          <group key={`pile_${xi}_${zi}`} position={[gx, 1.11, gz]}>
             <mesh position={[0, 0.45, 0]} castShadow>
               <cylinderGeometry args={[0.18, 0.22, 0.9, 8]} />
               <meshStandardMaterial color="#94a3b8" roughness={0.85} />

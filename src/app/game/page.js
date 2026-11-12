@@ -23,6 +23,7 @@ import DailyBonusModal from '@/components/modals/DailyBonusModal';
 import InvestmentGuideModal from '@/components/modals/InvestmentGuideModal';
 import SiteDetailModal from '@/components/modals/SiteDetailModal';
 import { getDailyStreakInfo } from '@/lib/simulation/dailyBonus';
+import { getMaxEquipmentCapacity } from '@/lib/simulation/asset-layout';
 import CinematicOverlay from '@/components/ui/CinematicOverlay';
 import { CurrencyProvider } from '@/context/CurrencyContext';
 import ambientMusic from '@/lib/audio/ambientMusic';
@@ -173,17 +174,89 @@ function GameContent() {
   // Compute player's active owned and leased sites for the top selector dropdown
   const mySites = useMemo(() => {
     if (!gameState?.companySites) return [];
+    const allAssets = gameState.installedAssets || [];
+
     return gameState.companySites.map((cs) => {
       const ws =
         cs.world_sites ||
         gameState.worldSites?.find((w) => w.id === cs.site_id) ||
         {};
+
+      const siteAreaHa = Number(ws.area_hectares) || 50;
+      const siteAssets = allAssets.filter((a) => a.company_site_id === cs.id);
+
+      const windCount = siteAssets.filter(
+        (a) => a.equipment_catalog?.equipment_type === 'wind_turbine'
+      ).length;
+      const solarCount = siteAssets.filter(
+        (a) => a.equipment_catalog?.equipment_type === 'solar_pack'
+      ).length;
+      const batteryCount = siteAssets.filter(
+        (a) => a.equipment_catalog?.equipment_type === 'battery'
+      ).length;
+
+      const totalKw = siteAssets.reduce(
+        (sum, a) => sum + (Number(a.equipment_catalog?.capacity_kw) || 0),
+        0
+      );
+      const totalMw = Number((totalKw / 1000.0).toFixed(2));
+
+      // Effective plant category based on installed assets and region
+      let effectiveType = ws.region_type || 'wind';
+      if (windCount > 0 && solarCount > 0) {
+        effectiveType = 'hybrid';
+      } else if (windCount > 0 && solarCount === 0) {
+        effectiveType = 'wind';
+      } else if (solarCount > 0 && windCount === 0) {
+        effectiveType = 'solar';
+      }
+
+      // Calculate equipment capacity and slots
+      let maxCapacity = 0;
+      let usedCapacity = 0;
+
+      if (effectiveType === 'solar') {
+        maxCapacity = getMaxEquipmentCapacity(siteAreaHa, 'solar_pack');
+        usedCapacity = solarCount;
+      } else if (effectiveType === 'wind') {
+        maxCapacity = getMaxEquipmentCapacity(siteAreaHa, 'wind_turbine');
+        usedCapacity = windCount;
+      } else {
+        // Hybrid plant: calculate capacity based on installed equipment composition
+        const maxWind = getMaxEquipmentCapacity(siteAreaHa, 'wind_turbine');
+        const maxSolar = getMaxEquipmentCapacity(siteAreaHa, 'solar_pack');
+        if (windCount > 0 && solarCount > 0) {
+          maxCapacity = maxWind + maxSolar;
+          usedCapacity = windCount + solarCount;
+        } else if (solarCount > 0) {
+          maxCapacity = maxSolar;
+          usedCapacity = solarCount;
+        } else {
+          maxCapacity = maxWind;
+          usedCapacity = windCount;
+        }
+      }
+
+      const remainingCapacity = Math.max(0, maxCapacity - usedCapacity);
+      const isFull = usedCapacity >= maxCapacity;
+
       return {
         companySiteId: cs.id,
         siteId: cs.site_id,
         plantName: cs.plant_name || ws.name || `Santral #${cs.site_id}`,
         siteName: ws.name || `Arazi #${cs.site_id}`,
         regionType: ws.region_type || 'wind',
+        effectiveType,
+        areaHectares: siteAreaHa,
+        totalKw,
+        totalMw,
+        windCount,
+        solarCount,
+        batteryCount,
+        maxCapacity,
+        usedCapacity,
+        remainingCapacity,
+        isFull,
         tenureType: cs.tenure_type || 'lease',
         centerX: ws.center_x ?? 0,
         centerZ: ws.center_z ?? 0,
@@ -192,7 +265,7 @@ function GameContent() {
         solarPotential: ws.solar_potential
       };
     });
-  }, [gameState?.companySites, gameState?.worldSites]);
+  }, [gameState?.companySites, gameState?.worldSites, gameState?.installedAssets]);
 
   // Focus and auto-zoom directly to a player's plant
   const handleFocusPlant = useCallback((siteId) => {

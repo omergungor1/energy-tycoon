@@ -4,26 +4,27 @@
  * Prevents clustering, overlapping pads, and visual overcrowding while maintaining realism.
  */
 
-// 14 Staggered Wind Turbine Coordinates (Concession radius 19m to 44m)
-// Guaranteed minimum 25m+ wake clearance between every pair, zero overlapping indices.
+// 14 Staggered Wind Turbine Coordinates (Concession radius 18m to 36m)
+// Guaranteed minimum 22m+ wake clearance between every pair, zero overlapping indices.
+// Strictly stays within plateau radius (r <= 36m + 7m pad = 43m <= 50m plateau).
 export const WIND_TURBINE_SLOTS = [
-  // Inner Tier (4 turbines, r = 19.8m, diagonal ±45°)
-  { x: 14, z: 14 },
-  { x: -14, z: 14 },
-  { x: -14, z: -14 },
-  { x: 14, z: -14 },
+  // Inner Tier (4 turbines, r = 18.4m, diagonal ±45°)
+  { x: 13, z: 13 },
+  { x: -13, z: 13 },
+  { x: -13, z: -13 },
+  { x: 13, z: -13 },
 
-  // Outer Perimeter Tier (10 turbines, r = 44m, spaced every 36°)
-  { x: 44, z: 0 },
-  { x: 36, z: 26 },
-  { x: 14, z: 42 },
-  { x: -14, z: 42 },
-  { x: -36, z: 26 },
-  { x: -44, z: 0 },
-  { x: -36, z: -26 },
-  { x: -14, z: -42 },
-  { x: 14, z: -42 },
-  { x: 36, z: -26 }
+  // Outer Perimeter Tier (10 turbines, r = 36m, spaced every 36°)
+  { x: 36, z: 0 },
+  { x: 29, z: 21 },
+  { x: 11, z: 34 },
+  { x: -11, z: 34 },
+  { x: -29, z: 21 },
+  { x: -36, z: 0 },
+  { x: -29, z: -21 },
+  { x: -11, z: -34 },
+  { x: 11, z: -34 },
+  { x: 29, z: -21 }
 ];
 
 /**
@@ -53,10 +54,9 @@ export function getMaxEquipmentCapacity(areaHectares, equipmentType) {
 
 /**
  * Generates an expansive, organized spatial slot (x, z) relative to site center.
- * - Wind Turbines: Staggered wide wake spacing (>= 25m, radius <= 44.4m).
+ * - Wind Turbines: Staggered wide wake spacing (>= 22m, radius <= 36m).
  * - Solar Arrays: Symmetrical, compact 3-column industrial grid (pitch: 24m X, 18m Z, pad: 20m x 14m).
- *   Max footprint along X is ±34m, along Z is ±34m (up to 12 packs) / ±43m (up to 15 packs).
- *   Leaves guaranteed 40m+ safety buffer between adjacent sites (e.g. Helios Flats & Radiant Saltbeds).
+ *   Leaves guaranteed safety buffer between adjacent sites.
  * - Batteries: Modular block next to substation.
  */
 export function getAssetSlotCoordinates(index, equipmentType, areaHectares = 50) {

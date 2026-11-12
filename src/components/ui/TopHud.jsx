@@ -10,6 +10,9 @@ import {
   Award,
   Sun,
   Moon,
+  Wind,
+  Sparkles,
+  Layers,
   Clock,
   Globe,
   LogOut,
@@ -133,6 +136,7 @@ export default function TopHud({
 
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [plantMenuOpen, setPlantMenuOpen] = useState(false);
+  const [plantFilter, setPlantFilter] = useState('all'); // 'all' | 'wind' | 'solar' | 'hybrid'
   const [clockMenuOpen, setClockMenuOpen] = useState(false);
   const [statsMenuOpen, setStatsMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -204,6 +208,25 @@ export default function TopHud({
     }
     return mySites[0];
   }, [mySites, focusedSite]);
+
+  // Plant filtering and statistics for Quick Plant Selector Dropdown
+  const plantCounts = useMemo(() => {
+    return {
+      all: mySites.length,
+      wind: mySites.filter((s) => s.effectiveType === 'wind').length,
+      solar: mySites.filter((s) => s.effectiveType === 'solar').length,
+      hybrid: mySites.filter((s) => s.effectiveType === 'hybrid').length
+    };
+  }, [mySites]);
+
+  const filteredSites = useMemo(() => {
+    if (plantFilter === 'all') return mySites;
+    return mySites.filter((s) => s.effectiveType === plantFilter);
+  }, [mySites, plantFilter]);
+
+  const totalCompanyMw = useMemo(() => {
+    return mySites.reduce((sum, s) => sum + (Number(s.totalMw) || 0), 0);
+  }, [mySites]);
 
   // XP Progress to next level
   const currentXp = Number(company?.xp || 0);
@@ -331,21 +354,31 @@ export default function TopHud({
 
             {/* Plant Dropdown Menu Panel */}
             {plantMenuOpen && (
-              <div className="max-sm:fixed max-sm:left-3 max-sm:right-3 max-sm:top-14 max-sm:w-auto sm:absolute sm:left-0 sm:right-auto sm:top-full sm:mt-2 sm:w-80 rounded-2xl bg-slate-900/98 border border-slate-800/90 shadow-2xl backdrop-blur-xl p-2 z-50 animate-in fade-in zoom-in-95 duration-150 text-slate-200 max-h-[80vh] overflow-y-auto">
-                <div className="px-3 py-2 border-b border-slate-800/80 mb-1.5 flex items-center justify-between">
+              <div className="max-sm:fixed max-sm:left-2 max-sm:right-2 max-sm:top-14 max-sm:w-auto sm:absolute sm:left-0 sm:right-auto sm:top-full sm:mt-2 sm:w-[410px] 2xl:w-[430px] rounded-2xl bg-slate-900/98 border border-slate-800/90 shadow-2xl backdrop-blur-xl p-2.5 z-50 animate-in fade-in zoom-in-95 duration-150 text-slate-200 max-h-[82vh] flex flex-col">
+                {/* Panel Header: Title + Total Company Installed MW + Plant Count */}
+                <div className="px-2 py-1.5 border-b border-slate-800/80 mb-2 flex items-center justify-between shrink-0">
                   <div className="flex items-center gap-1.5">
                     <Factory className="w-4 h-4 text-emerald-400" />
                     <span className="font-bold text-xs text-white">
                       {lang === 'tr' ? 'Santrallerim' : 'My Power Plants'}
                     </span>
                   </div>
-                  <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                    {mySites.length} {lang === 'tr' ? 'Tesis' : 'Plants'}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      title={lang === 'tr' ? 'Tüm Santrallerin Toplam Kurulu Gücü' : 'Total Installed Power'}
+                      className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30 flex items-center gap-1"
+                    >
+                      <Zap className="w-2.5 h-2.5 text-amber-400" />
+                      {totalCompanyMw >= 10 ? totalCompanyMw.toFixed(1) : totalCompanyMw.toFixed(2)} MW
+                    </span>
+                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                      {mySites.length} {lang === 'tr' ? 'Tesis' : 'Plants'}
+                    </span>
+                  </div>
                 </div>
 
                 {mySites.length === 0 ? (
-                  <div className="px-3 py-5 text-center text-xs text-slate-400">
+                  <div className="px-3 py-6 text-center text-xs text-slate-400">
                     <p className="font-semibold text-slate-300 mb-1">
                       {lang === 'tr' ? 'Kiralık veya Satın Alınmış Santral Yok' : 'No Leased or Owned Plants'}
                     </p>
@@ -366,91 +399,221 @@ export default function TopHud({
                     </button>
                   </div>
                 ) : (
-                  <div className="max-h-72 overflow-y-auto space-y-1 pr-1 scrollbar-thin">
-                    {mySites.map((site) => {
-                      const isSelected = selectedPlant?.siteId === site.siteId;
-                      return (
-                        <button
-                          key={site.companySiteId || site.siteId}
-                          type="button"
-                          onClick={() => {
-                            onFocusPlant(site.siteId);
-                            setPlantMenuOpen(false);
-                          }}
-                          className={`w-full flex items-center justify-between gap-2 p-2 rounded-xl text-left transition-all cursor-pointer border ${
-                            isSelected
-                              ? 'bg-cyan-950/60 border-cyan-500/50 text-white shadow-sm ring-1 ring-cyan-500/30'
-                              : 'bg-slate-950/40 hover:bg-slate-800/80 border-slate-800/80 text-slate-300 hover:text-white hover:border-slate-700'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <span
-                              className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold ${
-                                site.regionType === 'wind'
-                                  ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
-                                  : site.regionType === 'solar'
-                                  ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                                  : 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                  <>
+                    {/* Category Filter Badges / Pills Bar */}
+                    <div className="flex items-center gap-1 mb-2 px-0.5 overflow-x-auto scrollbar-none shrink-0 select-none">
+                      {/* Tümü */}
+                      <button
+                        type="button"
+                        onClick={() => setPlantFilter('all')}
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all shrink-0 cursor-pointer border ${
+                          plantFilter === 'all'
+                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 shadow-sm font-bold ring-1 ring-emerald-500/30'
+                            : 'bg-slate-800/70 hover:bg-slate-700/80 text-slate-400 hover:text-slate-200 border-slate-700/60'
+                        }`}
+                      >
+                        <Layers className="w-3 h-3" />
+                        <span>{lang === 'tr' ? 'Tümü' : 'All'}</span>
+                        <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-slate-900/80 text-slate-300">
+                          {plantCounts.all}
+                        </span>
+                      </button>
+
+                      {/* Rüzgâr */}
+                      <button
+                        type="button"
+                        onClick={() => setPlantFilter('wind')}
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all shrink-0 cursor-pointer border ${
+                          plantFilter === 'wind'
+                            ? 'bg-sky-500/20 text-sky-300 border-sky-500/50 shadow-sm font-bold ring-1 ring-sky-500/30'
+                            : 'bg-slate-800/70 hover:bg-slate-700/80 text-slate-400 hover:text-slate-200 border-slate-700/60'
+                        }`}
+                      >
+                        <Wind className="w-3 h-3 text-sky-400" />
+                        <span>{lang === 'tr' ? 'Rüzgâr' : 'Wind'}</span>
+                        <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-slate-900/80 text-slate-300">
+                          {plantCounts.wind}
+                        </span>
+                      </button>
+
+                      {/* Güneş */}
+                      <button
+                        type="button"
+                        onClick={() => setPlantFilter('solar')}
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all shrink-0 cursor-pointer border ${
+                          plantFilter === 'solar'
+                            ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-sm font-bold ring-1 ring-amber-500/30'
+                            : 'bg-slate-800/70 hover:bg-slate-700/80 text-slate-400 hover:text-slate-200 border-slate-700/60'
+                        }`}
+                      >
+                        <Sun className="w-3 h-3 text-amber-400" />
+                        <span>{lang === 'tr' ? 'Güneş' : 'Solar'}</span>
+                        <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-slate-900/80 text-slate-300">
+                          {plantCounts.solar}
+                        </span>
+                      </button>
+
+                      {/* Hibrit */}
+                      <button
+                        type="button"
+                        onClick={() => setPlantFilter('hybrid')}
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all shrink-0 cursor-pointer border ${
+                          plantFilter === 'hybrid'
+                            ? 'bg-purple-500/20 text-purple-300 border-purple-500/50 shadow-sm font-bold ring-1 ring-purple-500/30'
+                            : 'bg-slate-800/70 hover:bg-slate-700/80 text-slate-400 hover:text-slate-200 border-slate-700/60'
+                        }`}
+                      >
+                        <Sparkles className="w-3 h-3 text-purple-400" />
+                        <span>{lang === 'tr' ? 'Hibrit' : 'Hybrid'}</span>
+                        <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-slate-900/80 text-slate-300">
+                          {plantCounts.hybrid}
+                        </span>
+                      </button>
+                    </div>
+
+                    {/* Plant Cards Scroll List */}
+                    <div className="max-h-72 overflow-y-auto space-y-1.5 pr-1 scrollbar-thin">
+                      {filteredSites.length === 0 ? (
+                        <div className="py-6 text-center text-xs text-slate-400">
+                          <p className="font-semibold text-slate-300 mb-0.5">
+                            {lang === 'tr' ? 'Bu Kategoride Santral Bulunmuyor' : 'No Plants in this Category'}
+                          </p>
+                          <p className="text-[11px] text-slate-500">
+                            {lang === 'tr' ? 'Başka bir kategori seçerek santrallerinizi görüntüleyin.' : 'Select another filter category.'}
+                          </p>
+                        </div>
+                      ) : (
+                        filteredSites.map((site) => {
+                          const isSelected = selectedPlant?.siteId === site.siteId;
+                          const isWind = site.effectiveType === 'wind';
+                          const isSolar = site.effectiveType === 'solar';
+                          const isHybrid = site.effectiveType === 'hybrid';
+
+                          return (
+                            <div
+                              key={site.companySiteId || site.siteId}
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => {
+                                onFocusPlant(site.siteId);
+                                setPlantMenuOpen(false);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  onFocusPlant(site.siteId);
+                                  setPlantMenuOpen(false);
+                                }
+                              }}
+                              className={`w-full flex items-center justify-between gap-2 p-2 rounded-xl text-left transition-all cursor-pointer select-none border ${
+                                isSelected
+                                  ? 'bg-cyan-950/60 border-cyan-500/50 text-white shadow-sm ring-1 ring-cyan-500/30'
+                                  : 'bg-slate-950/40 hover:bg-slate-800/80 border-slate-800/80 text-slate-300 hover:text-white hover:border-slate-700'
                               }`}
                             >
-                              {site.siteId}
-                            </span>
-                            <div className="min-w-0">
-                              <div className="font-bold text-xs truncate flex items-center gap-1">
-                                <span className="truncate">{site.plantName}</span>
-                                {isSelected && (
-                                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shrink-0 animate-ping inline-block" />
+                              {/* Left: Plant Icon & Names */}
+                              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                <span
+                                  className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold ${
+                                    isWind
+                                      ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
+                                      : isSolar
+                                      ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                                      : 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                                  }`}
+                                >
+                                  {isWind ? (
+                                    <Wind className="w-4 h-4" />
+                                  ) : isSolar ? (
+                                    <Sun className="w-4 h-4" />
+                                  ) : (
+                                    <Sparkles className="w-4 h-4" />
+                                  )}
+                                </span>
+
+                                <div className="min-w-0 flex-1">
+                                  <div className="font-bold text-xs truncate flex items-center gap-1.5">
+                                    <span className="truncate">{site.plantName}</span>
+                                    {isSelected && (
+                                      <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shrink-0 animate-ping inline-block" />
+                                    )}
+                                  </div>
+                                  <div className="text-[10px] text-slate-400 truncate flex items-center gap-1 mt-0.5">
+                                    <span className="truncate text-slate-300">{site.siteName}</span>
+                                    <span>•</span>
+                                    <span className="capitalize shrink-0">
+                                      {isWind ? 'Rüzgâr' : isSolar ? 'Güneş' : 'Hibrit'}
+                                    </span>
+                                    <span>•</span>
+                                    <span className="font-mono text-slate-400 shrink-0">{site.areaHectares || 50} Ha</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Right: Power (MW) + Capacity Fullness + Inspect Button */}
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                {/* Total Installed Power MW Badge */}
+                                <div
+                                  title={lang === 'tr' ? 'Toplam Kurulu Güç' : 'Total Installed Power'}
+                                  className="flex items-center gap-0.5 text-[10px] font-bold font-mono text-amber-300 bg-amber-950/50 px-1.5 py-0.5 rounded border border-amber-500/30 whitespace-nowrap"
+                                >
+                                  <Zap className="w-3 h-3 text-amber-400 shrink-0" />
+                                  <span>
+                                    {site.totalMw >= 10
+                                      ? site.totalMw.toFixed(1)
+                                      : site.totalMw > 0
+                                      ? site.totalMw.toFixed(2)
+                                      : '0.0'}{' '}
+                                    MW
+                                  </span>
+                                </div>
+
+                                {/* Capacity Fullness Badge */}
+                                {site.isFull ? (
+                                  <span
+                                    title={lang === 'tr' ? 'Arazi kapasitesi tamamen dolu' : 'Land capacity full'}
+                                    className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 whitespace-nowrap"
+                                  >
+                                    {lang === 'tr' ? 'Dolu' : 'Full'} ({site.usedCapacity}/{site.maxCapacity})
+                                  </span>
+                                ) : site.usedCapacity === 0 ? (
+                                  <span
+                                    title={lang === 'tr' ? `${site.maxCapacity} ünite kurulabilir` : `${site.maxCapacity} empty slots`}
+                                    className="text-[10px] font-mono font-medium px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700/60 whitespace-nowrap"
+                                  >
+                                    0/{site.maxCapacity} ({site.remainingCapacity} {lang === 'tr' ? 'boş' : 'free'})
+                                  </span>
+                                ) : (
+                                  <span
+                                    title={lang === 'tr' ? `${site.usedCapacity} dolu, ${site.remainingCapacity} boş slot` : `${site.usedCapacity}/${site.maxCapacity} slots`}
+                                    className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 whitespace-nowrap"
+                                  >
+                                    {site.usedCapacity}/{site.maxCapacity} ({site.remainingCapacity} {lang === 'tr' ? 'boş' : 'free'})
+                                  </span>
+                                )}
+
+                                {/* Inspect Plant Button */}
+                                {onInspectPlant && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setPlantMenuOpen(false);
+                                      onInspectPlant(site.siteId);
+                                    }}
+                                    title={lang === 'tr' ? 'Santral Ekipman & Gelir Raporunu Aç' : 'Open Plant Equipment & Revenue'}
+                                    className="p-1 rounded-md bg-slate-800 hover:bg-emerald-500/20 text-slate-400 hover:text-emerald-300 border border-slate-700 hover:border-emerald-500/40 transition-colors shrink-0"
+                                  >
+                                    <ArrowUpRight className="w-3.5 h-3.5" />
+                                  </button>
                                 )}
                               </div>
-                              <div className="text-[10px] text-slate-400 truncate flex items-center gap-1 mt-0.5">
-                                <span className="truncate">{site.siteName}</span>
-                                <span>•</span>
-                                <span className="capitalize shrink-0">
-                                  {site.regionType === 'wind'
-                                    ? 'Rüzgâr'
-                                    : site.regionType === 'solar'
-                                    ? 'Güneş'
-                                    : 'Hibrit'}
-                                </span>
-                              </div>
                             </div>
-                          </div>
-
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <span
-                              className={`text-[9px] font-mono font-black uppercase px-1.5 py-0.5 rounded border ${
-                                site.tenureType === 'own'
-                                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                                  : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                              }`}
-                            >
-                              {site.tenureType === 'own'
-                                ? lang === 'tr'
-                                  ? 'MÜLK'
-                                  : 'OWNED'
-                                : lang === 'tr'
-                                ? 'KİRALIK'
-                                : 'LEASED'}
-                            </span>
-                            {onInspectPlant && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setPlantMenuOpen(false);
-                                  onInspectPlant(site.siteId);
-                                }}
-                                title={lang === 'tr' ? 'Santral Ekipman & Gelir Raporunu Aç' : 'Open Plant Equipment & Revenue'}
-                                className="p-1 rounded-md bg-slate-800 hover:bg-emerald-500/20 text-slate-400 hover:text-emerald-300 border border-slate-700 hover:border-emerald-500/40 transition-colors"
-                              >
-                                <ArrowUpRight className="w-3 h-3" />
-                              </button>
-                            )}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </>
                 )}
               </div>
             )}

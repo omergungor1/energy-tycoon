@@ -14,31 +14,37 @@ import { WindTurbineConstructionSite, SolarConstructionSite, SafetyFloodlightTow
 import { getAssetSlotCoordinates } from '@/lib/simulation/asset-layout';
 
 // 24 World Investment Sites coordinates with custom engineered plateau radii
+// Unified elevation for the contiguous South-East Sunfire Solar Steppe
+const UNIFIED_SOLAR_HEIGHT = 21.60;
+
+// 24 World Investment Sites coordinates with custom engineered plateau radii
+// All sites have spacious horizontal plateaus (56m-64m) ensuring zero clipping and perfectly level pads
 const KNOWN_SITES = [
-  { id: 1, x: -450.0, z: -320.0, area: 45.0, plateauRadius: 52 },
-  { id: 2, x: -630.0, z: -460.0, area: 75.0, plateauRadius: 54 },
-  { id: 3, x: -320.0, z: -510.0, area: 60.0, plateauRadius: 48 }, // 106m to Site 5
-  { id: 4, x: -710.0, z: -160.0, area: 85.0, plateauRadius: 54 },
-  { id: 5, x: -240.0, z: -440.0, area: 55.0, plateauRadius: 48 }, // 106m to Site 3
-  { id: 6, x: -750.0, z: -350.0, area: 90.0, plateauRadius: 54 },
-  { id: 7, x: -420.0, z: -190.0, area: 65.0, plateauRadius: 52 },
-  { id: 8, x: -820.0, z: -520.0, area: 110.0, plateauRadius: 54 },
-  { id: 9, x: 380.0, z: 320.0, area: 50.0, plateauRadius: 52 },
-  { id: 10, x: 500.0, z: 370.0, area: 80.0, plateauRadius: 52 },
-  { id: 11, x: 620.0, z: 370.0, area: 100.0, plateauRadius: 52 }, // 114m to Site 15
-  { id: 12, x: 280.0, z: 450.0, area: 70.0, plateauRadius: 52 },
-  { id: 13, x: 540.0, z: 490.0, area: 95.0, plateauRadius: 52 },
-  { id: 14, x: 220.0, z: 320.0, area: 60.0, plateauRadius: 40 }, // 89.4m to Site 21
-  { id: 15, x: 730.0, z: 400.0, area: 120.0, plateauRadius: 52 }, // 114m to Site 11
-  { id: 16, x: 860.0, z: 450.0, area: 140.0, plateauRadius: 55 },
-  { id: 17, x: 50.0, z: -180.0, area: 65.0, plateauRadius: 52 },
-  { id: 18, x: -150.0, z: 50.0, area: 80.0, plateauRadius: 52 },
-  { id: 19, x: 205.0, z: -70.0, area: 75.0, plateauRadius: 52 },
-  { id: 20, x: -50.0, z: -320.0, area: 90.0, plateauRadius: 52 },
-  { id: 21, x: 140.0, z: 360.0, area: 85.0, plateauRadius: 40 }, // 89.4m to Site 14
-  { id: 22, x: -250.0, z: 200.0, area: 105.0, plateauRadius: 54 },
-  { id: 23, x: 260.0, z: -200.0, area: 115.0, plateauRadius: 54 },
-  { id: 24, x: 50.0, z: 430.0, area: 150.0, plateauRadius: 54 }
+  { id: 1, x: -450.0, z: -320.0, area: 45.0, plateauRadius: 56 },
+  { id: 2, x: -630.0, z: -460.0, area: 75.0, plateauRadius: 56 },
+  { id: 3, x: -320.0, z: -510.0, area: 60.0, plateauRadius: 52 }, // 106m to Site 5
+  { id: 4, x: -710.0, z: -160.0, area: 85.0, plateauRadius: 56 },
+  { id: 5, x: -240.0, z: -440.0, area: 55.0, plateauRadius: 50 }, // 106m to Site 3
+  { id: 6, x: -750.0, z: -350.0, area: 90.0, plateauRadius: 56 },
+  { id: 7, x: -420.0, z: -190.0, area: 65.0, plateauRadius: 56 },
+  { id: 8, x: -820.0, z: -520.0, area: 110.0, plateauRadius: 56 },
+  // Solar Corridor (Sites 9, 10, 11, 13, 15, 16): Unified 21.60m terrace eliminates all steps, dips & clipping
+  { id: 9, x: 380.0, z: 320.0, area: 50.0, plateauRadius: 62, customHeight: UNIFIED_SOLAR_HEIGHT },
+  { id: 10, x: 500.0, z: 370.0, area: 80.0, plateauRadius: 62, customHeight: UNIFIED_SOLAR_HEIGHT },
+  { id: 11, x: 620.0, z: 370.0, area: 100.0, plateauRadius: 62, customHeight: UNIFIED_SOLAR_HEIGHT },
+  { id: 12, x: 280.0, z: 450.0, area: 70.0, plateauRadius: 56 },
+  { id: 13, x: 540.0, z: 490.0, area: 95.0, plateauRadius: 64, customHeight: UNIFIED_SOLAR_HEIGHT },
+  { id: 14, x: 220.0, z: 320.0, area: 60.0, plateauRadius: 42 }, // 89.4m to Site 21
+  { id: 15, x: 730.0, z: 400.0, area: 120.0, plateauRadius: 64, customHeight: UNIFIED_SOLAR_HEIGHT },
+  { id: 16, x: 860.0, z: 450.0, area: 140.0, plateauRadius: 64, customHeight: UNIFIED_SOLAR_HEIGHT },
+  { id: 17, x: 50.0, z: -180.0, area: 65.0, plateauRadius: 56 },
+  { id: 18, x: -150.0, z: 50.0, area: 80.0, plateauRadius: 56 },
+  { id: 19, x: 205.0, z: -70.0, area: 75.0, plateauRadius: 56 },
+  { id: 20, x: -50.0, z: -320.0, area: 90.0, plateauRadius: 56 },
+  { id: 21, x: 140.0, z: 360.0, area: 85.0, plateauRadius: 42 }, // 89.4m to Site 14
+  { id: 22, x: -250.0, z: 200.0, area: 105.0, plateauRadius: 56 },
+  { id: 23, x: 260.0, z: -200.0, area: 115.0, plateauRadius: 56 },
+  { id: 24, x: 50.0, z: 430.0, area: 150.0, plateauRadius: 56 }
 ];
 
 function smoothstep(min, max, value) {
@@ -127,7 +133,7 @@ function getRawTerrainHeight(x, z) {
 }
 
 // Pre-computed site anchor heights for leveled terrace platforms
-const SITE_ANCHOR_HEIGHTS = KNOWN_SITES.map((s) => getRawTerrainHeight(s.x, s.z));
+const SITE_ANCHOR_HEIGHTS = KNOWN_SITES.map((s) => s.customHeight !== undefined ? s.customHeight : getRawTerrainHeight(s.x, s.z));
 const SUBSTATION_ANCHOR_HEIGHT = getRawTerrainHeight(0, 0);
 
 // Pre-computed anchor heights for Living Settlements to ensure flat, stable building foundations (no Z-fighting)
@@ -152,23 +158,33 @@ export function getTerrainHeight(x, z) {
   let h = getRawTerrainHeight(x, z);
 
   // 1. Fully leveled civil engineering terraces around all 24 sites
-  // Perfectly horizontal flat plateau ensures zero clipping, no slopes, and level pads
+  // Seamless closest-site logic guarantees 100% horizontal flat plateaus without transition clipping
+  let closestSiteIdx = -1;
+  let closestDist = Infinity;
+
   for (let i = 0; i < KNOWN_SITES.length; i++) {
     const s = KNOWN_SITES[i];
-    const platR = s.plateauRadius || 52;
-    const transR = platR + 16;
+    const transR = (s.plateauRadius || 56) + 16;
     if (Math.abs(x - s.x) < transR && Math.abs(z - s.z) < transR) {
       const d = Math.hypot(x - s.x, z - s.z);
-      if (d < transR) {
-        if (d <= platR) {
-          // 100% Perfectly flat horizontal ground inside the site territory
-          return SITE_ANCHOR_HEIGHTS[i];
-        }
-        const t = smoothstep(transR, platR, d);
-        h = h * (1 - t) + SITE_ANCHOR_HEIGHTS[i] * t;
-        break;
+      if (d < transR && d < closestDist) {
+        closestDist = d;
+        closestSiteIdx = i;
       }
     }
+  }
+
+  if (closestSiteIdx !== -1) {
+    const s = KNOWN_SITES[closestSiteIdx];
+    const platR = s.plateauRadius || 56;
+    const transR = platR + 16;
+    const targetH = SITE_ANCHOR_HEIGHTS[closestSiteIdx];
+    if (closestDist <= platR) {
+      // 100% Perfectly flat horizontal ground inside the site territory
+      return targetH;
+    }
+    const t = smoothstep(transR, platR, closestDist);
+    h = h * (1 - t) + targetH * t;
   }
 
   // 2. Central Substation & Interchange leveled terrace (radius 88m, innerRadius 62m centered at (0, -30))
@@ -532,20 +548,20 @@ function SolarArray({ position, hasTracker = true, clock, onClick }) {
 
   return (
     <group position={position} onClick={onClick}>
-      {/* 1. Heavy Compact Crushed-Gravel Ground Pad (Elevated +0.7m, zero terrain dirt clipping) */}
-      <mesh position={[0, 0.35, 0]} receiveShadow>
-        <boxGeometry args={[20.0, 0.7, 14.0]} />
+      {/* 1. Heavy Compact Crushed-Gravel Ground Pad with deep subterranean foundation skirt */}
+      <mesh position={[0, 0.45, 0]} receiveShadow>
+        <boxGeometry args={[20.0, 1.3, 14.0]} />
         <meshStandardMaterial color="#334155" roughness={0.92} />
       </mesh>
       {/* Top compacted fine gravel surface */}
-      <mesh position={[0, 0.71, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh position={[0, 1.11, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[19.8, 13.8]} />
         <meshStandardMaterial color="#475569" roughness={0.88} />
       </mesh>
 
       {/* 2. Three Single-Axis Tracker Rows */}
       {columnsX.map((cx, cIdx) => (
-        <group key={`tracker_axis_${cIdx}`} position={[cx, 0.71, 0]}>
+        <group key={`tracker_axis_${cIdx}`} position={[cx, 1.11, 0]}>
           {/* Foundation Pillar Piles */}
           {[-4.0, 0, 4.0].map((pz, pi) => (
             <mesh key={`pile_${pi}`} position={[0, 0.45, pz]}>
@@ -595,7 +611,7 @@ function SolarArray({ position, hasTracker = true, clock, onClick }) {
       ))}
 
       {/* 3. In-Ground High-Voltage Red Power Conduit */}
-      <group position={[6.5, 0.72, -3.2]}>
+      <group position={[6.5, 1.12, -3.2]}>
         <mesh position={[0, 0.02, 0]} rotation={[0, 0, Math.PI / 2]}>
           <cylinderGeometry args={[0.06, 0.06, 2.2, 8]} />
           <meshStandardMaterial color="#dc2626" roughness={0.5} />
@@ -603,7 +619,7 @@ function SolarArray({ position, hasTracker = true, clock, onClick }) {
       </group>
 
       {/* 4. Compact Central Inverter & Step-Up Transformer Kiosk */}
-      <group position={[7.8, 0.71, -3.2]}>
+      <group position={[7.8, 1.11, -3.2]}>
         <mesh position={[0, 0.9, 0]} castShadow>
           <boxGeometry args={[1.8, 1.8, 1.6]} />
           <meshStandardMaterial color="#f8fafc" roughness={0.3} metalness={0.4} />
