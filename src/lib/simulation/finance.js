@@ -67,3 +67,43 @@ export function calculateCompanyNetWorth({
   };
 }
 
+/**
+ * Calculates second-hand resale value and lifespan breakdown of an installed equipment unit
+ * Considers brand-new catalog price, consumed lifespan, and physical condition.
+ */
+export function calculateEquipmentResaleValue(catalog, asset, currentHour = 0) {
+  const costUsd = Number(catalog?.cost_usd || 100000);
+  const lifespanYears = Number(catalog?.lifespan_game_years || 25);
+  const totalLifespanHours = lifespanYears * 8760;
+
+  const installedHour = Number(asset?.installed_game_hour || 0);
+  const ageHours = Math.max(0, Number(currentHour || 0) - installedHour);
+  const ageYears = ageHours / 8760;
+
+  // Percentage of lifespan consumed (0% to 100%)
+  const consumedPct = Math.min(100, Math.max(0, (ageHours / totalLifespanHours) * 100));
+  const remainingLifespanPct = Math.max(0, 100 - consumedPct);
+
+  // Equipment health/condition (0% to 100%)
+  const conditionPct = Math.min(100, Math.max(0, Number(asset?.condition ?? 100)));
+
+  // Resale percentage:
+  // Brand new secondary market baseline: 85%
+  // Scaled by remaining lifespan and condition, with a guaranteed minimum 15% scrap metal floor
+  const rawPct = 0.85 * (remainingLifespanPct / 100) * (0.35 + 0.65 * (conditionPct / 100));
+  const resalePct = Math.min(85, Math.max(15, Math.round(rawPct * 100)));
+  const resalePriceUsd = Math.round((costUsd * resalePct) / 100);
+
+  return {
+    costUsd,
+    resalePriceUsd,
+    resalePct,
+    consumedLifespanPct: Math.round(consumedPct * 10) / 10,
+    remainingLifespanPct: Math.round(remainingLifespanPct * 10) / 10,
+    ageYears: Math.round(ageYears * 10) / 10,
+    lifespanYears,
+    conditionPct: Math.round(conditionPct)
+  };
+}
+
+

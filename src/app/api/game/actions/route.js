@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { calculateCurrentGameHour } from '@/lib/simulation/clock';
-import { calculateCompanyNetWorth, LOAN_TERMS } from '@/lib/simulation/finance';
+import { calculateCompanyNetWorth, LOAN_TERMS, calculateEquipmentResaleValue } from '@/lib/simulation/finance';
 import { getDailyStreakInfo } from '@/lib/simulation/dailyBonus';
 import { getMaxEquipmentCapacity, getAssetSlotCoordinates } from '@/lib/simulation/asset-layout';
 
@@ -246,6 +246,99 @@ export async function POST(req) {
         newBalance,
         asset: installedAssets?.[0],
         assets: installedAssets
+      });
+    }
+
+    // =========================================================================
+    // ACTION: SELL_EQUIPMENT (Dismantle & Second-Hand Resale)
+    // =========================================================================
+    if (action === 'SELL_EQUIPMENT') {
+      const { assetId } = payload || {};
+      if (!assetId) {
+        return NextResponse.json({ error: 'Ekipman kimliği (assetId) eksik.' }, { status: 400 });
+      }
+
+      // Fetch asset with equipment catalog & site verification
+      const { data: asset, error: assetErr } = await admin
+        .from('installed_assets')
+        .select('*, equipment_catalog(*), company_sites(*)')
+        .eq('id', assetId)
+        .eq('company_id', company.id)
+        .single();
+
+      if (assetErr || !asset) {
+        return NextResponse.json({ error: 'Ekipman bulunamadı veya şirketinize ait değil.' }, { status: 404 });
+      }
+
+      // Check if under construction (1 week = 168 hours)
+      const installedHour = Number(asset.installed_game_hour || 0);
+      const elapsedHours = Math.max(0, currentHour - installedHour);
+      if (elapsedHours < 168) {
+        const remainingHours = 168 - elapsedHours;
+        return NextResponse.json({
+          error: `İnşaat aşamasındaki üniteler satılamaz. Tamamlanmasına ${remainingHours} oyun saati var.`
+        }, { status: 400 });
+      }
+
+      const catalog = asset.equipment_catalog || {};
+      const resale = calculateEquipmentResaleValue(catalog, asset, currentHour);
+      const resalePrice = resale.resalePriceUsd;
+
+      // Credit company balance
+      const newBalance = Number(company.cash) + resalePrice;
+      const { error: compUpdateErr } = await admin
+        .from('companies')
+        .update({ cash: newBalance })
+        .eq('id', company.id);
+
+      if (compUpdateErr) {
+        throw new Error('Şirket bakiyesi güncellenirken hata oluştu: ' + compUpdateErr.message);
+      }
+
+      // Delete the asset from installed_assets to free the slot immediately
+      const { error: delErr } = await admin
+        .from('installed_assets')
+        .delete()
+        .eq('id', asset.id);
+
+      if (delErr) {
+        throw new Error('Ekipman kaldırılırken hata oluştu: ' + delErr.message);
+      }
+
+      // Ledger entry
+      await admin.from('ledger_entries').insert({
+        company_id: company.id,
+        idempotency_key: `sell_equip_${asset.id}_${Date.now()}`,
+        entry_type: 'asset_sale',
+        amount: resalePrice,
+        balance_after: newBalance,
+        game_hour: currentHour,
+        description: `İkinci El Satış & Söküm: ${catalog.model_name || 'Ekipman'} (%${resale.resalePct} değerinde)`,
+        metadata: {
+          asset_id: asset.id,
+          catalog_id: catalog.id,
+          resalePrice,
+          resalePct: resale.resalePct,
+          consumedLifespanPct: resale.consumedLifespanPct,
+          condition: resale.conditionPct
+        }
+      });
+
+      // Notification
+      await admin.from('company_notifications').insert({
+        company_id: company.id,
+        title: 'Ekipman Satıldı ve Söküldü',
+        message: `${catalog.model_name || 'Ekipman'} sahadan sökülerek $${resalePrice.toLocaleString()} karşılığında ikinci el satıldı. Saha kapasitesinde 1 ünite yer açıldı.`,
+        type: 'success',
+        game_hour: currentHour
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: `${catalog.model_name || 'Ekipman'} $${resalePrice.toLocaleString()} karşılığında başarıyla satıldı ve sahadan kaldırıldı.`,
+        newBalance,
+        resalePrice,
+        resalePct: resale.resalePct
       });
     }
 
